@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>TuneBloom OP3Transcode WebAssembly Testbench</title>
+  <script src="../.forge_cache/test_libs/tailwind.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-6 font-sans select-none">
+  <div class="max-w-xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    <div class="flex items-center justify-between border-b border-slate-800 pb-4">
+      <div>
+        <h1 class="text-xl font-black text-amber-400">TuneBloom OP3Transcode</h1>
+        <p class="text-xs text-slate-400 font-mono">Client-Side Opus to VBR V0 MP3 Transcoder</p>
+      </div>
+      <div id="status-badge" class="px-3 py-1 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+        Loading WASM...
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <label class="text-xs font-bold text-slate-400 uppercase">Input Master Opus File</label>
+      <input type="file" id="file-input" accept=".opus" class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-amber-500/20 file:text-amber-300 hover:file:bg-amber-500/30 cursor-pointer border border-slate-800 rounded-2xl bg-slate-950 p-1.5">
+    </div>
+
+    <button id="transcode-btn" disabled class="w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-slate-800 text-slate-500 cursor-not-allowed transition duration-150 shadow-lg">
+      Transcode to MP3 Master
+    </button>
+
+    <div id="telemetry-panel" class="hidden bg-slate-950 border border-slate-800/80 rounded-2xl p-4 font-mono text-xs space-y-2 text-slate-300">
+      <div class="text-emerald-400 font-bold">Transcoding Completed</div>
+      <div>Duration: <span id="telemetry-time" class="text-slate-100"></span></div>
+      <div>MP3 Size: <span id="telemetry-size" class="text-slate-100"></span></div>
+      <div>Ratio: <span id="telemetry-ratio" class="text-slate-100"></span></div>
+      <a id="download-link" class="inline-block mt-2 px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs uppercase tracking-wider hover:bg-emerald-400 transition cursor-pointer">
+        Download MP3 Artifact
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const worker = new Worker("../dist/wasm/op3transcode-worker.js");
+    const statusBadge = document.getElementById("status-badge");
+    const fileInput = document.getElementById("file-input");
+    const transcodeBtn = document.getElementById("transcode-btn");
+    const telemetryPanel = document.getElementById("telemetry-panel");
+    const telemetryTime = document.getElementById("telemetry-time");
+    const telemetrySize = document.getElementById("telemetry-size");
+    const telemetryRatio = document.getElementById("telemetry-ratio");
+    const downloadLink = document.getElementById("download-link");
+
+    let loadedFileBytes = null;
+    let loadedFileName = "master.opus";
+
+    async function bootstrap() {
+      const resp = await fetch("../dist/wasm/op3transcode.wasm");
+      const wasmBytes = await resp.arrayBuffer();
+      worker.postMessage({ type: "INIT", wasmBytes });
+    }
+
+    worker.onmessage = (e) => {
+      const msg = e.data;
+      if (msg.type === "READY") {
+        statusBadge.textContent = "Engine Ready";
+        statusBadge.className = "px-3 py-1 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      } else if (msg.type === "TRANSCODE_COMPLETE") {
+        transcodeBtn.disabled = false;
+        transcodeBtn.textContent = "Transcode to MP3 Master";
+
+        telemetryPanel.classList.remove("hidden");
+        telemetryTime.textContent = `${msg.elapsedMs.toFixed(1)} ms`;
+        telemetrySize.textContent = `${(msg.mp3Bytes.length / 1024).toFixed(1)} KB`;
+        telemetryRatio.textContent = `${msg.compressionRatio}x`;
+
+        const blob = new Blob([msg.mp3Bytes], { type: "audio/mpeg" });
+        const url = URL.createObjectURL(blob);
+        downloadLink.href = url;
+        downloadLink.download = loadedFileName.replace(/\.opus$/i, ".mp3");
+      } else if (msg.type === "ERROR") {
+        alert(msg.error);
+        transcodeBtn.disabled = false;
+        transcodeBtn.textContent = "Transcode to MP3 Master";
+      }
+    };
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      loadedFileName = file.name;
+      loadedFileBytes = new Uint8Array(await file.arrayBuffer());
+      transcodeBtn.disabled = false;
+      transcodeBtn.className = "w-full py-4 rounded-2xl font-black text-xs uppercase tracking-widest bg-amber-400 text-slate-950 hover:bg-amber-300 transition duration-150 cursor-pointer shadow-lg shadow-amber-500/20";
+    });
+
+    transcodeBtn.addEventListener("click", () => {
+      if (!loadedFileBytes) return;
+      transcodeBtn.disabled = true;
+      transcodeBtn.textContent = "Transcoding in WebAssembly...";
+      worker.postMessage({
+        type: "TRANSCODE",
+        oggOpusBytes: loadedFileBytes,
+        metadata: {
+          title: loadedFileName.replace(/\.opus$/i, ""),
+          artist: "TuneBloom Artist",
+          album: "Master Release"
+        },
+        vbrQuality: 0
+      }, [loadedFileBytes.buffer]);
+      loadedFileBytes = null;
+    });
+
+    bootstrap();
+  </script>
+</body>
+</html>
