@@ -176,7 +176,6 @@ const AppModal = {
           }
         };
       }
-
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-cancel-btn" class="px-4 py-2 rounded-xl theme-btn-secondary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md">
@@ -199,7 +198,6 @@ const AppModal = {
           };
         }
       }
-
       setTimeout(() => {
         if (this.inputEl) {
           this.inputEl.focus();
@@ -299,6 +297,116 @@ function getCurrentFormPayload() {
   };
 }
 
+function sortTracks(tracks) {
+  return tracks.slice().sort((a, b) => {
+    const aDefault = a.is_default || String(a.track_id).startsWith("default_");
+    const bDefault = b.is_default || String(b.track_id).startsWith("default_");
+    if (aDefault && !bDefault) return -1;
+    if (!aDefault && bDefault) return 1;
+    const orderA = typeof a.order_index === "number" ? a.order_index : 0;
+    const orderB = typeof b.order_index === "number" ? b.order_index : 0;
+    if (orderA !== orderB) return orderA - orderB;
+    return new Date(a.created_at || 0) - new Date(b.created_at || 0);
+  });
+}
+
+async function ensureShowcaseTrack(slug, storage) {
+  let existingTracks = [];
+  if (storage) {
+    existingTracks = await storage.getTracksForUser(slug);
+  } else {
+    existingTracks = Array.isArray(AppState.tracks) ? AppState.tracks : [];
+  }
+
+  let defaultTrack = existingTracks.find(
+    (t) => t && (t.is_default || t.track_id === `default_${slug}` || String(t.track_id).startsWith("default_"))
+  );
+
+  if (!defaultTrack) {
+    const initialBp = window.TuneBloomBlueprints
+      ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")
+      : {
+          title: "Midnight Frequency",
+          genre: "Contemporary R&B",
+          subgenre: "2000s Pop R&B / Slow Jam Bounce",
+          bpm: 96,
+          key: "F minor",
+          mood: "Sensual, passionate, smooth, confident, driving.",
+          vocals: "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.",
+          arrangement: "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, Fender Rhodes chords.",
+          blocks: []
+        };
+
+    const router = window.RouterDiscovery;
+    const defaultAudioUrl = router && router.isOnline
+      ? `${router.activeBase}/audio/stream/${slug}/default.opus`
+      : resolveAssetUrl("public/default.opus");
+
+    defaultTrack = {
+      track_id: `default_${slug}`,
+      user_slug: slug,
+      order_index: 0,
+      is_default: true,
+      status: "COMPLETED",
+      created_at: "2020-01-01T00:00:00.000Z",
+      updated_at: new Date().toISOString(),
+      title: initialBp.title || "Midnight Frequency",
+      artist: "TuneBloom Master",
+      audio_url: defaultAudioUrl,
+      assigned_jewelcase: "default.jpg",
+      duration_seconds: 240.0,
+      recipe: {
+        genre: initialBp.genre || "Contemporary R&B",
+        subgenre: initialBp.subgenre || "2000s Pop R&B / Slow Jam Bounce",
+        bpm: initialBp.bpm || 96,
+        key: initialBp.key || "F minor",
+        mood: initialBp.mood || "Sensual, passionate, smooth, confident, driving.",
+        vocals: initialBp.vocals || "Silky male tenor lead vocal, chest-to-falsetto transitions.",
+        arrangement: initialBp.arrangement || "Deep 808 sub-bass, hybrid snare, Fender Rhodes chords.",
+        lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(initialBp.blocks) : "",
+        stage1_profile: "Studio Master Acoustic Arrangement",
+        stage2_profile: "Spatial Air & Harmonic Balancing",
+        stage3_profile: "Dynamic Envelope Optimization",
+        stage4_profile: "Ultra-Fidelity Master Stream Delivery",
+        telemetry: {
+          seed: 42,
+          duration_seconds: 240.0,
+          sample_rate: 48000,
+          true_peak_dbtp: -0.30,
+          integrated_loudness_db: -14.15,
+          dynamic_punch_db: 13.85,
+          master_format: "48.0 kHz Master Audio Bitstream"
+        }
+      },
+      working_draft: {
+        ...JSON.parse(JSON.stringify(initialBp))
+      }
+    };
+  } else {
+    defaultTrack.order_index = 0;
+    defaultTrack.is_default = true;
+    defaultTrack.created_at = "2020-01-01T00:00:00.000Z";
+  }
+
+  const otherTracks = existingTracks
+    .filter((t) => t && t.track_id !== defaultTrack.track_id)
+    .sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0));
+
+  otherTracks.forEach((t, i) => {
+    t.order_index = i + 1;
+  });
+
+  const normalizedTracks = [defaultTrack, ...otherTracks];
+
+  if (storage) {
+    for (const track of normalizedTracks) {
+      await storage.saveTrack(track);
+    }
+  }
+
+  AppState.tracks = normalizedTracks;
+}
+
 function unlockWorkspaceUI() {
   const authModal = document.getElementById("auth-modal");
   const workspace = document.getElementById("app-workspace");
@@ -392,13 +500,14 @@ async function handleAuthSubmit(event) {
       }
 
       if (Array.isArray(authData.tracks) && storage) {
-        for (const remoteTrack of authData.tracks) {
+        for (let i = 0; i < authData.tracks.length; i++) {
+          const remoteTrack = authData.tracks[i];
           const resolvedAudioUrl = normalizeAudioStreamUrl(remoteTrack.audio_url, slug);
           await storage.saveTrack({
             ...remoteTrack,
             audio_url: resolvedAudioUrl,
             user_slug: slug,
-            order_index: AppState.tracks.length
+            order_index: i + 1
           });
         }
       }
@@ -431,75 +540,12 @@ async function handleAuthSubmit(event) {
 
     if (storage && userRecord) {
       await storage.saveUser(userRecord);
-      AppState.tracks = await storage.getTracksForUser(slug);
     }
+
+    await ensureShowcaseTrack(slug, storage);
 
     AppState.user = userRecord;
     localStorage.setItem("tb_active_user_slug", slug);
-
-    if (AppState.tracks.length === 0) {
-      const initialBp = window.TuneBloomBlueprints
-        ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")
-        : {
-            title: "Midnight Frequency",
-            genre: "Contemporary R&B",
-            subgenre: "2000s Pop R&B / Slow Jam Bounce",
-            bpm: 96,
-            key: "F minor",
-            mood: "Sensual, passionate, smooth, confident, driving.",
-            vocals: "Silky male tenor lead vocal, chest-to-falsetto transitions, stacked 4-part harmonies.",
-            arrangement: "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, Fender Rhodes chords.",
-            blocks: []
-          };
-
-      const defaultAudioUrl = router && router.isOnline
-        ? `${router.activeBase}/audio/stream/${slug}/default.opus`
-        : resolveAssetUrl("public/default.opus");
-
-      const defaultTrack = {
-        track_id: `default_${slug}`,
-        user_slug: slug,
-        order_index: 0,
-        is_default: true,
-        status: "COMPLETED",
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-        title: initialBp.title || "Midnight Frequency",
-        artist: "TuneBloom Master",
-        audio_url: defaultAudioUrl,
-        assigned_jewelcase: "default.jpg",
-        duration_seconds: 240.0,
-        recipe: {
-          genre: initialBp.genre || "Contemporary R&B",
-          subgenre: initialBp.subgenre || "2000s Pop R&B / Slow Jam Bounce",
-          bpm: initialBp.bpm || 96,
-          key: initialBp.key || "F minor",
-          mood: initialBp.mood || "Sensual, passionate, smooth, confident, driving.",
-          vocals: initialBp.vocals || "Silky male tenor lead vocal, chest-to-falsetto transitions.",
-          arrangement: initialBp.arrangement || "Deep 808 sub-bass, hybrid snare, Fender Rhodes chords.",
-          lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(initialBp.blocks) : "",
-          stage1_profile: "Studio Master Acoustic Arrangement",
-          stage2_profile: "Spatial Air & Harmonic Balancing",
-          stage3_profile: "Dynamic Envelope Optimization",
-          stage4_profile: "Ultra-Fidelity Master Stream Delivery",
-          telemetry: {
-            seed: 42,
-            duration_seconds: 240.0,
-            sample_rate: 48000,
-            true_peak_dbtp: -0.30,
-            integrated_loudness_db: -14.15,
-            dynamic_punch_db: 13.85,
-            master_format: "48.0 kHz Master Audio Bitstream"
-          }
-        },
-        working_draft: {
-          ...JSON.parse(JSON.stringify(initialBp))
-        }
-      };
-
-      if (storage) await storage.saveTrack(defaultTrack);
-      AppState.tracks = [defaultTrack];
-    }
 
     unlockWorkspaceUI();
 
@@ -593,6 +639,7 @@ function renderDiscography() {
   if (!container) return;
   container.innerHTML = "";
 
+  AppState.tracks = sortTracks(AppState.tracks);
   const total = AppState.tracks.length;
   if (counter) counter.textContent = `${total} Track${total === 1 ? "" : "s"} In Vault`;
 
@@ -1251,7 +1298,8 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (userRecord) {
         AppState.user = userRecord;
         AppState.token = localStorage.getItem("tb_session_token");
-        AppState.tracks = await window.clientStorage.getTracksForUser(savedSlug);
+        await ensureShowcaseTrack(savedSlug, window.clientStorage);
+
         unlockWorkspaceUI();
 
         const userGreeting = document.getElementById("user-greeting-tag");
@@ -1282,7 +1330,8 @@ document.addEventListener("DOMContentLoaded", async () => {
             .then(async (data) => {
               if (data && Array.isArray(data.tracks)) {
                 let changed = false;
-                for (const remoteTrack of data.tracks) {
+                for (let i = 0; i < data.tracks.length; i++) {
+                  const remoteTrack = data.tracks[i];
                   const existing = AppState.tracks.find((t) => t.track_id === remoteTrack.track_id);
                   if (!existing) {
                     const resolvedAudioUrl = normalizeAudioStreamUrl(remoteTrack.audio_url, savedSlug);
@@ -1290,14 +1339,14 @@ document.addEventListener("DOMContentLoaded", async () => {
                       ...remoteTrack,
                       audio_url: resolvedAudioUrl,
                       user_slug: savedSlug,
-                      order_index: AppState.tracks.length
+                      order_index: i + 1
                     };
                     await window.clientStorage.saveTrack(trackObj);
-                    AppState.tracks.push(trackObj);
                     changed = true;
                   }
                 }
                 if (changed) {
+                  await ensureShowcaseTrack(savedSlug, window.clientStorage);
                   renderDiscography();
                 }
               }
@@ -1364,6 +1413,8 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 window.AppState = AppState;
 window.AppModal = AppModal;
+window.sortTracks = sortTracks;
+window.ensureShowcaseTrack = ensureShowcaseTrack;
 window.handleAuthSubmit = handleAuthSubmit;
 window.handleLogout = handleLogout;
 window.handleNewSongTrigger = handleNewSongTrigger;
