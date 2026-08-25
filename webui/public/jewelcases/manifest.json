@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "default": "default.jpg",
+  "total": 1,
+  "covers": [
+    "space.jpg"
+  ]
+}
