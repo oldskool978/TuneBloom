@@ -1,0 +1,8 @@
+fastapi
+uvicorn[standard]
+pydantic
+starlette
+soundfile
+numpy
+torch
+pywebview
