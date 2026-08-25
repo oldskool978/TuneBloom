@@ -5,6 +5,8 @@ class PlayerEngine {
     this.analyser = null;
     this.gainNode = null;
     this.decoderWasmBytes = null;
+    this.wasmFetchPromise = null;
+    this.transcodeInitPromise = null;
     this.freqData = null;
 
     this.activeTrack = null;
@@ -34,19 +36,27 @@ class PlayerEngine {
   }
 
   async initEngine() {
-    const candidates = [
-      new URL("wasm/tunebloom_decoder.wasm", document.baseURI).href,
-      new URL("wasm/boompus.wasm", document.baseURI).href
-    ];
-    for (const url of candidates) {
-      try {
-        const resp = await fetch(url);
-        if (resp.ok) {
-          this.decoderWasmBytes = await resp.arrayBuffer();
-          break;
-        }
-      } catch {}
-    }
+    if (this.decoderWasmBytes) return this.decoderWasmBytes;
+    if (this.wasmFetchPromise) return this.wasmFetchPromise;
+
+    this.wasmFetchPromise = (async () => {
+      const candidates = [
+        new URL("wasm/tunebloom_decoder.wasm", document.baseURI).href,
+        new URL("wasm/boompus.wasm", document.baseURI).href
+      ];
+      for (const url of candidates) {
+        try {
+          const resp = await fetch(url);
+          if (resp.ok) {
+            this.decoderWasmBytes = await resp.arrayBuffer();
+            return this.decoderWasmBytes;
+          }
+        } catch {}
+      }
+      return null;
+    })();
+
+    return this.wasmFetchPromise;
   }
 
   initAudioListeners() {
@@ -80,28 +90,35 @@ class PlayerEngine {
   }
 
   async initTranscoderWorker() {
-    try {
-      const workerUrl = new URL("wasm/op3transcode-worker.js", document.baseURI).href;
-      const wasmUrl = new URL("wasm/op3transcode.wasm", document.baseURI).href;
-      this.transcodeWorker = new Worker(workerUrl);
-      this.transcodeWorker.onmessage = (e) => {
-        const msg = e.data;
-        if (msg.type === "READY") {
-          this.transcodeWorkerReady = true;
-        } else if (msg.type === "TRANSCODE_COMPLETE") {
-          this.handleTranscodeComplete(msg);
-        } else if (msg.type === "ERROR") {
-          this.handleTranscodeError(msg.error);
+    if (this.transcodeWorkerReady && this.transcodeWorker) return;
+    if (this.transcodeInitPromise) return this.transcodeInitPromise;
+
+    this.transcodeInitPromise = (async () => {
+      try {
+        const workerUrl = new URL("wasm/op3transcode-worker.js", document.baseURI).href;
+        const wasmUrl = new URL("wasm/op3transcode.wasm", document.baseURI).href;
+        this.transcodeWorker = new Worker(workerUrl);
+        this.transcodeWorker.onmessage = (e) => {
+          const msg = e.data;
+          if (msg.type === "READY") {
+            this.transcodeWorkerReady = true;
+          } else if (msg.type === "TRANSCODE_COMPLETE") {
+            this.handleTranscodeComplete(msg);
+          } else if (msg.type === "ERROR") {
+            this.handleTranscodeError(msg.error);
+          }
+        };
+        const wasmResp = await fetch(wasmUrl);
+        if (wasmResp.ok) {
+          const wasmBytes = await wasmResp.arrayBuffer();
+          this.transcodeWorker.postMessage({ type: "INIT", wasmBytes }, [wasmBytes]);
         }
-      };
-      const wasmResp = await fetch(wasmUrl);
-      if (wasmResp.ok) {
-        const wasmBytes = await wasmResp.arrayBuffer();
-        this.transcodeWorker.postMessage({ type: "INIT", wasmBytes }, [wasmBytes]);
+      } catch {
+        this.transcodeWorkerReady = false;
       }
-    } catch {
-      this.transcodeWorkerReady = false;
-    }
+    })();
+
+    return this.transcodeInitPromise;
   }
 
   initParallaxInteractivity() {
@@ -356,11 +373,9 @@ class PlayerEngine {
 
     this.workletNode.connect(this.analyser);
 
-    if (!this.decoderWasmBytes) {
-      await this.initEngine();
-    }
-    if (this.decoderWasmBytes) {
-      this.workletNode.port.postMessage({ type: "INIT", wasmBytes: this.decoderWasmBytes });
+    const wasmBytes = await this.initEngine();
+    if (wasmBytes) {
+      this.workletNode.port.postMessage({ type: "INIT", wasmBytes: wasmBytes.slice(0) });
     }
   }
 
@@ -743,6 +758,7 @@ class PlayerEngine {
         comment: "Engineered via TuneBloom Studio Workspace"
       };
 
+      await this.initTranscoderWorker();
       if (!this.transcodeWorker || !this.transcodeWorkerReady) {
         throw new Error("Audio exporter runtime is initializing.");
       }
