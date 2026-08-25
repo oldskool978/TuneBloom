@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TuneBloom Boompus WASM Opus Master Player</title>
+  <script src="../.forge_cache/test_libs/tailwind.js"></script>
+  <style>
+    input[type=range] {
+      -webkit-appearance: none;
+      background: transparent;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 14px;
+      width: 14px;
+      border-radius: 9999px;
+      background: #38bdf8;
+      cursor: pointer;
+      margin-top: -5px;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+    }
+    input[type=range]::-webkit-slider-runnable-track {
+      width: 100%;
+      height: 4px;
+      cursor: pointer;
+      background: #334155;
+      border-radius: 9999px;
+    }
+    .visualizer-bar {
+      transition: height 0.04s ease-out;
+      will-change: height;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-center p-6 select-none font-sans">
+
+  <div class="max-w-2xl w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl space-y-6">
+    
+    <div class="flex items-center justify-between border-b border-slate-800 pb-5">
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-xl font-black tracking-wide text-sky-400">TuneBloom Boompus</h1>
+          <span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-sky-500/10 text-sky-400 border border-sky-500/20 font-mono">v2.0 MASTER</span>
+        </div>
+        <p class="text-xs text-slate-400 font-mono mt-0.5">WASM SIMD128 Zero-Copy AudioWorklet Decoder</p>
+      </div>
+      <div id="status-badge" class="px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30">
+        Initializing Engine...
+      </div>
+    </div>
+
+    <div class="space-y-2">
+      <div class="flex justify-between items-center text-xs font-bold uppercase tracking-wider text-slate-400">
+        <span>Load Opus Master Bitstream</span>
+        <span id="file-meta" class="font-mono text-sky-400 font-normal normal-case">No file loaded</span>
+      </div>
+      <input type="file" id="opus-file-input" accept=".opus" class="w-full text-xs text-slate-400 file:mr-4 file:py-2.5 file:px-5 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-sky-500/20 file:text-sky-300 hover:file:bg-sky-500/30 cursor-pointer border border-slate-800 rounded-2xl bg-slate-950/50 p-1.5">
+    </div>
+
+    <!-- 16-Band Logarithmic FFT Analyser Visualizer -->
+    <div class="h-28 bg-slate-950 rounded-2xl border border-slate-800/80 flex items-end justify-between gap-1.5 px-6 py-4 overflow-hidden shadow-inner" id="visualizer">
+      <div class="flex-1 bg-sky-500 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-500 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-500 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-500 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-400 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-400 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-400 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-400 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-400 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-sky-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-cyan-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-cyan-300 rounded-t-sm h-1 visualizer-bar"></div>
+      <div class="flex-1 bg-cyan-300 rounded-t-sm h-1 visualizer-bar"></div>
+    </div>
+
+    <div class="space-y-1.5">
+      <input type="range" id="seek-bar" min="0" max="1000" value="0" step="1" disabled class="w-full">
+      <div class="flex justify-between items-center text-xs font-mono text-slate-400">
+        <span id="time-current">00:00.00</span>
+        <span id="time-total">00:00.00</span>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between pt-2">
+      <div class="flex items-center gap-3">
+        <button id="play-btn" disabled class="px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest bg-slate-800 text-slate-500 cursor-not-allowed transition duration-150 flex items-center gap-2">
+          <svg id="play-icon" class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+          <span id="play-text">Play Stream</span>
+        </button>
+        <button id="stop-btn" disabled class="p-3.5 rounded-2xl bg-slate-800 text-slate-500 cursor-not-allowed hover:bg-slate-700 transition">
+          <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+        </button>
+      </div>
+
+      <div class="flex items-center gap-6">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-slate-400 fill-current" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+          <input type="range" id="volume-slider" min="0" max="1" step="0.01" value="1" class="w-20">
+        </div>
+        <div class="text-right font-mono text-[11px] text-slate-400 border-l border-slate-800 pl-4">
+          <div>Topology: <span id="res-tag" class="text-slate-200">48000 Hz / Stereo</span></div>
+          <div>Packets: <span id="frame-counter" class="text-sky-400 font-bold">0 / 0</span></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    let audioCtx = null;
+    let workletNode = null;
+    let analyserNode = null;
+    let gainNode = null;
+    let wasmArrayBuffer = null;
+    let freqDataArray = null;
+
+    let isPlaying = false;
+    let isSeeking = false;
+    let audioPackets = [];
+    let preSkipSamples = 312;
+    let currentPacketIndex = 0;
+    let totalSamples = 0;
+    let totalDurationSec = 0;
+    let playbackPositionSec = 0;
+    let animationFrameId = null;
+
+    const statusBadge = document.getElementById("status-badge");
+    const playBtn = document.getElementById("play-btn");
+    const playText = document.getElementById("play-text");
+    const playIcon = document.getElementById("play-icon");
+    const stopBtn = document.getElementById("stop-btn");
+    const fileInput = document.getElementById("opus-file-input");
+    const fileMeta = document.getElementById("file-meta");
+    const seekBar = document.getElementById("seek-bar");
+    const timeCurrent = document.getElementById("time-current");
+    const timeTotal = document.getElementById("time-total");
+    const frameCounter = document.getElementById("frame-counter");
+    const volumeSlider = document.getElementById("volume-slider");
+    const vBars = document.querySelectorAll(".visualizer-bar");
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      const ms = Math.floor((seconds % 1) * 100);
+      return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
+    }
+
+    async function initEngine() {
+      try {
+        const resp = await fetch("../dist/wasm/tunebloom_decoder.wasm");
+        if (!resp.ok) throw new Error("Could not locate dist/wasm/tunebloom_decoder.wasm");
+        wasmArrayBuffer = await resp.arrayBuffer();
+
+        statusBadge.textContent = "WASM Engine Ready";
+        statusBadge.className = "px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      } catch (err) {
+        statusBadge.textContent = "WASM Missing";
+        statusBadge.className = "px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-rose-500/20 text-rose-300 border border-rose-500/30";
+        console.error(err);
+      }
+    }
+
+    function isHeaderPacket(pkt) {
+      if (pkt.length < 8) return false;
+      const head = [79, 112, 117, 115, 72, 101, 97, 100];
+      const tags = [79, 112, 117, 115, 84, 97, 103, 115];
+      let isHead = true, isTags = true;
+      for (let i = 0; i < 8; i++) {
+        if (pkt[i] !== head[i]) isHead = false;
+        if (pkt[i] !== tags[i]) isTags = false;
+      }
+      return isHead || isTags;
+    }
+
+    async function parseOggOpusStream(arrayBuffer) {
+      const bytes = new Uint8Array(arrayBuffer);
+      const packets = [];
+      let offset = 0;
+      let cumulativeSamples = 0;
+      let extractedPreSkip = 312;
+
+      while (offset + 27 < bytes.length) {
+        if (bytes[offset] === 0x4f && bytes[offset+1] === 0x67 && bytes[offset+2] === 0x67 && bytes[offset+3] === 0x53) {
+          const numSegments = bytes[offset + 26];
+          const segmentTable = bytes.subarray(offset + 27, offset + 27 + numSegments);
+          let bodyOffset = offset + 27 + numSegments;
+
+          let segIdx = 0;
+          while (segIdx < numSegments) {
+            let pktLen = 0;
+            while (segIdx < numSegments) {
+              const s = segmentTable[segIdx++];
+              pktLen += s;
+              if (s < 255) break;
+            }
+            if (pktLen > 0 && bodyOffset + pktLen <= bytes.length) {
+              const pktData = bytes.slice(bodyOffset, bodyOffset + pktLen);
+              bodyOffset += pktLen;
+
+              if (pktData.length >= 19 && pktData[0] === 79 && pktData[1] === 112 && pktData[2] === 117 && pktData[3] === 115 && pktData[4] === 72) {
+                extractedPreSkip = pktData[10] | (pktData[11] << 8);
+              } else if (!isHeaderPacket(pktData)) {
+                packets.push({
+                  data: pktData,
+                  sampleOffset: cumulativeSamples,
+                  timeSec: cumulativeSamples / 48000.0,
+                  samples: 960
+                });
+                cumulativeSamples += 960;
+              }
+            }
+          }
+          offset = bodyOffset;
+        } else {
+          offset++;
+        }
+      }
+
+      const activeSamples = Math.max(0, cumulativeSamples - extractedPreSkip);
+      return {
+        packets,
+        preSkip: extractedPreSkip,
+        totalSamples: activeSamples,
+        durationSec: activeSamples / 48000.0
+      };
+    }
+
+    async function initAudioWorklet() {
+      if (audioCtx) return;
+
+      audioCtx = new AudioContext({ sampleRate: 48000 });
+
+      analyserNode = audioCtx.createAnalyser();
+      analyserNode.fftSize = 1024;
+      analyserNode.smoothingTimeConstant = 0.78;
+      analyserNode.minDecibels = -85;
+      analyserNode.maxDecibels = -5;
+      freqDataArray = new Uint8Array(analyserNode.frequencyBinCount);
+
+      gainNode = audioCtx.createGain();
+      gainNode.gain.value = parseFloat(volumeSlider.value);
+
+      analyserNode.connect(gainNode);
+      gainNode.connect(audioCtx.destination);
+
+      const workletBlob = new Blob([`
+        class TuneBloomWorkletProcessor extends AudioWorkletProcessor {
+          constructor() {
+            super();
+            this.wasmInstance = null;
+            this.wasmMemory = null;
+            this.decoderHandle = 0;
+            this.inPtr = 0;
+            this.outPtr = 0;
+            this.pcmQueue = [];
+            this.isPlaying = false;
+            this.skipRemaining = 0;
+
+            this.port.onmessage = async (e) => {
+              const msg = e.data;
+              if (msg.type === "INIT") {
+                const wasiShim = new Proxy({}, { get: () => () => 0 });
+                const importObj = { env: wasiShim, wasi_snapshot_preview1: wasiShim, wasi_unstable: wasiShim };
+                const { instance } = await WebAssembly.instantiate(msg.wasmBytes, importObj);
+                this.wasmInstance = instance;
+                this.wasmMemory = instance.exports.memory;
+                this.decoderHandle = instance.exports.tb_decoder_init(48000, 2);
+                this.inPtr = instance.exports.wasm_malloc(4096);
+                this.outPtr = instance.exports.wasm_malloc(960 * 2 * 4);
+                this.port.postMessage({ type: "READY" });
+              } else if (msg.type === "FEED_PACKETS" && this.decoderHandle) {
+                for (let i = 0; i < msg.packets.length; i++) {
+                  const pkt = msg.packets[i];
+                  const inView = new Uint8Array(this.wasmMemory.buffer, this.inPtr, pkt.length);
+                  inView.set(pkt);
+                  const samples = this.wasmInstance.exports.tb_decoder_decode(
+                    this.decoderHandle, this.inPtr, pkt.length, this.outPtr, 960
+                  );
+                  if (samples > 0) {
+                    let outView = new Float32Array(this.wasmMemory.buffer, this.outPtr, samples * 2);
+                    if (this.skipRemaining > 0) {
+                      const toTrim = Math.min(samples, this.skipRemaining);
+                      this.skipRemaining -= toTrim;
+                      if (toTrim < samples) {
+                        this.pcmQueue.push(new Float32Array(outView.subarray(toTrim * 2)));
+                      }
+                    } else {
+                      this.pcmQueue.push(new Float32Array(outView));
+                    }
+                  }
+                }
+              } else if (msg.type === "SEEK_FLUSH") {
+                this.pcmQueue = [];
+                this.skipRemaining = msg.isStart ? msg.preSkip : 0;
+                if (this.wasmInstance && this.decoderHandle) {
+                  this.wasmInstance.exports.tb_decoder_reset(this.decoderHandle);
+                }
+              } else if (msg.type === "SET_STATE") {
+                this.isPlaying = msg.isPlaying;
+              }
+            };
+          }
+
+          process(inputs, outputs) {
+            const out = outputs[0];
+            const left = out[0];
+            const right = out[1];
+            const quantum = left.length;
+
+            if (!this.isPlaying || this.pcmQueue.length === 0) {
+              for (let i = 0; i < quantum; i++) {
+                left[i] = 0.0;
+                right[i] = 0.0;
+              }
+              return true;
+            }
+
+            let written = 0;
+            while (written < quantum && this.pcmQueue.length > 0) {
+              const head = this.pcmQueue[0];
+              const avail = head.length / 2;
+              const needed = quantum - written;
+              const toTake = Math.min(avail, needed);
+
+              for (let i = 0; i < toTake; i++) {
+                left[written + i] = head[i * 2];
+                right[written + i] = head[i * 2 + 1];
+              }
+
+              written += toTake;
+              if (toTake === avail) {
+                this.pcmQueue.shift();
+              } else {
+                this.pcmQueue[0] = head.subarray(toTake * 2);
+              }
+            }
+
+            for (let i = written; i < quantum; i++) {
+              left[i] = 0.0;
+              right[i] = 0.0;
+            }
+
+            if (this.pcmQueue.length < 8) {
+              this.port.postMessage({ type: "PULL_REQUEST", buffered: this.pcmQueue.length });
+            }
+
+            return true;
+          }
+        }
+        registerProcessor("tunebloom-worklet-processor", TuneBloomWorkletProcessor);
+      `], { type: "application/javascript" });
+
+      await audioCtx.audioWorklet.addModule(URL.createObjectURL(workletBlob));
+      workletNode = new AudioWorkletNode(audioCtx, "tunebloom-worklet-processor", {
+        numberOfInputs: 0,
+        numberOfOutputs: 1,
+        outputChannelCount: [2]
+      });
+
+      workletNode.port.onmessage = (e) => {
+        const msg = e.data;
+        if (msg.type === "READY") {
+          enableUI();
+        } else if (msg.type === "PULL_REQUEST") {
+          feedNextChunk(16);
+        }
+      };
+
+      workletNode.connect(analyserNode);
+      workletNode.port.postMessage({ type: "INIT", wasmBytes: wasmArrayBuffer });
+    }
+
+    function feedNextChunk(batchCount = 16) {
+      if (!audioPackets || currentPacketIndex >= audioPackets.length) return;
+
+      const chunk = [];
+      for (let i = 0; i < batchCount && currentPacketIndex < audioPackets.length; i++) {
+        chunk.push(audioPackets[currentPacketIndex++].data);
+      }
+
+      if (chunk.length > 0) {
+        workletNode.port.postMessage({ type: "FEED_PACKETS", packets: chunk });
+        frameCounter.textContent = `${currentPacketIndex.toLocaleString()} / ${audioPackets.length.toLocaleString()}`;
+      }
+    }
+
+    function enableUI() {
+      playBtn.disabled = false;
+      stopBtn.disabled = false;
+      seekBar.disabled = false;
+      playBtn.className = "px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest bg-sky-400 text-slate-950 hover:bg-sky-300 active:scale-95 transition duration-150 cursor-pointer shadow-lg shadow-sky-500/20 flex items-center gap-2";
+      stopBtn.className = "p-3.5 rounded-2xl bg-slate-800 text-slate-200 hover:bg-slate-700 active:scale-95 transition cursor-pointer";
+    }
+
+    fileInput.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file || !wasmArrayBuffer) return;
+
+      statusBadge.textContent = "Demuxing Bitstream...";
+      statusBadge.className = "px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/30";
+
+      const buffer = await file.arrayBuffer();
+      const stream = await parseOggOpusStream(buffer);
+
+      audioPackets = stream.packets;
+      preSkipSamples = stream.preSkip;
+      totalSamples = stream.totalSamples;
+      totalDurationSec = stream.durationSec;
+      currentPacketIndex = 0;
+      playbackPositionSec = 0;
+
+      fileMeta.textContent = `${file.name} (${totalDurationSec.toFixed(1)}s, ${audioPackets.length} pkts)`;
+      timeTotal.textContent = formatTime(totalDurationSec);
+      timeCurrent.textContent = "00:00.00";
+      seekBar.value = 0;
+
+      await initAudioWorklet();
+
+      statusBadge.textContent = "Master Stream Ready";
+      statusBadge.className = "px-3.5 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30";
+      frameCounter.textContent = `0 / ${audioPackets.length.toLocaleString()}`;
+    });
+
+    async function setPlaybackState(play) {
+      if (!audioCtx) return;
+
+      if (play) {
+        if (audioCtx.state === "suspended") {
+          await audioCtx.resume();
+        }
+        if (currentPacketIndex === 0) {
+          workletNode.port.postMessage({ type: "SEEK_FLUSH", isStart: true, preSkip: preSkipSamples });
+          feedNextChunk(32);
+        }
+        isPlaying = true;
+        workletNode.port.postMessage({ type: "SET_STATE", isPlaying: true });
+        playText.textContent = "Pause Stream";
+        playIcon.innerHTML = `<path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/>`;
+        playBtn.className = "px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest bg-amber-400 text-slate-950 hover:bg-amber-300 active:scale-95 transition duration-150 cursor-pointer shadow-lg shadow-amber-500/20 flex items-center gap-2";
+        renderPipelineFrame();
+      } else {
+        isPlaying = false;
+        workletNode.port.postMessage({ type: "SET_STATE", isPlaying: false });
+        playText.textContent = "Play Stream";
+        playIcon.innerHTML = `<path d="M8 5v14l11-7z"/>`;
+        playBtn.className = "px-7 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest bg-sky-400 text-slate-950 hover:bg-sky-300 active:scale-95 transition duration-150 cursor-pointer shadow-lg shadow-sky-500/20 flex items-center gap-2";
+        cancelAnimationFrame(animationFrameId);
+        vBars.forEach(b => b.style.height = "4px");
+      }
+    }
+
+    playBtn.addEventListener("click", () => {
+      setPlaybackState(!isPlaying);
+    });
+
+    stopBtn.addEventListener("click", () => {
+      setPlaybackState(false);
+      seekToTime(0);
+    });
+
+    function seekToTime(targetSec) {
+      targetSec = Math.max(0, Math.min(totalDurationSec, targetSec));
+      playbackPositionSec = targetSec;
+
+      const targetPkt = Math.floor(targetSec / (960.0 / 48000.0));
+      currentPacketIndex = Math.min(targetPkt, audioPackets.length);
+
+      if (workletNode) {
+        workletNode.port.postMessage({ type: "SEEK_FLUSH", isStart: (currentPacketIndex === 0), preSkip: preSkipSamples });
+        feedNextChunk(32);
+      }
+
+      timeCurrent.textContent = formatTime(playbackPositionSec);
+      seekBar.value = totalDurationSec > 0 ? (playbackPositionSec / totalDurationSec) * 1000 : 0;
+      frameCounter.textContent = `${currentPacketIndex.toLocaleString()} / ${audioPackets.length.toLocaleString()}`;
+    }
+
+    seekBar.addEventListener("input", () => {
+      isSeeking = true;
+      const targetSec = (seekBar.value / 1000.0) * totalDurationSec;
+      timeCurrent.textContent = formatTime(targetSec);
+    });
+
+    seekBar.addEventListener("change", () => {
+      const targetSec = (seekBar.value / 1000.0) * totalDurationSec;
+      seekToTime(targetSec);
+      isSeeking = false;
+    });
+
+    volumeSlider.addEventListener("input", () => {
+      if (gainNode) {
+        gainNode.gain.value = parseFloat(volumeSlider.value);
+      }
+    });
+
+    window.addEventListener("keydown", (e) => {
+      if (e.code === "Space" && !playBtn.disabled && e.target.tagName !== "INPUT") {
+        e.preventDefault();
+        setPlaybackState(!isPlaying);
+      }
+    });
+
+    function renderPipelineFrame() {
+      if (!isPlaying) return;
+
+      if (!isSeeking && totalDurationSec > 0) {
+        playbackPositionSec = Math.min(totalDurationSec, playbackPositionSec + (1 / 60));
+        timeCurrent.textContent = formatTime(playbackPositionSec);
+        seekBar.value = (playbackPositionSec / totalDurationSec) * 1000;
+
+        if (playbackPositionSec >= totalDurationSec) {
+          setPlaybackState(false);
+          seekToTime(0);
+          return;
+        }
+      }
+
+      if (analyserNode && freqDataArray) {
+        analyserNode.getByteFrequencyData(freqDataArray);
+        const numBars = vBars.length;
+        const totalBins = analyserNode.frequencyBinCount;
+
+        for (let i = 0; i < numBars; i++) {
+          const startNorm = Math.pow(i / numBars, 2.2);
+          const endNorm = Math.pow((i + 1) / numBars, 2.2);
+          const startBin = Math.max(1, Math.floor(startNorm * totalBins));
+          const endBin = Math.max(startBin + 1, Math.floor(endNorm * totalBins));
+
+          let energySum = 0;
+          let count = 0;
+          for (let b = startBin; b < endBin && b < totalBins; b++) {
+            energySum += freqDataArray[b];
+            count++;
+          }
+
+          const avg = count > 0 ? energySum / count : 0;
+          const heightPx = Math.max(4, Math.round((avg / 255.0) * 88));
+          vBars[i].style.height = `${heightPx}px`;
+        }
+      }
+
+      animationFrameId = requestAnimationFrame(renderPipelineFrame);
+    }
+
+    initEngine();
+  </script>
+</body>
+</html>
