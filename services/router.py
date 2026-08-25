@@ -15,7 +15,7 @@ import threading
 from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional, Tuple, Callable
+from typing import Dict, Any, Optional, Tuple, Callable, List
 
 import torch
 import numpy as np
@@ -76,26 +76,6 @@ except Exception:
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
 STORAGE_ROOT = BACKEND_ROOT / "storage" / "users"
 CONFIG_DIR = BACKEND_ROOT / "config"
-USERS_FILE = CONFIG_DIR / "users.json"
-
-def resolve_site_root() -> Path:
-    env_site = os.environ.get("TUNEBLOOM_SITE_DIR")
-    if env_site and Path(env_site).exists():
-        return Path(env_site).resolve()
-    candidates = [
-        BACKEND_ROOT / "webui",
-        BACKEND_ROOT / "site",
-        BACKEND_ROOT
-    ]
-    for c in candidates:
-        if (c / "index.html").exists():
-            return c.resolve()
-    return (BACKEND_ROOT / "webui").resolve()
-
-SITE_ROOT = resolve_site_root()
-THEMES_ROOT = SITE_ROOT / "themes"
-PUBLIC_JEWELCASES_DIR = SITE_ROOT / "public" / "jewelcases"
-RESERVED_DEFAULT_COVERS = {"default.jpg", "default.png", "midnight.jpg", "case_default.png"}
 
 for d in [ARTIFACTS_DIR, STORAGE_ROOT, CONFIG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
@@ -107,6 +87,73 @@ POW_EXPIRATION_SECONDS = 300
 ARTIFACT_TTL_SECONDS = 86400
 _REPLAY_CACHE: Dict[str, float] = {}
 
+_IS_STANDALONE: bool = os.environ.get("TUNEBLOOM_STANDALONE", "0").lower() in ("1", "true", "yes")
+_CLI_SITE_ROOT: Optional[Path] = None
+_CLI_CONFIG_FILE: Optional[Path] = None
+
+
+def set_cli_overrides(
+    standalone: Optional[bool] = None,
+    site_root: Optional[str] = None,
+    config_file: Optional[str] = None
+) -> None:
+    global _IS_STANDALONE, _CLI_SITE_ROOT, _CLI_CONFIG_FILE
+    if standalone is not None:
+        _IS_STANDALONE = standalone
+        os.environ["TUNEBLOOM_STANDALONE"] = "1" if standalone else "0"
+    if site_root:
+        _CLI_SITE_ROOT = Path(site_root).resolve()
+    if config_file:
+        _CLI_CONFIG_FILE = Path(config_file).resolve()
+
+
+def is_standalone_mode() -> bool:
+    return _IS_STANDALONE or os.environ.get("TUNEBLOOM_STANDALONE", "0").lower() in ("1", "true", "yes")
+
+
+def resolve_site_root() -> Path:
+    if is_standalone_mode():
+        candidates = [
+            BACKEND_ROOT / "webui",
+            Path.cwd() / "webui"
+        ]
+        for c in candidates:
+            if (c / "index.html").exists():
+                return c.resolve()
+        return (BACKEND_ROOT / "webui").resolve()
+
+    if _CLI_SITE_ROOT and _CLI_SITE_ROOT.exists():
+        return _CLI_SITE_ROOT.resolve()
+
+    env_site = os.environ.get("TUNEBLOOM_SITE_DIR")
+    if env_site and Path(env_site).exists():
+        return Path(env_site).resolve()
+
+    candidates = [
+        BACKEND_ROOT / "site",
+        Path.cwd() / "site",
+        BACKEND_ROOT / "webui",
+        Path.cwd() / "webui",
+        Path.cwd(),
+        BACKEND_ROOT
+    ]
+    for c in candidates:
+        if (c / "index.html").exists():
+            return c.resolve()
+    return (BACKEND_ROOT / "webui").resolve()
+
+
+def get_themes_root() -> Path:
+    return resolve_site_root() / "themes"
+
+
+def get_jewelcases_root() -> Path:
+    return resolve_site_root() / "public" / "jewelcases"
+
+
+RESERVED_DEFAULT_COVERS = {"default.jpg", "default.png", "midnight.jpg", "case_default.png"}
+
+
 class PollingLogFilter(logging.Filter):
     def filter(self, record: logging.LogRecord) -> bool:
         msg = record.getMessage()
@@ -116,23 +163,59 @@ class PollingLogFilter(logging.Filter):
                     return False
         return True
 
+
 def slugify(username: str) -> str:
     slug = username.strip().lower()
     slug = "".join([c if c.isalnum() or c in ("-", "_") else "_" for c in slug])
     return "_".join(filter(None, slug.split("_")))
 
-def load_user_registry() -> Dict[str, Any]:
-    candidates = [USERS_FILE, SITE_ROOT / "config" / "users.json"]
+
+def get_user_registry_candidates() -> List[Path]:
+    if _CLI_CONFIG_FILE and _CLI_CONFIG_FILE.exists():
+        return [_CLI_CONFIG_FILE.resolve()]
+
+    custom_file = os.environ.get("TUNEBLOOM_USERS_FILE")
+    if custom_file and Path(custom_file).exists():
+        return [Path(custom_file).resolve()]
+
+    custom_dir = os.environ.get("TUNEBLOOM_CONFIG_DIR")
+    if custom_dir and (Path(custom_dir) / "users.json").exists():
+        return [(Path(custom_dir) / "users.json").resolve()]
+
+    if is_standalone_mode():
+        return [
+            BACKEND_ROOT / "webui" / "config" / "users.json",
+            Path.cwd() / "webui" / "config" / "users.json"
+        ]
+
+    resolved_site = resolve_site_root()
+    return [
+        resolved_site / "config" / "users.json",
+        BACKEND_ROOT / "config" / "users.json",
+        Path.cwd() / "config" / "users.json",
+        SERVICES_DIR / "config" / "users.json"
+    ]
+
+
+def load_user_registry() -> Tuple[Dict[str, Any], Path]:
+    candidates = get_user_registry_candidates()
+    seen_paths = set()
     for p in candidates:
-        if p.exists():
+        resolved = p.resolve()
+        if resolved in seen_paths:
+            continue
+        seen_paths.add(resolved)
+        if resolved.exists() and resolved.is_file():
             try:
-                with open(p, "r", encoding="utf-8") as f:
-                    data = json.load(f).get("users", {})
-                    if data:
-                        return data
-            except Exception:
-                pass
-    return {
+                with open(resolved, "r", encoding="utf-8-sig") as f:
+                    raw_data = json.load(f)
+                    data = raw_data.get("users", raw_data) if isinstance(raw_data, dict) else {}
+                    if isinstance(data, dict) and data:
+                        return data, resolved
+            except Exception as e:
+                logging.getLogger("uvicorn.error").warning(f"Failed parsing user registry at {resolved}: {e}")
+
+    fallback = {
         "administrator": {
             "display_name": "Administrator",
             "daily_quota": 999,
@@ -144,12 +227,15 @@ def load_user_registry() -> Dict[str, Any]:
             "assigned_theme": "cyber_neon"
         }
     }
+    return fallback, Path("EMBEDDED_MEMORY_FALLBACK")
+
 
 def create_session_token(slug: str) -> str:
     ts = str(int(time.time()))
     payload = f"{slug}:{ts}"
     signature = hmac.new(SESSION_SECRET.encode("utf-8"), payload.encode("utf-8"), hashlib.sha256).hexdigest()
     return f"{payload}:{signature}"
+
 
 def verify_session_token(token: Optional[str]) -> str:
     if not token:
@@ -169,6 +255,7 @@ def verify_session_token(token: Optional[str]) -> str:
     except (ValueError, IndexError):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid session credentials.")
 
+
 def generate_pow_challenge() -> Dict[str, Any]:
     now = int(time.time())
     nonce = uuid.uuid4().hex
@@ -181,6 +268,7 @@ def generate_pow_challenge() -> Dict[str, Any]:
         "challenge": raw,
         "signature": sig
     }
+
 
 def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> bool:
     global _REPLAY_CACHE
@@ -207,13 +295,16 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
     _REPLAY_CACHE[cache_key] = now
     return True
 
+
 class PowSubmission(BaseModel):
     challenge: str
     signature: str
     solution_nonce: str
 
+
 class AuthPayload(BaseModel):
     username: str
+
 
 class SynthesisPayload(BaseModel):
     title: str = Field(default="Untitled Master", max_length=80)
@@ -229,6 +320,7 @@ class SynthesisPayload(BaseModel):
     seed: Optional[int] = Field(default=None, ge=0)
     pow: PowSubmission
 
+
 class SynthesisJob:
     def __init__(self, user_slug: str, request_data: Dict[str, Any]):
         self.job_id = f"tb_{int(time.time() * 1000)}_{uuid.uuid4().hex[:8]}"
@@ -242,6 +334,7 @@ class SynthesisJob:
         self.telemetry: Optional[Dict[str, Any]] = None
         self.recipe: Optional[Dict[str, Any]] = None
         self.error_message: Optional[str] = None
+
 
 class EnginePipeline:
     def __init__(self):
@@ -258,7 +351,6 @@ class EnginePipeline:
         progress_cb(10, "Arranging Harmonic Structure & Instrumentation...")
         from Intelligen.schema import GenerationRequest
         from Intelligen.engine import MusicEngine
-
         gen_req = GenerationRequest(
             genre=request_data.get("genre", "Contemporary R&B"),
             subgenre=request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
@@ -300,7 +392,6 @@ class EnginePipeline:
         progress_cb(50, "Refining Acoustic Space & High-Frequency Detail...")
         from furgie.furgie_core.schema import FurgieRequest
         from furgie.furgie_core.engine import FurgieEngine
-
         furgie_req = FurgieRequest(
             input_path=str(raw_path),
             output_path=str(out_path),
@@ -329,7 +420,6 @@ class EnginePipeline:
         progress_cb(80, "Balancing Dynamic Range & Master Audio Profile...")
         from SICKOMODE.core.schema import LimiterConfig
         from SICKOMODE.core.engine import PsychoacousticLimiterEngine
-
         config = LimiterConfig(
             sample_rate=48000,
             mode="psychoacoustic_celt",
@@ -347,13 +437,14 @@ class EnginePipeline:
                 audio_48k = np.stack([audio_48k, audio_48k], axis=0)
             elif audio_48k.shape[0] > audio_48k.shape[1]:
                 audio_48k = audio_48k.T
+
             audio_tensor = torch.from_numpy(audio_48k).to(self.device)
             del audio_48k
 
             limited_tensor = limiter.process_full_prepass(audio_tensor)
             final_audio_np = limited_tensor.detach().cpu().numpy().T
-            progress_cb(95, "Finalizing Studio Master Bitstream...")
 
+            progress_cb(95, "Finalizing Studio Master Bitstream...")
             sf.write(str(output_opus_path), final_audio_np, 48000, format="OGG", subtype="OPUS")
 
             peak_val = float(np.max(np.abs(final_audio_np)))
@@ -433,6 +524,7 @@ class EnginePipeline:
                     furgie_stage2_path.unlink(missing_ok=True)
                 self._flush_hardware_memory()
 
+
 class ComputeQueue:
     def __init__(self):
         self.queue: asyncio.Queue[SynthesisJob] = asyncio.Queue()
@@ -478,11 +570,13 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
+
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
+
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -506,6 +600,7 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
+
             dead_jobs = [
                 jid for jid, j in self.jobs.items()
                 if j.status in ("COMPLETED", "FAILED") and (now - datetime.fromisoformat(j.created_at).timestamp()) > ARTIFACT_TTL_SECONDS
@@ -522,6 +617,7 @@ class ComputeQueue:
             job.progress_pct = 5
             job.stage_description = "Initializing Master Audio Engine..."
             self.notify_job(job.job_id)
+
             loop = asyncio.get_running_loop()
 
             def progress_hook(pct: int, desc: str):
@@ -552,9 +648,10 @@ class ComputeQueue:
 
                 seed = telemetry.get("seed", 42)
                 covers = []
-                if PUBLIC_JEWELCASES_DIR.exists():
+                jewelcases_dir = get_jewelcases_root()
+                if jewelcases_dir.exists():
                     covers = [
-                        f.name for f in PUBLIC_JEWELCASES_DIR.iterdir()
+                        f.name for f in jewelcases_dir.iterdir()
                         if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".avif")
                         and f.name not in RESERVED_DEFAULT_COVERS
                     ]
@@ -567,7 +664,7 @@ class ComputeQueue:
                 history_data = {"user_slug": job.user_slug, "tracks": []}
                 if history_file.exists():
                     try:
-                        with open(history_file, "r", encoding="utf-8") as f:
+                        with open(history_file, "r", encoding="utf-8-sig") as f:
                             history_data = json.load(f)
                     except Exception:
                         pass
@@ -586,6 +683,7 @@ class ComputeQueue:
                 history_data.setdefault("tracks", []).insert(0, track_entry)
                 with open(history_file, "w", encoding="utf-8") as f:
                     json.dump(history_data, f, indent=2)
+
             except Exception as e:
                 job.status = "FAILED"
                 job.error_message = str(e)
@@ -594,12 +692,23 @@ class ComputeQueue:
                 self.active_job = None
                 self.queue.task_done()
 
+
 compute_queue = ComputeQueue()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     compute_queue.start()
+    users, src = load_user_registry()
+    print("=" * 76)
+    print("  TUNEBLOOM UNIFIED AUDIO ENGINE // SERVICE ROUTER ACTIVE")
+    print(f"  Mode           : {'STANDALONE DESKTOP' if is_standalone_mode() else 'HEADLESS / PROXY DAEMON'}")
+    print(f"  Site Root      : {resolve_site_root()}")
+    print(f"  User Registry  : {src}")
+    print(f"  Accounts ({len(users)}) : {', '.join(users.keys())}")
+    print("=" * 76)
     yield
+
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
@@ -608,6 +717,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Cross-Origin-Embedder-Policy"] = "require-corp"
         response.headers["Cross-Origin-Resource-Policy"] = "cross-origin"
         return response
+
 
 app = FastAPI(
     title="TuneBloom Unified Audio Daemon",
@@ -627,26 +737,46 @@ app.add_middleware(
 
 api_router = APIRouter()
 
+
 @api_router.get("/auth/challenge")
 async def get_challenge():
     return generate_pow_challenge()
 
+
 @api_router.post("/auth/login")
 async def login(payload: AuthPayload):
-    raw_slug = slugify(payload.username)
-    users_map = load_user_registry()
-    if raw_slug not in users_map:
+    raw_input = payload.username.strip()
+    input_slug = slugify(raw_input)
+    users_map, _ = load_user_registry()
+    matched_slug = None
+
+    if input_slug in users_map:
+        matched_slug = input_slug
+    else:
+        for key, meta in users_map.items():
+            if slugify(key) == input_slug:
+                matched_slug = key
+                break
+            display_name = str(meta.get("display_name", "")).strip()
+            if display_name and (display_name.lower() == raw_input.lower() or slugify(display_name) == input_slug):
+                matched_slug = key
+                break
+
+    if not matched_slug:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid creator credentials."
         )
+
+    raw_slug = matched_slug
     user_meta = users_map[raw_slug]
     token = create_session_token(raw_slug)
+
     history_file = STORAGE_ROOT / raw_slug / "history.json"
     tracks = []
     if history_file.exists():
         try:
-            with open(history_file, "r", encoding="utf-8") as f:
+            with open(history_file, "r", encoding="utf-8-sig") as f:
                 raw_tracks = json.load(f).get("tracks", [])
                 for trk in raw_tracks:
                     url = trk.get("audio_url", "")
@@ -659,12 +789,12 @@ async def login(payload: AuthPayload):
         except Exception:
             pass
 
-    registry_path = THEMES_ROOT / "registry.json"
+    registry_path = get_themes_root() / "registry.json"
     assigned_theme = user_meta.get("assigned_theme") or "sky_peace"
     theme_manifest = {}
     if registry_path.exists():
         try:
-            with open(registry_path, "r", encoding="utf-8") as f:
+            with open(registry_path, "r", encoding="utf-8-sig") as f:
                 theme_manifest = json.load(f).get("themes", {}).get(assigned_theme, {})
         except Exception:
             pass
@@ -686,16 +816,18 @@ async def login(payload: AuthPayload):
         "tracks": tracks
     }
 
+
 @api_router.get("/themes/registry")
 async def get_themes():
-    registry_path = THEMES_ROOT / "registry.json"
+    registry_path = get_themes_root() / "registry.json"
     if not registry_path.exists():
         return {"revolving_pool": [], "themes": {}}
     try:
-        with open(registry_path, "r", encoding="utf-8") as f:
+        with open(registry_path, "r", encoding="utf-8-sig") as f:
             return json.load(f)
     except Exception:
         return {"revolving_pool": [], "themes": {}}
+
 
 @api_router.get("/health")
 async def health():
@@ -705,6 +837,7 @@ async def health():
         "active_job": compute_queue.active_job.job_id if compute_queue.active_job else None,
         "queue_depth": compute_queue.queue.qsize()
     }
+
 
 @api_router.post("/synthesize")
 async def synthesize(
@@ -719,6 +852,7 @@ async def synthesize(
     job = compute_queue.enqueue(slug, payload.model_dump())
     return compute_queue.get_status(job.job_id)
 
+
 @api_router.get("/jobs/{job_id}")
 async def get_job_status(
     job_id: str,
@@ -727,6 +861,7 @@ async def get_job_status(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     verify_session_token(token)
+
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
@@ -738,6 +873,7 @@ async def get_job_status(
 
     return JSONResponse(content=info, headers={"ETag": etag})
 
+
 @api_router.get("/jobs/{job_id}/stream")
 async def stream_job_status(
     job_id: str,
@@ -747,6 +883,7 @@ async def stream_job_status(
 ):
     auth_token = token or (authorization.replace("Bearer ", "").strip() if authorization else None)
     verify_session_token(auth_token)
+
     job = compute_queue.jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
@@ -782,6 +919,7 @@ async def stream_job_status(
         }
     )
 
+
 @api_router.get("/audio/{job_id}")
 async def get_audio_stream_direct(job_id: str):
     job = compute_queue.jobs.get(job_id)
@@ -789,17 +927,19 @@ async def get_audio_stream_direct(job_id: str):
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master audio stream not ready.")
     return FileResponse(str(job.output_file), media_type="audio/ogg")
 
+
 @api_router.get("/audio/stream/{user_slug}/{filename}")
 async def get_audio_stream_user(user_slug: str, filename: str):
     safe_slug = slugify(user_slug)
     safe_name = Path(filename).name
     target_file = STORAGE_ROOT / safe_slug / "tracks" / safe_name
     if not target_file.exists() or not target_file.is_file():
-        default_file = SITE_ROOT / "public" / "default.opus"
+        default_file = resolve_site_root() / "public" / "default.opus"
         if default_file.exists():
             return FileResponse(str(default_file), media_type="audio/ogg")
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
     return FileResponse(str(target_file), media_type="audio/ogg")
+
 
 ROUTE_PREFIXES = [
     "",
@@ -815,53 +955,58 @@ ROUTE_PREFIXES = [
 for prefix in ROUTE_PREFIXES:
     app.include_router(api_router, prefix=prefix)
 
-if SITE_ROOT.exists() and (SITE_ROOT / "index.html").exists():
-    for sub in ["assets", "themes", "public", "wasm"]:
-        sub_dir = SITE_ROOT / sub
-        if sub_dir.exists():
-            app.mount(f"/{sub}", StaticFiles(directory=str(sub_dir)), name=sub)
-            app.mount(f"/TuneBloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_{sub}")
-            app.mount(f"/tunebloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_lc_{sub}")
 
-    @app.get("/")
-    @app.get("/TuneBloom")
-    @app.get("/TuneBloom/")
-    @app.get("/tunebloom")
-    @app.get("/tunebloom/")
-    async def serve_index():
-        return FileResponse(str(SITE_ROOT / "index.html"))
+def mount_static_and_spa():
+    site_dir = resolve_site_root()
+    if site_dir.exists() and (site_dir / "index.html").exists():
+        for sub in ["assets", "themes", "public", "wasm"]:
+            sub_dir = site_dir / sub
+            if sub_dir.exists():
+                app.mount(f"/{sub}", StaticFiles(directory=str(sub_dir)), name=sub)
+                app.mount(f"/TuneBloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_{sub}")
+                app.mount(f"/tunebloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_lc_{sub}")
 
-    @app.get("/{full_path:path}")
-    async def serve_spa(full_path: str):
-        path_lower = full_path.lower()
-        if (
-            path_lower.startswith("auth/")
-            or path_lower.startswith("synthesize")
-            or path_lower.startswith("jobs/")
-            or path_lower.startswith("audio/")
-            or path_lower.startswith("health")
-            or path_lower.startswith("themes/registry")
-            or path_lower.startswith("api/")
-            or path_lower.startswith("v1/")
-            or "api/" in path_lower
-        ):
-            return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
+        @app.get("/")
+        @app.get("/TuneBloom")
+        @app.get("/TuneBloom/")
+        @app.get("/tunebloom")
+        @app.get("/tunebloom/")
+        async def serve_index():
+            return FileResponse(str(resolve_site_root() / "index.html"))
 
-        cleaned_path = full_path
-        if cleaned_path.lower().startswith("tunebloom/"):
-            cleaned_path = cleaned_path[len("tunebloom/"):]
+        @app.get("/{full_path:path}")
+        async def serve_spa(full_path: str):
+            path_lower = full_path.lower()
+            if (
+                path_lower.startswith("auth/")
+                or path_lower.startswith("synthesize")
+                or path_lower.startswith("jobs/")
+                or path_lower.startswith("audio/")
+                or path_lower.startswith("health")
+                or path_lower.startswith("themes/registry")
+                or path_lower.startswith("api/")
+                or path_lower.startswith("v1/")
+                or "api/" in path_lower
+            ):
+                return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
+            cleaned_path = full_path
+            if cleaned_path.lower().startswith("tunebloom/"):
+                cleaned_path = cleaned_path[len("tunebloom/"):]
+            current_site = resolve_site_root()
+            target = current_site / cleaned_path
+            if target.exists() and target.is_file():
+                if any(part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"] for part in target.parts):
+                    raise HTTPException(status_code=403, detail="Forbidden")
+                return FileResponse(str(target))
+            return FileResponse(str(current_site / "index.html"))
 
-        target = SITE_ROOT / cleaned_path
-        if target.exists() and target.is_file():
-            if any(part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"] for part in target.parts):
-                raise HTTPException(status_code=403, detail="Forbidden")
-            return FileResponse(str(target))
-        return FileResponse(str(SITE_ROOT / "index.html"))
 
 def run_server(host: str, port: int):
+    mount_static_and_spa()
     uv_access = logging.getLogger("uvicorn.access")
     uv_access.addFilter(PollingLogFilter())
     uvicorn.run(app, host=host, port=port, log_level="info")
+
 
 def launch_standalone(host: str, port: int):
     try:
@@ -880,7 +1025,6 @@ def launch_standalone(host: str, port: int):
     server_thread = threading.Thread(target=run_server, args=(host, port), daemon=True)
     server_thread.start()
     time.sleep(1.0)
-
     window = webview.create_window(
         title="TuneBloom - Studio Master Audio Creation",
         url=f"http://{host}:{port}/",
@@ -892,16 +1036,30 @@ def launch_standalone(host: str, port: int):
     webview.start(debug=False)
     sys.exit(0)
 
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="TuneBloom Unified Audio Daemon & Standalone App")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host interface to bind")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind")
     parser.add_argument("--standalone", action="store_true", help="Launch native desktop WebView interface")
     parser.add_argument("--headless", action="store_true", help="Run strictly as a headless daemon")
+    parser.add_argument("--site-root", type=str, default=None, help="Explicit path to served webroot")
+    parser.add_argument("--config", type=str, default=None, help="Explicit path to authoritative users.json")
     args = parser.parse_args()
 
-    is_standalone = args.standalone or os.environ.get("TUNEBLOOM_STANDALONE", "0").lower() in ("1", "true", "yes")
-    if is_standalone and not args.headless:
+    standalone_flag = None
+    if args.headless:
+        standalone_flag = False
+    elif args.standalone:
+        standalone_flag = True
+
+    set_cli_overrides(
+        standalone=standalone_flag,
+        site_root=args.site_root,
+        config_file=args.config
+    )
+
+    if is_standalone_mode() and not args.headless:
         launch_standalone(args.host, args.port)
     else:
         run_server(args.host, args.port)
