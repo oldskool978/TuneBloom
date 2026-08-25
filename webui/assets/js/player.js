@@ -233,6 +233,7 @@ class PlayerEngine {
           this.pcmQueue = [];
           this.isPlaying = false;
           this.skipRemaining = 0;
+          this.isPulling = false;
 
           this.port.onmessage = async (e) => {
             const msg = e.data;
@@ -247,6 +248,7 @@ class PlayerEngine {
               this.outPtr = instance.exports.wasm_malloc(960 * 2 * 4);
               this.port.postMessage({ type: "READY" });
             } else if (msg.type === "FEED_PACKETS" && this.decoderHandle) {
+              this.isPulling = false;
               for (let i = 0; i < msg.packets.length; i++) {
                 const pkt = msg.packets[i];
                 const inView = new Uint8Array(this.wasmMemory.buffer, this.inPtr, pkt.length);
@@ -269,6 +271,7 @@ class PlayerEngine {
               }
             } else if (msg.type === "SEEK_FLUSH") {
               this.pcmQueue = [];
+              this.isPulling = false;
               this.skipRemaining = msg.isStart ? msg.preSkip : 0;
               if (this.wasmInstance && this.decoderHandle) {
                 this.wasmInstance.exports.tb_decoder_reset(this.decoderHandle);
@@ -289,6 +292,10 @@ class PlayerEngine {
             for (let i = 0; i < quantum; i++) {
               left[i] = 0.0;
               right[i] = 0.0;
+            }
+            if (this.isPlaying && !this.isPulling) {
+              this.isPulling = true;
+              this.port.postMessage({ type: "PULL_REQUEST" });
             }
             return true;
           }
@@ -318,8 +325,9 @@ class PlayerEngine {
             right[i] = 0.0;
           }
 
-          if (this.pcmQueue.length < 8) {
-            this.port.postMessage({ type: "PULL_REQUEST", buffered: this.pcmQueue.length });
+          if (this.pcmQueue.length < 16 && !this.isPulling) {
+            this.isPulling = true;
+            this.port.postMessage({ type: "PULL_REQUEST" });
           }
 
           return true;
@@ -502,7 +510,7 @@ class PlayerEngine {
         isStart: true,
         preSkip: this.preSkipSamples
       });
-      this.feedNextChunk(32);
+      this.feedNextChunk(24);
     }
     this.isPlaying = true;
     if (this.workletNode) {
@@ -577,7 +585,7 @@ class PlayerEngine {
         isStart: this.currentPacketIndex === 0,
         preSkip: this.preSkipSamples
       });
-      this.feedNextChunk(32);
+      this.feedNextChunk(24);
     }
 
     this.lastTime = performance.now();

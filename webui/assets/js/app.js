@@ -221,6 +221,8 @@ const AppState = {
   songBlocks: []
 };
 
+let syncTimeout = null;
+
 function slugify(name) {
   const clean = String(name || "").trim().toLowerCase().replace(/[^\w\s-]/g, "");
   return clean.replace(/[\s_-]+/g, "_").replace(/^_+|_+$/g, "");
@@ -265,6 +267,34 @@ function formatValidationErrors(detail) {
   }
   if (typeof detail === "string") return detail;
   return "Invalid composition payload structure.";
+}
+
+function computeCanonicalRecipe(title, data) {
+  if (!data) return "";
+  const sanitize = (val) => String(val || "").replace(/\r\n/g, "\n").trim();
+  const bpm = parseInt(data.bpm, 10);
+  const cleanBpm = Math.max(30, Math.min(300, isNaN(bpm) ? 96 : bpm));
+
+  let lyricsStr = "";
+  if (typeof data.lyrics === "string") {
+    lyricsStr = sanitize(data.lyrics);
+  } else if (Array.isArray(data.blocks) && window.compileBlocksToLyrics) {
+    lyricsStr = sanitize(window.compileBlocksToLyrics(data.blocks));
+  }
+
+  const canonical = {
+    title: sanitize(title || data.title),
+    genre: sanitize(data.genre),
+    subgenre: sanitize(data.subgenre),
+    bpm: cleanBpm,
+    key: sanitize(data.key),
+    mood: sanitize(data.mood),
+    vocals: sanitize(data.vocals),
+    arrangement: sanitize(data.arrangement),
+    lyrics: lyricsStr
+  };
+
+  return JSON.stringify(canonical);
 }
 
 function getCurrentFormPayload() {
@@ -570,12 +600,12 @@ async function handleAuthSubmit(event) {
     const pendingJobJson = localStorage.getItem(`tb_active_job_${slug}`);
     if (pendingJobJson) {
       try {
-        const { jobId, compositionPayload, isFork } = JSON.parse(pendingJobJson);
+        const { jobId, compositionPayload, isFork, originTrackId } = JSON.parse(pendingJobJson);
         const btnEl = document.getElementById("gen-submit-btn");
         const hudEl = document.getElementById("queue-status-hud");
         if (btnEl) btnEl.classList.add("hidden");
         if (hudEl) hudEl.classList.remove("hidden");
-        startTrackingJob(jobId, compositionPayload, isFork);
+        startTrackingJob(jobId, compositionPayload, isFork, originTrackId);
       } catch {
         localStorage.removeItem(`tb_active_job_${slug}`);
       }
@@ -598,6 +628,10 @@ function updateQuotaDisplay() {
 }
 
 function handleLogout() {
+  if (syncTimeout) {
+    clearTimeout(syncTimeout);
+    syncTimeout = null;
+  }
   AppState.user = null;
   AppState.token = null;
   AppState.tracks = [];
@@ -703,6 +737,11 @@ function renderDiscography() {
 }
 
 function selectTrackById(trackId) {
+  if (syncTimeout) {
+    clearTimeout(syncTimeout);
+    syncTimeout = null;
+  }
+
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
   AppState.activeTrackId = trackId;
@@ -733,8 +772,9 @@ function selectTrackById(trackId) {
     loadDraftIntoForm(draftFromRecipe);
   }
 
-  if (track.status === "COMPLETED" && track.recipe && window.serializeRecipe) {
-    AppState.activeTrackCleanRecipe = window.serializeRecipe(track.title, track.recipe);
+  if (track.status === "COMPLETED" && Boolean(track.audio_url)) {
+    const hydratedPayload = getCurrentFormPayload();
+    AppState.activeTrackCleanRecipe = computeCanonicalRecipe(hydratedPayload.title, hydratedPayload);
   } else {
     AppState.activeTrackCleanRecipe = null;
   }
@@ -775,7 +815,7 @@ function checkRecipeDirtyState() {
   if (!currentTrack) return;
 
   const currentPayload = getCurrentFormPayload();
-  const currentSerialized = window.serializeRecipe ? window.serializeRecipe(currentPayload.title, currentPayload) : "";
+  const currentSerialized = computeCanonicalRecipe(currentPayload.title, currentPayload);
 
   const isCompleted = currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
   const isPristine = isCompleted && currentSerialized === AppState.activeTrackCleanRecipe;
@@ -795,7 +835,6 @@ function checkRecipeDirtyState() {
   }
 }
 
-let syncTimeout = null;
 function syncActiveTrackDraftDebounced() {
   if (syncTimeout) clearTimeout(syncTimeout);
   syncTimeout = setTimeout(async () => {
@@ -979,6 +1018,21 @@ async function handleGenerateSubmit(e) {
   if (honeypot && honeypot.value.length > 0) return;
   if (Date.now() - AppState.formFocusTimestamp < 600) return;
 
+  const currentTrack = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
+  const isCompleted = currentTrack && currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
+  const formPayload = getCurrentFormPayload();
+  const currentSerialized = computeCanonicalRecipe(formPayload.title, formPayload);
+  const isPristine = isCompleted && currentSerialized === AppState.activeTrackCleanRecipe;
+
+  if (isCompleted && isPristine) {
+    await AppModal.alert(
+      "Master Already Synthesized",
+      "This composition master is already synthesized. Modify any arrangement parameter or lyrics to synthesize a new forked variation.",
+      "fa-circle-check"
+    );
+    return;
+  }
+
   const remaining = AppState.user.daily_quota - AppState.user.tokens_used_today;
   if (remaining <= 0) {
     await AppModal.alert("Quota Exhausted", "Daily generation token quota reached. Quotas reset at 00:00 UTC.", "fa-battery-empty");
@@ -992,9 +1046,8 @@ async function handleGenerateSubmit(e) {
     return;
   }
 
-  const currentTrack = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
-  const isFork = currentTrack && currentTrack.status === "COMPLETED";
-  const formPayload = getCurrentFormPayload();
+  const isFork = Boolean(isCompleted);
+  const originTrackId = currentTrack ? currentTrack.track_id : null;
 
   const btn = document.getElementById("gen-submit-btn");
   const hud = document.getElementById("queue-status-hud");
@@ -1061,10 +1114,11 @@ async function handleGenerateSubmit(e) {
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
       compositionPayload: formPayload,
-      isFork
+      isFork,
+      originTrackId
     }));
 
-    startTrackingJob(jobData.job_id, formPayload, isFork);
+    startTrackingJob(jobData.job_id, formPayload, isFork, originTrackId);
   } catch (err) {
     await AppModal.alert("Dispatch Error", `Synthesis submission failed:\n${err.message}`, "fa-triangle-exclamation");
     if (btn) btn.classList.remove("hidden");
@@ -1072,7 +1126,7 @@ async function handleGenerateSubmit(e) {
   }
 }
 
-function startTrackingJob(jobId, compositionPayload, isFork) {
+function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
   if (AppState.activeEventSource) {
     AppState.activeEventSource.close();
     AppState.activeEventSource = null;
@@ -1115,16 +1169,15 @@ function startTrackingJob(jobId, compositionPayload, isFork) {
       if (progressBar) progressBar.style.width = "100%";
 
       const seed = data.telemetry?.seed || Math.floor(Math.random() * 90000000);
-      let targetTrackId = AppState.activeTrackId;
-      let assignedCover;
       const resolver = window.ClientJewelResolver;
+      const targetTrackId = jobId;
 
+      let assignedCover;
       if (isFork) {
-        targetTrackId = jobId;
         assignedCover = resolver ? await resolver.resolve(AppState.user.slug, jobId, seed) : "default.jpg";
       } else {
-        const activeTrack = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
-        assignedCover = activeTrack?.assigned_jewelcase || (resolver ? await resolver.resolve(AppState.user.slug, targetTrackId, seed) : "default.jpg");
+        const matchedTrack = AppState.tracks.find((t) => t.track_id === originTrackId);
+        assignedCover = matchedTrack?.assigned_jewelcase || (resolver ? await resolver.resolve(AppState.user.slug, jobId, seed) : "default.jpg");
       }
 
       const audioUrl = `${router.activeBase}/audio/stream/${AppState.user.slug}/${jobId}_master.opus`;
@@ -1132,7 +1185,9 @@ function startTrackingJob(jobId, compositionPayload, isFork) {
       const completedTrack = {
         track_id: targetTrackId,
         user_slug: AppState.user.slug,
-        order_index: isFork ? AppState.tracks.length : (AppState.tracks.find((t) => t.track_id === targetTrackId)?.order_index ?? AppState.tracks.length),
+        order_index: isFork
+          ? AppState.tracks.length
+          : (AppState.tracks.find((t) => t.track_id === originTrackId)?.order_index ?? AppState.tracks.length),
         is_default: false,
         status: "COMPLETED",
         created_at: new Date().toISOString(),
@@ -1181,6 +1236,9 @@ function startTrackingJob(jobId, compositionPayload, isFork) {
 
       const storage = window.clientStorage;
       if (storage) {
+        if (!isFork && originTrackId && originTrackId !== targetTrackId) {
+          await storage.deleteTrack(originTrackId);
+        }
         await storage.saveTrack(completedTrack);
         fetch(audioUrl)
           .then((res) => (res.ok ? res.arrayBuffer() : null))
@@ -1193,7 +1251,7 @@ function startTrackingJob(jobId, compositionPayload, isFork) {
       if (isFork) {
         AppState.tracks.push(completedTrack);
       } else {
-        const idx = AppState.tracks.findIndex((t) => t.track_id === targetTrackId);
+        const idx = AppState.tracks.findIndex((t) => t.track_id === originTrackId || t.track_id === targetTrackId);
         if (idx !== -1) {
           AppState.tracks[idx] = completedTrack;
         } else {
@@ -1342,6 +1400,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                       order_index: i + 1
                     };
                     await window.clientStorage.saveTrack(trackObj);
+                    AppState.tracks.push(trackObj);
                     changed = true;
                   }
                 }
@@ -1357,12 +1416,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const pendingJobJson = localStorage.getItem(`tb_active_job_${savedSlug}`);
         if (pendingJobJson) {
           try {
-            const { jobId, compositionPayload, isFork } = JSON.parse(pendingJobJson);
+            const { jobId, compositionPayload, isFork, originTrackId } = JSON.parse(pendingJobJson);
             const btnEl = document.getElementById("gen-submit-btn");
             const hudEl = document.getElementById("queue-status-hud");
             if (btnEl) btnEl.classList.add("hidden");
             if (hudEl) hudEl.classList.remove("hidden");
-            startTrackingJob(jobId, compositionPayload, isFork);
+            startTrackingJob(jobId, compositionPayload, isFork, originTrackId);
           } catch {
             localStorage.removeItem(`tb_active_job_${savedSlug}`);
           }
@@ -1414,6 +1473,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 window.AppState = AppState;
 window.AppModal = AppModal;
 window.sortTracks = sortTracks;
+window.computeCanonicalRecipe = computeCanonicalRecipe;
 window.ensureShowcaseTrack = ensureShowcaseTrack;
 window.handleAuthSubmit = handleAuthSubmit;
 window.handleLogout = handleLogout;
