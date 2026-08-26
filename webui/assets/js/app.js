@@ -1,5 +1,3 @@
-const KNOWN_REGISTERED_HANDLES = new Set(["administrator", "admin"]);
-
 const AppModal = {
   backdrop: null,
   box: null,
@@ -552,26 +550,45 @@ async function handleAuthSubmit(event) {
         userRecord.tokens_used_today = 0;
         userRecord.last_quota_utc_date = todayUtc;
       }
-    } else if (KNOWN_REGISTERED_HANDLES.has(slug)) {
-      userRecord = {
-        slug: slug,
-        display_name: rawName,
-        daily_quota: 999,
-        tokens_used_today: 0,
-        last_quota_utc_date: todayUtc,
-        assigned_theme: "cyber_neon"
-      };
     } else {
-      await AppModal.alert(
-        "Access Denied",
-        "Unknown creator handle. When offline, only registered creators can access this studio workspace.",
-        "fa-lock"
-      );
-      if (usernameInput) {
-        usernameInput.focus();
-        usernameInput.select();
+      let offlineMatch = null;
+      try {
+        const configResp = await fetch(resolveAssetUrl("config/users.json"));
+        if (configResp.ok) {
+          const cfgData = await configResp.json();
+          const usersMap = cfgData.users || cfgData;
+          if (usersMap && typeof usersMap === "object") {
+            for (const [handleKey, meta] of Object.entries(usersMap)) {
+              if (slugify(handleKey) === slug || slugify(meta.display_name || "") === slug) {
+                offlineMatch = {
+                  slug: slug,
+                  display_name: meta.display_name || rawName,
+                  daily_quota: meta.daily_quota || 2,
+                  tokens_used_today: 0,
+                  last_quota_utc_date: todayUtc,
+                  assigned_theme: meta.assigned_theme || "sky_peace"
+                };
+                break;
+              }
+            }
+          }
+        }
+      } catch {}
+
+      if (offlineMatch) {
+        userRecord = offlineMatch;
+      } else {
+        await AppModal.alert(
+          "Access Denied",
+          "Unknown creator handle. Please provide a valid handle configured for this studio workspace.",
+          "fa-lock"
+        );
+        if (usernameInput) {
+          usernameInput.focus();
+          usernameInput.select();
+        }
+        return;
       }
-      return;
     }
 
     if (storage && userRecord) {
@@ -983,14 +1000,11 @@ function handleJewelCaseClick(e) {
     if (window.playerEngine) window.playerEngine.togglePlay();
     return;
   }
-  if (e.target.closest(".jewel-back")) {
-    return;
-  }
   if (window.playerEngine) window.playerEngine.flipCard();
 }
 
 function flipJewelCase(e) {
-  if (e) e.stopPropagation();
+  if (e && typeof e.stopPropagation === "function") e.stopPropagation();
   if (window.playerEngine) window.playerEngine.flipCard();
 }
 
@@ -1012,36 +1026,6 @@ function handleVolumeChange(val) {
 
 function handleEasterEggTrigger() {
   if (window.themeEngine) window.themeEngine.triggerEasterEgg();
-}
-
-function cloneActiveRecipe(e) {
-  if (e) e.stopPropagation();
-  const track = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
-  if (!track || !track.recipe) return;
-  const r = track.recipe;
-
-  const setVal = (id, val) => {
-    const el = document.getElementById(id);
-    if (el && val !== undefined) el.value = val;
-  };
-  setVal("field-title", `${track.title} (Fork)`.slice(0, 80));
-  setVal("field-genre", (r.genre || "").slice(0, 60));
-  setVal("field-subgenre", (r.subgenre || "").slice(0, 60));
-  setVal("field-bpm", Math.max(30, Math.min(300, parseInt(r.bpm || 96, 10))));
-  setVal("field-key", (r.key || "F minor").slice(0, 30));
-  setVal("field-mood", (r.mood || "").slice(0, 200));
-  setVal("field-vocals", (r.vocals || "").slice(0, 300));
-  setVal("field-arrangement", (r.arrangement || "").slice(0, 300));
-
-  if (r.lyrics && window.parseLyricsIntoBlocks) {
-    AppState.songBlocks = window.parseLyricsIntoBlocks(r.lyrics);
-    if (window.renderSongBlocks) window.renderSongBlocks();
-  }
-
-  const dock = document.getElementById("studio-generation-dock");
-  if (dock) dock.scrollIntoView({ behavior: "smooth" });
-  checkRecipeDirtyState();
-  syncActiveTrackDraftDebounced();
 }
 
 async function handleGenerateSubmit(e) {
@@ -1551,5 +1535,4 @@ window.toggleAudioMute = toggleAudioMute;
 window.handleAudioSeek = handleAudioSeek;
 window.handleVolumeChange = handleVolumeChange;
 window.handleEasterEggTrigger = handleEasterEggTrigger;
-window.cloneActiveRecipe = cloneActiveRecipe;
 window.handleGenerateSubmit = handleGenerateSubmit;

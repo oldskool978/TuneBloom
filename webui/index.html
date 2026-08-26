@@ -117,29 +117,25 @@
                   </div>
                 </div>
               </div>
-              <div class="jewel-face jewel-back p-5 rounded-2xl flex flex-col justify-between text-xs overflow-hidden border border-white/20 shadow-2xl">
+              <div class="jewel-face jewel-back p-5 sm:p-6 rounded-2xl flex flex-col justify-between text-xs overflow-hidden border border-white/20 shadow-2xl select-none">
                 <div class="space-y-3">
                   <div class="flex justify-between items-center border-b border-white/15 pb-2">
                     <span class="font-black tracking-widest text-amber-300 uppercase text-[11px]">Studio Master Edition</span>
                     <span class="text-[10px] text-white/60 uppercase font-mono" id="recipe-seed-tag">Broadcast Profile</span>
                   </div>
-                  <div class="space-y-1.5 text-white/90 text-[11px] leading-snug">
+                  <div class="space-y-2 text-white/90 text-[11px] leading-snug">
                     <div><span class="text-sky-300 font-bold">Acoustic Style:</span> <span id="recipe-genre">Contemporary R&B</span> (<span id="recipe-bpm">96 BPM</span>, <span id="recipe-key">F minor</span>)</div>
-                    <div class="truncate"><span class="text-sky-300 font-bold">Vocal Profile:</span> <span id="recipe-vocals">Silky tenor lead, dynamic transitions.</span></div>
-                    <div><span class="text-sky-300 font-bold">Arrangement:</span> <span id="recipe-stage1">Warm Rhodes, Deep Bass, Crisp Percussion</span></div>
+                    <div class="line-clamp-2"><span class="text-sky-300 font-bold">Vocal Profile:</span> <span id="recipe-vocals">Silky tenor lead, dynamic transitions.</span></div>
+                    <div class="line-clamp-2"><span class="text-sky-300 font-bold">Arrangement:</span> <span id="recipe-stage1">Warm Rhodes, Deep Bass, Crisp Percussion</span></div>
                     <div><span class="text-sky-300 font-bold">Master Profile:</span> <span id="recipe-stage2">48.0 kHz High-Fidelity Master Stereo</span></div>
-                    <div class="border-t border-white/10 pt-2 text-[10px] text-white/70 italic line-clamp-2 font-serif" id="recipe-lyrics-preview">
+                    <div class="border-t border-white/10 pt-2 text-[10px] text-white/70 italic line-clamp-3 font-serif" id="recipe-lyrics-preview">
                       "Searching for answers in the rearview mirror..."
                     </div>
                   </div>
                 </div>
-                <div class="flex gap-2 pt-2">
-                  <button onclick="cloneActiveRecipe(event)" class="flex-1 py-2 rounded-xl theme-btn-secondary font-bold uppercase tracking-wider text-[10px] active:scale-95 transition">
-                    <i class="fa-solid fa-clone mr-1"></i> Clone to Studio
-                  </button>
-                  <button onclick="flipJewelCase(event)" class="px-4 py-2 rounded-xl bg-black/50 hover:bg-black/70 border border-white/20 font-bold uppercase tracking-wider text-[10px] transition">
-                    Back
-                  </button>
+                <div class="flex justify-between items-center pt-2.5 border-t border-white/10 text-[10px] text-white/60 font-mono uppercase tracking-wider">
+                  <span class="flex items-center gap-1.5"><i class="fa-solid fa-rotate text-sky-400"></i> Flip to Cover</span>
+                  <span class="text-emerald-400 font-bold">48.0 kHz FL32</span>
                 </div>
               </div>
             </div>
@@ -184,6 +180,7 @@
                 <span id="time-total">4:00</span>
               </div>
             </div>
+
             <div class="flex items-center justify-between pt-1">
               <div class="flex items-center gap-2">
                 <button onclick="toggleAudioMute()" id="mute-button" class="text-white/80 hover:text-white transition p-1">
@@ -193,6 +190,7 @@
                        class="w-14 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
                        oninput="handleVolumeChange(this.value)">
               </div>
+
               <div class="flex items-center gap-4 sm:gap-6">
                 <button class="text-white/80 hover:text-white transition p-1 text-lg" id="easter-action-btn" onclick="handleEasterEggTrigger()">
                   <i class="fa-solid fa-dove" id="easter-action-icon"></i>
@@ -207,6 +205,7 @@
                   <i class="fa-solid fa-scroll"></i>
                 </button>
               </div>
+
               <div class="text-[9px] font-mono font-bold uppercase theme-badge px-2.5 py-1 rounded">
                 Studio Master
               </div>
