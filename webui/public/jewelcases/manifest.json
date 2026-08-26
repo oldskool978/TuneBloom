@@ -1,8 +1,10 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 1,
+  "total": 3,
   "covers": [
-    "space.jpg"
+    "chips.jpg",
+    "space.jpg",
+    "sunburst.jpg"
   ]
 }
