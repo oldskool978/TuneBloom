@@ -94,6 +94,28 @@ _CLI_SITE_ROOT: Optional[Path] = None
 _CLI_CONFIG_FILE: Optional[Path] = None
 
 
+def _bootstrap_cli_environment():
+    global _IS_STANDALONE, _CLI_SITE_ROOT, _CLI_CONFIG_FILE
+    for i, arg in enumerate(sys.argv):
+        if arg == "--site-root" and i + 1 < len(sys.argv):
+            _CLI_SITE_ROOT = Path(sys.argv[i + 1]).resolve()
+        elif arg.startswith("--site-root="):
+            _CLI_SITE_ROOT = Path(arg.split("=", 1)[1]).resolve()
+        elif arg == "--config" and i + 1 < len(sys.argv):
+            _CLI_CONFIG_FILE = Path(sys.argv[i + 1]).resolve()
+        elif arg.startswith("--config="):
+            _CLI_CONFIG_FILE = Path(arg.split("=", 1)[1]).resolve()
+        elif arg == "--standalone":
+            _IS_STANDALONE = True
+            os.environ["TUNEBLOOM_STANDALONE"] = "1"
+        elif arg == "--headless":
+            _IS_STANDALONE = False
+            os.environ["TUNEBLOOM_STANDALONE"] = "0"
+
+
+_bootstrap_cli_environment()
+
+
 def set_cli_overrides(
     standalone: Optional[bool] = None,
     site_root: Optional[str] = None,
@@ -206,9 +228,9 @@ def get_user_registry_candidates() -> List[Path]:
 
     resolved_site = resolve_site_root()
     return [
+        resolved_site / "config" / "users.json",
         BACKEND_ROOT / "config" / "users.json",
         Path.cwd() / "config" / "users.json",
-        resolved_site / "config" / "users.json",
         BACKEND_ROOT / "webui" / "config" / "users.json",
         SERVICES_DIR / "config" / "users.json"
     ]
