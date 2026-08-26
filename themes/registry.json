@@ -1,0 +1,29 @@
+{
+  "revolving_pool": ["sky_peace", "storm_lately", "dusk_youknow"],
+  "themes": {
+    "sky_peace": {
+      "name": "Sky Peace",
+      "palette": "themes/palettes/sky_peace.json",
+      "ambient": "themes/ambient/cloud_feathers.js",
+      "easter_egg": "themes/easter_eggs/dove.js"
+    },
+    "storm_lately": {
+      "name": "Midnight Storm",
+      "palette": "themes/palettes/storm_lately.json",
+      "ambient": "themes/ambient/rain_lightning.js",
+      "easter_egg": "themes/easter_eggs/lightning.js"
+    },
+    "dusk_youknow": {
+      "name": "Dusk Amber",
+      "palette": "themes/palettes/dusk_youknow.json",
+      "ambient": "themes/ambient/ember_leaves.js",
+      "easter_egg": "themes/easter_eggs/leaf_gust.js"
+    },
+    "cyber_neon": {
+      "name": "Cyber Matrix (Curated)",
+      "palette": "themes/palettes/cyber_neon.json",
+      "ambient": "themes/ambient/digital_rain.js",
+      "easter_egg": "themes/easter_eggs/neon_pulse.js"
+    }
+  }
+}

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TuneBloom - Studio Master Audio Creation</title>
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cdefs%3E%3CradialGradient id='bg' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%230b253a'/%3E%3Cstop offset='60%25' stop-color='%23041322'/%3E%3Cstop offset='100%25' stop-color='%23010912'/%3E%3C/radialGradient%3E%3CradialGradient id='glow' cx='50%25' cy='50%25' r='50%25'%3E%3Cstop offset='0%25' stop-color='%2338bdf8' stop-opacity='0.9'/%3E%3Cstop offset='40%25' stop-color='%230284c7' stop-opacity='0.5'/%3E%3Cstop offset='100%25' stop-color='%230284c7' stop-opacity='0'/%3E%3C/radialGradient%3E%3CradialGradient id='core' cx='36%25' cy='32%25' r='68%25'%3E%3Cstop offset='0%25' stop-color='%23ffffff'/%3E%3Cstop offset='50%25' stop-color='%23f0f9ff'/%3E%3Cstop offset='85%25' stop-color='%23cbd5e1'/%3E%3Cstop offset='100%25' stop-color='%2394a3b8'/%3E%3C/radialGradient%3E%3ClinearGradient id='ring' x1='0%25' y1='0%25' x2='100%25' y2='100%25'%3E%3Cstop offset='0%25' stop-color='%23bae6fd'/%3E%3Cstop offset='50%25' stop-color='%23ffffff'/%3E%3Cstop offset='100%25' stop-color='%237dd3fc'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='64' height='64' rx='14' fill='url(%23bg)'/%3E%3Ccircle cx='34' cy='34' r='24' fill='url(%23glow)'/%3E%3Cg transform='rotate(-22 32 32)'%3E%3Cellipse cx='32' cy='32' rx='28' ry='7' fill='none' stroke='%2338bdf8' stroke-width='3.5' opacity='0.35'/%3E%3Cellipse cx='32' cy='32' rx='28' ry='7' fill='none' stroke='url(%23ring)' stroke-width='1.8'/%3E%3Ccircle cx='32' cy='32' r='14' fill='url(%23core)'/%3E%3Cpath d='M 4 32 A 28 7 0 0 0 60 32' fill='none' stroke='%2338bdf8' stroke-width='3.5' opacity='0.5'/%3E%3Cpath d='M 4 32 A 28 7 0 0 0 60 32' fill='none' stroke='%23ffffff' stroke-width='2'/%3E%3C/g%3E%3C/svg%3E">
+  <script src="assets/vendor/tailwind.js"></script>
+  <link rel="stylesheet" href="assets/vendor/fontawesome/css/all.min.css">
+  <link rel="stylesheet" href="assets/css/main.css">
+</head>
+<body class="relative min-h-screen text-white flex flex-col justify-between overflow-x-hidden selection:bg-sky-500/30 selection:text-sky-200">
+  <div id="lightning-layer" class="fixed inset-0 bg-white/20 pointer-events-none z-20 opacity-0 transition-opacity duration-75"></div>
+  <div id="ambient-container" class="ambient-layer"></div>
+  <audio id="core-audio-element" preload="none" crossorigin="anonymous"></audio>
+
+  <div id="app-modal-backdrop" class="fixed inset-0 z-[1000] flex items-center justify-center bg-black/80 backdrop-blur-xl px-4 hidden transition-opacity duration-200" role="dialog" aria-modal="true" aria-labelledby="app-modal-title" aria-describedby="app-modal-message">
+    <div id="app-modal-box" class="max-w-md w-full p-6 rounded-3xl theme-card text-center space-y-4 shadow-2xl border border-white/20 transform transition-all duration-200 scale-95 opacity-0">
+      <div id="app-modal-icon-wrapper" class="w-12 h-12 rounded-full mx-auto flex items-center justify-center text-xl bg-sky-500/20 text-sky-300 border border-sky-400/30">
+        <i id="app-modal-icon" class="fa-solid fa-circle-info"></i>
+      </div>
+      <h3 id="app-modal-title" class="text-base font-black text-white tracking-tight">Notice</h3>
+      <p id="app-modal-message" class="text-xs text-white/80 leading-relaxed font-medium"></p>
+      <div id="app-modal-input-container" class="hidden">
+        <input type="text" id="app-modal-input" class="w-full px-4 py-2.5 rounded-xl theme-input focus:outline-none text-xs font-medium text-white">
+      </div>
+      <div id="app-modal-actions" class="flex gap-2 pt-2 justify-center"></div>
+    </div>
+  </div>
+
+  <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-2xl px-4">
+    <div class="max-w-md w-full p-8 rounded-3xl theme-card text-center space-y-6 shadow-2xl border border-white/20">
+      <div class="flex justify-center items-center gap-3">
+        <div class="nucleus-wrapper">
+          <div class="nucleus-core"></div>
+          <div class="nucleus-ring"></div>
+        </div>
+        <h1 class="text-4xl font-black brand-bubbly text-white">TuneBloom</h1>
+      </div>
+      <p class="text-xs text-white/80 tracking-widest uppercase font-semibold">Enter Creator Credentials to Access Workspace</p>
+      <form id="auth-form" class="space-y-4" onsubmit="handleAuthSubmit(event)">
+        <div>
+          <input type="text" id="auth-username" required placeholder="Enter Creator Handle..." autocomplete="username"
+                 class="w-full px-5 py-3.5 rounded-2xl theme-input placeholder-white/40 focus:outline-none transition-colors text-sm font-medium text-white">
+        </div>
+        <button type="submit" id="auth-submit-btn" class="w-full py-3.5 rounded-2xl font-black tracking-widest text-xs uppercase theme-btn-primary hover:opacity-95 active:scale-98 transition shadow-lg flex items-center justify-center gap-2">
+          <span>Initialize Studio</span>
+        </button>
+      </form>
+      <div class="text-[10px] text-white/50 uppercase tracking-widest font-mono">
+        Hermetic Broadcast Architecture Active
+      </div>
+    </div>
+  </div>
+
+  <div id="app-workspace" class="hidden flex-col min-h-screen justify-between relative z-10">
+    <header class="relative z-40 w-full px-6 py-4 max-w-7xl mx-auto flex flex-col gap-3">
+      <div class="flex flex-wrap justify-between items-center gap-4">
+        <div class="flex items-center gap-3.5">
+          <div class="nucleus-wrapper cursor-pointer" onclick="handleJewelCaseClick(event)">
+            <div class="nucleus-core"></div>
+            <div class="nucleus-ring"></div>
+          </div>
+          <div>
+            <h1 class="text-2xl sm:text-3xl font-black brand-bubbly text-white leading-none">TuneBloom</h1>
+            <span class="text-[10px] font-bold tracking-[0.25em] uppercase text-white/80 block mt-1" id="user-greeting-tag">
+              Creator Studio
+            </span>
+          </div>
+        </div>
+        
+        <div class="flex items-center gap-2.5">
+          <button type="button" onclick="handleNewSongTrigger()" class="px-3.5 py-1.5 rounded-full theme-btn-secondary flex items-center gap-2 text-xs font-bold shadow-md hover:scale-105 active:scale-95 transition" title="Start a fresh song from randomized multi-genre blueprint">
+            <i class="fa-solid fa-plus text-sky-400"></i>
+            <span>New Song</span>
+          </button>
+          <div class="px-3.5 py-1.5 rounded-full theme-badge flex items-center gap-2 text-xs font-bold shadow-md">
+            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+            <span id="quota-display">Tokens: 2 / 2</span>
+          </div>
+          <button id="theme-toggle-btn" type="button" onclick="window.themeEngine.togglePicker()"
+                  class="px-3.5 py-1.5 rounded-full border border-white/20 backdrop-blur-md bg-black/30 hover:bg-white/10 flex items-center gap-2 text-xs font-bold transition shadow-md active:scale-95">
+            <i class="fa-solid fa-wand-magic-sparkles text-sky-400 text-xs"></i>
+            <span id="theme-active-name" class="text-white text-[11px] tracking-wide font-medium">Atmosphere</span>
+            <i id="theme-toggle-chevron" class="fa-solid fa-chevron-down text-[9px] text-white/50 transition-transform duration-200"></i>
+          </button>
+          <button onclick="handleLogout()" class="px-3 py-1.5 rounded-full theme-btn-secondary text-xs font-bold active:scale-95 transition hover:text-rose-400" title="Switch User">
+            <i class="fa-solid fa-arrow-right-from-bracket"></i>
+          </button>
+        </div>
+      </div>
+      <div id="theme-strip-wrapper" class="hidden overflow-hidden transition-all duration-300 ease-out opacity-0 max-h-0 relative z-50">
+        <div class="p-2 rounded-2xl border border-white/15 bg-black/40 backdrop-blur-xl shadow-xl flex items-center gap-2 overflow-x-auto scrollbar-thin" id="theme-strip-container"></div>
+      </div>
+    </header>
+
+    <main class="relative z-10 flex-grow flex flex-col items-center justify-center px-4 py-2 max-w-7xl mx-auto w-full space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-12 items-center w-full">
+        <div class="flex flex-col items-center justify-center">
+          <div class="jewel-stage w-[280px] h-[280px] sm:w-[320px] sm:h-[320px] md:w-[360px] md:h-[360px] cursor-pointer" id="jewel-card-flipper" onclick="handleJewelCaseClick(event)">
+            <div class="jewel-flipper" id="jewel-flipper-inner">
+              <div class="jewel-face jewel-front relative w-full h-full" id="jewel-front-container">
+                <div class="cd-slide-tray shadow-2xl" id="cd-slide-tray">
+                  <div class="cd-disc">
+                    <div class="cd-grooves"></div>
+                    <div class="cd-sheen"></div>
+                    <div class="cd-center-label">
+                      <div class="cd-center-hole"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="jewel-sleeve w-full h-full rounded-2xl overflow-hidden relative border border-white/20 shadow-2xl">
+                  <div class="jewel-glare"></div>
+                  <img id="active-jewel-image" src="public/jewelcases/default.jpg" alt="Cover Art" class="w-full h-full object-cover">
+                  <div class="absolute bottom-3 left-3 bg-black/70 backdrop-blur-md px-2.5 py-1 rounded-lg text-[10px] font-bold tracking-widest uppercase border border-white/20 text-white">
+                    <i class="fa-solid fa-rotate mr-1"></i> Flip for Liner Notes
+                  </div>
+                </div>
+              </div>
+              <div class="jewel-face jewel-back p-5 sm:p-6 rounded-2xl flex flex-col justify-between text-xs overflow-hidden border border-white/20 shadow-2xl select-none">
+                <div class="space-y-3">
+                  <div class="flex justify-between items-center border-b border-white/15 pb-2">
+                    <span class="font-black tracking-widest text-amber-300 uppercase text-[11px]">Studio Master Edition</span>
+                    <span class="text-[10px] text-white/60 uppercase font-mono" id="recipe-seed-tag">Broadcast Profile</span>
+                  </div>
+                  <div class="space-y-2 text-white/90 text-[11px] leading-snug">
+                    <div><span class="text-sky-300 font-bold">Acoustic Style:</span> <span id="recipe-genre">Contemporary R&B</span> (<span id="recipe-bpm">96 BPM</span>, <span id="recipe-key">F minor</span>)</div>
+                    <div class="line-clamp-2"><span class="text-sky-300 font-bold">Vocal Profile:</span> <span id="recipe-vocals">Silky tenor lead, dynamic transitions.</span></div>
+                    <div class="line-clamp-2"><span class="text-sky-300 font-bold">Arrangement:</span> <span id="recipe-stage1">Warm Rhodes, Deep Bass, Crisp Percussion</span></div>
+                    <div><span class="text-sky-300 font-bold">Master Profile:</span> <span id="recipe-stage2">48.0 kHz High-Fidelity Master Stereo</span></div>
+                    <div class="border-t border-white/10 pt-2 text-[10px] text-white/70 italic line-clamp-3 font-serif" id="recipe-lyrics-preview">
+                      "Searching for answers in the rearview mirror..."
+                    </div>
+                  </div>
+                </div>
+                <div class="flex justify-between items-center pt-2.5 border-t border-white/10 text-[10px] text-white/60 font-mono uppercase tracking-wider">
+                  <span class="flex items-center gap-1.5"><i class="fa-solid fa-rotate text-sky-400"></i> Flip to Cover</span>
+                  <span class="text-emerald-400 font-bold">48.0 kHz FL32</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="p-6 sm:p-7 rounded-3xl theme-card flex flex-col justify-between space-y-5 shadow-2xl border border-white/15" id="player-dock">
+          <div>
+            <div class="flex justify-between items-start">
+              <div>
+                <span id="player-release-type" class="text-[10px] font-bold tracking-[0.25em] uppercase text-sky-200">
+                  Studio Master Quality
+                </span>
+                <h2 id="player-track-title" class="text-2xl sm:text-3xl font-black tracking-tight mt-1 text-white">
+                  Midnight Frequency
+                </h2>
+                <p class="text-xs font-semibold text-white/90 mt-0.5">
+                  by <span id="player-artist-name" class="font-bold text-white">TuneBloom Master</span>
+                </p>
+              </div>
+              
+              <div class="flex items-end gap-1 h-8" id="visualizer-container">
+                <div class="w-1.5 rounded-full h-[20%] transition-all duration-75"></div>
+                <div class="w-1.5 rounded-full h-[40%] transition-all duration-75"></div>
+                <div class="w-1.5 rounded-full h-[70%] transition-all duration-75"></div>
+                <div class="w-1.5 rounded-full h-[30%] transition-all duration-75"></div>
+                <div class="w-1.5 rounded-full h-[15%] transition-all duration-75"></div>
+              </div>
+            </div>
+            <div id="player-quote-card" class="mt-3 border-l-2 border-white/40 pl-3 py-1 italic text-xs text-white/90 font-light leading-relaxed">
+              "Pristine Dynamic Headroom & Harmonic Air | Broadcast Master Quality"
+            </div>
+          </div>
+
+          <div class="space-y-3">
+            <div>
+              <input type="range" id="seek-slider" min="0" max="100" value="0"
+                     class="w-full h-1 bg-white/20 rounded-lg appearance-none cursor-pointer accent-white transition-colors"
+                     onchange="handleAudioSeek(this.value)">
+              <div class="flex justify-between text-[10px] text-white/80 mt-1 font-mono font-bold">
+                <span id="time-current">0:00</span>
+                <span id="time-total">4:00</span>
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-1">
+              <div class="flex items-center gap-2">
+                <button onclick="toggleAudioMute()" id="mute-button" class="text-white/80 hover:text-white transition p-1">
+                  <i class="fa-solid fa-volume-high"></i>
+                </button>
+                <input type="range" id="volume-slider" min="0" max="100" value="80"
+                       class="w-14 h-1 bg-white/30 rounded-lg appearance-none cursor-pointer accent-white"
+                       oninput="handleVolumeChange(this.value)">
+              </div>
+
+              <div class="flex items-center gap-4 sm:gap-6">
+                <button class="text-white/80 hover:text-white transition p-1 text-lg" id="easter-action-btn" onclick="handleEasterEggTrigger()">
+                  <i class="fa-solid fa-dove" id="easter-action-icon"></i>
+                </button>
+                
+                <button onclick="toggleMasterPlayback()" id="master-play-btn"
+                        class="w-14 h-14 rounded-full flex items-center justify-center shadow-xl theme-btn-primary hover:scale-105 active:scale-95 transition transform">
+                  <i class="fa-solid fa-play text-lg ml-0.5" id="master-play-icon"></i>
+                </button>
+                
+                <button onclick="flipJewelCase()" class="text-white/80 hover:text-white transition p-1 text-lg" title="Inspect Liner Notes">
+                  <i class="fa-solid fa-scroll"></i>
+                </button>
+              </div>
+
+              <div class="text-[9px] font-mono font-bold uppercase theme-badge px-2.5 py-1 rounded">
+                Studio Master
+              </div>
+            </div>
+          </div>
+
+          <div class="border-t border-white/10 pt-3 flex items-center justify-between">
+            <span class="text-[10px] text-white/70 font-mono">Studio Master MP3</span>
+            <button id="download-mp3-btn" onclick="window.playerEngine.triggerDownloadMP3()"
+                    class="px-4 py-2 rounded-xl theme-btn-primary font-black text-[10px] uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md flex items-center gap-1.5">
+              <i class="fa-solid fa-file-audio"></i>
+              <span>Download Master Audio (MP3)</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="w-full">
+        <div class="flex justify-between items-center mb-2.5">
+          <h3 class="text-xs uppercase font-bold tracking-[0.25em] text-white/90">Producer Discography Vault</h3>
+          <span class="text-[10px] text-white/70 font-mono" id="discography-counter">1 Track In Vault</span>
+        </div>
+        <div id="discography-carousel" class="flex gap-3.5 overflow-x-auto pb-3 scrollbar-thin"></div>
+      </div>
+
+      <div class="w-full p-6 sm:p-7 rounded-3xl theme-card space-y-5 shadow-2xl border border-white/15" id="studio-generation-dock">
+        <form onsubmit="handleGenerateSubmit(event)" class="space-y-5">
+          <input type="text" id="field-honeypot" tabindex="-1" autocomplete="off" style="position: absolute; left: -9999px; opacity: 0; pointer-events: none;">
+          
+          <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3.5">
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Track Title</label>
+              <input type="text" id="field-title" required placeholder="e.g. Midnight Horizon"
+                     class="w-full px-3.5 py-2 rounded-xl theme-input placeholder-white/40 focus:outline-none text-xs font-medium text-white">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Genre</label>
+              <input type="text" id="field-genre" value="Contemporary R&B" required
+                     class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs font-medium text-white">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Subgenre</label>
+              <input type="text" id="field-subgenre" value="2000s Pop R&B / Slow Jam Bounce" required
+                     class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs font-medium text-white">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Tempo (BPM)</label>
+              <input type="number" id="field-bpm" value="96" min="30" max="300" required
+                     class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs font-mono text-white">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Key Signature</label>
+              <input type="text" id="field-key" value="F minor" required
+                     class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs font-medium text-white">
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Mood Narrative</label>
+              <input type="text" id="field-mood" value="Sensual, passionate, smooth, confident, driving." required
+                     class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs font-medium text-white">
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Vocal Profile & Character</label>
+              <textarea id="field-vocals" rows="2"
+                        class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs leading-relaxed font-medium text-white resize-none">Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.</textarea>
+            </div>
+            <div>
+              <label class="block text-[10px] uppercase tracking-wider font-bold text-white/80 mb-1">Arrangement & Instrumentation</label>
+              <textarea id="field-arrangement" rows="2"
+                        class="w-full px-3.5 py-2 rounded-xl theme-input focus:outline-none text-xs leading-relaxed font-medium text-white resize-none">Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.</textarea>
+            </div>
+          </div>
+
+          <div class="space-y-2">
+            <div class="flex flex-wrap justify-between items-center gap-2 border-b border-white/10 pb-2">
+              <div class="flex items-center gap-2">
+                <label class="block text-[10px] uppercase tracking-wider font-bold text-white/90">Lyrics & Section Flow</label>
+                <span id="block-count-badge" class="theme-badge px-2 py-0.5 rounded text-[9px] font-mono">11 Sections</span>
+              </div>
+              <div class="flex flex-wrap gap-1">
+                <button type="button" onclick="addSongBlock('intro', 'Intro')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Intro</button>
+                <button type="button" onclick="addSongBlock('verse', 'Verse')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Verse</button>
+                <button type="button" onclick="addSongBlock('pre-chorus', 'Pre-Chorus')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Pre-Chorus</button>
+                <button type="button" onclick="addSongBlock('chorus', 'Chorus')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Chorus</button>
+                <button type="button" onclick="addSongBlock('hook', 'Hook')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Hook</button>
+                <button type="button" onclick="addSongBlock('bridge', 'Bridge')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Bridge</button>
+                <button type="button" onclick="addSongBlock('breakdown', 'Breakdown')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Breakdown</button>
+                <button type="button" onclick="addSongBlock('solo', 'Solo')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Solo</button>
+                <button type="button" onclick="addSongBlock('outro', 'Outro')" class="px-2 py-0.5 rounded theme-btn-secondary text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Outro</button>
+                <button type="button" onclick="addCustomSongBlock()" class="px-2 py-0.5 rounded bg-sky-500/20 text-sky-200 border border-sky-400/30 text-[9px] font-mono font-bold hover:scale-105 active:scale-95 transition">+ Custom</button>
+              </div>
+            </div>
+            <div id="song-blocks-container" class="song-sheet max-h-[580px] overflow-y-auto pr-1 scrollbar-thin divide-y divide-white/5"></div>
+          </div>
+
+          <div>
+            <button type="submit" id="gen-submit-btn"
+                    class="w-full py-3.5 rounded-2xl font-black tracking-widest text-xs uppercase theme-btn-primary hover:opacity-95 active:scale-98 transition shadow-xl flex items-center justify-center gap-2">
+              <i class="fa-solid fa-bolt"></i> Synthesize Studio Master (1 Token)
+            </button>
+            
+            <div id="queue-status-hud" class="hidden p-4 rounded-2xl bg-black/60 border border-white/20 space-y-2 mt-3">
+              <div class="flex justify-between items-center text-xs font-bold">
+                <span id="queue-hud-status" class="flex items-center gap-2 text-amber-300">
+                  <span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>
+                  In Studio Queue...
+                </span>
+                <span id="queue-hud-pos" class="font-mono text-[10px] text-white/70">Position 1</span>
+              </div>
+              <div class="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+                <div id="queue-hud-bar" class="h-full bg-gradient-to-r from-sky-400 to-emerald-400 transition-all duration-300 w-1/12"></div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+    </main>
+
+    <footer class="relative z-10 w-full max-w-5xl mx-auto px-4 py-5 text-center space-y-3">
+      <div class="inline-flex items-center gap-3 px-5 py-1.5 rounded-full spacejam-badge text-xs font-black tracking-wider text-amber-300 shadow-2xl">
+        <i class="fa-solid fa-compact-disc animate-spin text-sky-400"></i>
+        <span>TUNEBLOOM HIGH-FIDELITY STUDIO ENGINE</span>
+        <span class="text-white/40">|</span>
+        <span class="text-sky-300">BROADCAST MASTER DELIVERY</span>
+      </div>
+      <div class="text-[10px] text-white/60 font-mono tracking-widest">
+        &copy; 2026 FIDUCIAL POINT INC. ALL RIGHTS RESERVED. BROADCAST MASTER HARMONIC PROCESSING ACTIVE.
+      </div>
+    </footer>
+  </div>
+
+  <script src="assets/js/storage_engine.js"></script>
+  <script src="assets/js/pow_guard.js"></script>
+  <script src="assets/js/blueprints.js"></script>
+  <script src="assets/js/song_arranger.js"></script>
+  <script src="assets/js/theme_engine.js"></script>
+  <script src="assets/js/player.js"></script>
+  <script src="assets/js/app.js"></script>
+</body>
+</html>
