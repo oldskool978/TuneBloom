@@ -70,7 +70,7 @@
       { id: "b_rnb_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "I try to fight it, but it's pulling me in\nEvery harmonic frequency starts spinning again\nTension rising from the bottom to top\nGot that momentum and we never gon' stop\nFeel the sub-bass vibrating down through the floor\nEvery little kiss just leaves me begging for more\n(Oh yeah, give me more)" },
       { id: "b_rnb_7", type: "chorus", label: "Chorus 2", text: "Got me caught up in the way that you move\nNobody else can lock right into the groove\nGot my heart on the floor, baby, give me one more\nShow me that rhythm, tell me what you wanna do\nSinking deep inside the pocket of sound\nBest damn love that we ever have found\n(Yeah, yeah, right into the pocket)\n(Don't you ever let me go)" },
       { id: "b_rnb_8", type: "bridge", label: "Bridge", text: "Take it to the falsetto high, let the bass drop clean\nSmoothest vibration that you've ever seen\nCounterpoint melodies weaving around\nElevating the pressure, capturing the sound\nHold that note, let the energy soar\nTake it to places that we never went before\nJust breathe with me, stay right inside the groove\nNothing left in this world we gotta prove\n(Oh, nothing left to prove)" },
-      { id: "b_rnb_9", type: "solo", label: "Solo", text: "(Oh, yeah... take it all the way up)\n(Ride the wave, baby)\n(Melodies falling down like rain)\n(Yeah, yeah, yeah)" },
+      { id: "b_rnb_9", type: "solo", label: "Solo", text: "(Oh, yeah... take it all the way up)\n(Ride the wave, baby)\n(Ooh-woah... yeah)\n(Yeah, yeah, yeah)" },
       { id: "b_rnb_10", type: "chorus", label: "Chorus 3", text: "Got me caught up in the way that you move\nNobody else can lock right into the groove\nGot my heart on the floor, baby, give me one more\nShow me that rhythm, tell me what you wanna do\nSinking deep inside the pocket of sound\nBest damn love that we ever have found\n(Oh-woah, give me one more time)\n(Lock it down in the midnight groove)" },
       { id: "b_rnb_11", type: "outro", label: "Outro", text: "Fade into the low-end frequency\nKeep the drum pocket steady for me\nSun's coming up but we staying right here\nWhisper in my ear keep it crystal and clear\n(Yeah, just like that)\n(Stay right there)\n(TuneBloom R&B Master)\n(Fade to black)" }
     ]
@@ -95,7 +95,7 @@
       { id: "b_trp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Niggas keep flexing on gram for the clout\nI put the work in, they know what I'm 'bout\nCash on the table, no running your mouth\nKing of the city, we running the South\nWhole team eating, we setting the pace\nPut a half a ticket right in they face\n(Yeah! On God!)" },
       { id: "b_trp_7", type: "chorus", label: "Chorus 2", text: "Ain't no cap in my section, you know how we rock\nBroke niggas talking, they watching the clock\nTurn up the bass till it shatter the block\nTaking that top spot and locking the lock\nYeah, we running this shit\n(What?)\nWhole squad rich and we never gon' quit\nBad ass vibe and she lit in the pit\nFuck all the fake shit, you know who this is\n(Straight up!)" },
       { id: "b_trp_8", type: "bridge", label: "Bridge", text: "They tried to count a young nigga right out\nNow look at the penthouse, look at the route\nTurned every whisper to screams and a shout\nNobody can tell me what hustle's about\nCame from the dirt with a fire inside\nNow the whole universe along for the ride\n(No cap! For real!)" },
-      { id: "b_trp_9", type: "solo", label: "Solo", text: "(Turn me up in the headphones!)\n(Yeah, yeah, yeah!)\n(Brrrt! Racks on racks!)\n(Count it up, nigga!)" },
+      { id: "b_trp_9", type: "solo", label: "Solo", text: "(Turn me up!)\n(Yeah, yeah, yeah!)\n(Brrrt! Racks on racks!)\n(Count it up, nigga!)" },
       { id: "b_trp_10", type: "chorus", label: "Chorus 3", text: "Ain't no cap in my section, you know how we rock\nBroke niggas talking, they watching the clock\nTurn up the bass till it shatter the block\nTaking that top spot and locking the lock\nYeah, we running this shit\nWhole squad rich and we never gon' quit\nBad ass vibe and she lit in the pit\nFuck all the fake shit, you know who this is" },
       { id: "b_trp_11", type: "outro", label: "Outro", text: "Yeah, no cap\nStraight facts\nTuneBloom Master\nATL to the world\nWe gone\n(Bitch!)" }
     ]
@@ -120,7 +120,7 @@
       { id: "b_drl_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "They see the vision, they hating the rise\nI see the fake in the back of their eyes\nWe take the city, no room for disguise\nLook at the score, see who really survives\nLock the whole borough, we setting the trap\nNone of you niggas can put us on map\n(Grrt!)" },
       { id: "b_drl_7", type: "chorus", label: "Chorus 2", text: "Bronx protocol, niggas know we don't play\nClearing the lane when we come out the way\nGrrt, bow, do what we want every day\nStacking this money, there's nothing to say\nYeah, you hear the sub hit the chest\nBulletproof armor, we putting to rest\nAll of the nonsense, we taking the best\nReal drill heavyweight passing the test\n(Bow!)" },
       { id: "b_drl_8", type: "bridge", label: "Bridge", text: "No backing down\nLock the perimeter, hold the whole town\nKings of the sound, who taking the crown?\nReal niggas only when we touch the ground\nLook at the pavement, the city is ours\nTaking the power straight up to the stars\n(Grrt, bow!)" },
-      { id: "b_drl_9", type: "solo", label: "Solo", text: "(Bow! Bow! Bow!)\n(Grrt! What?)\n(Slide on the eight-o-eight!)\n(Don't run now!)" },
+      { id: "b_drl_9", type: "solo", label: "Solo", text: "(Bow! Bow! Bow!)\n(Grrt! What?)\n(Slide on 'em!)\n(Don't run now!)" },
       { id: "b_drl_10", type: "chorus", label: "Chorus 3", text: "Bronx protocol, niggas know we don't play\nClearing the lane when we come out the way\nGrrt, bow, do what we want every day\nStacking this money, there's nothing to say\nYeah, you hear the sub hit the chest\nBulletproof armor, we putting to rest\nAll of the nonsense, we taking the best\nReal drill heavyweight passing the test" },
       { id: "b_drl_11", type: "outro", label: "Outro", text: "Grrt... Bow\nTuneBloom Drill\nBronx Master\nEvery single block know the name\nOut\n(Bow!)" }
     ]
@@ -145,7 +145,7 @@
       { id: "b_phk_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Late night stalkin' in the dead of the night\nHeadlights off, yeah we killin' the light\nTire smoke risin' when we rip around the bend\nAin't no mercy when the nightmare begin\nHollow point trajectory flying through the air\nLeave a motherfucker freezing in despair" },
       { id: "b_phk_7", type: "chorus", label: "Chorus 2", text: "Drift in the shadow, murder in the dark\nLeave a cold stain where the hollow points spark\nCatch a nigga slippin', put that bitch on a shirt\nTen toes down while we dig in the dirt\nYeah, we evil with the rhythm and the flow\nMemphis sound hittin' everywhere that we go\nScreamin' in the alley, nobody hear a sound\nWatch another body sink into the ground" },
       { id: "b_phk_8", type: "bridge", label: "Bridge", text: "Hear the static in the dark, feel the reaper come close\nGive a busta what he really fear the most\nNo salvation, no prayer in the dark\nWatch the whole city ignite from the spark\nTape looped over and the bass boosted high\nSay your final prayer under stormy grey sky\n(Triple six! Mane!)" },
-      { id: "b_phk_9", type: "solo", label: "Solo", text: "(Drift! Mane!)\n(Slide that Chevy around the corner!)\n(Yeah! What?)\n(Evil phonk sound!)" },
+      { id: "b_phk_9", type: "solo", label: "Solo", text: "(Drift! Mane!)\n(Yeah! What?)\n(Watch out now!)\n(Mane!)" },
       { id: "b_phk_10", type: "chorus", label: "Chorus 3", text: "Drift in the shadow, murder in the dark\nLeave a cold stain where the hollow points spark\nCatch a nigga slippin', put that bitch on a shirt\nTen toes down while we dig in the dirt\nYeah, we evil with the rhythm and the flow\nMemphis sound hittin' everywhere that we go\nScreamin' in the alley, nobody hear a sound\nWatch another body sink into the ground" },
       { id: "b_phk_11", type: "outro", label: "Outro", text: "Yeah, mane\nMemphis underground\nTuneBloom Evil Phonk\nRest in piss\nSmoke clearing out into the night\n(Mane!)" }
     ]
@@ -170,7 +170,7 @@
       { id: "b_wcb_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Watch the tires smoke when we hit that slide\nEvery single rider down for the ride\nHop on the hood, let the whole thing spin\nNiggas in the back countin' up that win\nThrow your dubs in the air if you feeling the vibe\nTrue West Coast, yeah you know it's the tribe" },
       { id: "b_wcb_7", type: "chorus", label: "Chorus 2", text: "Sideshow geometry, we rockin' the bay\nDo a whole thirty in the middle of the day\nTell that square nigga get the fuck out the way\nReal West Coast, ain't a thing you can say\nGas, brake, dip, let the bass drum drop\nWe be goin' dumb and we never gon' stop\nPop that collar, keep the dollar on lock\nKing of the pavement, runnin' the block" },
       { id: "b_wcb_8", type: "bridge", label: "Bridge", text: "Tell the DJ let the funky synth whine\nRoll another blunt of the California pine\nStand on the roof, throw the W high\nReppin' for the coast till the day that I die\nKeep the bass in the trunk and the top drop low\nThis is how the real West Coast riders go\n(West Coast! For life!)" },
-      { id: "b_wcb_9", type: "solo", label: "Solo", text: "(Talk that shit!)\n(Let that talkbox cry, baby!)\n(Yee! Mob on 'em!)\n(Bay Area forever!)" },
+      { id: "b_wcb_9", type: "solo", label: "Solo", text: "(Talk that shit!)\n(Yeah!)\n(Yee! Mob on 'em!)\n(Bay Area forever!)" },
       { id: "b_wcb_10", type: "chorus", label: "Chorus 3", text: "Sideshow geometry, we rockin' the bay\nDo a whole thirty in the middle of the day\nTell that square nigga get the fuck out the way\nReal West Coast, ain't a thing you can say\nGas, brake, dip, let the bass drum drop\nWe be goin' dumb and we never gon' stop\nPop that collar, keep the dollar on lock\nKing of the pavement, runnin' the block" },
       { id: "b_wcb_11", type: "outro", label: "Outro", text: "Yee!\nTuneBloom West Coast Master\nGas, brake, dip\nSpin the block one more time\nOut\n(Get stupid!)" }
     ]
@@ -220,9 +220,59 @@
       { id: "b_dtp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Punching on the keys, watch the balance go green\nSmoothest young scammer that you ever have seen\nServer in Iceland, proxy is tight\nMaking hundred-thousand dollar deposits tonight\nATM spitting cash right into my lap\nTell these little broke rappers get off the map" },
       { id: "b_dtp_7", type: "chorus", label: "Chorus 2", text: "Wire transfers at five AM, nigga check the account\nEvery single day we withdraw the maximum amount\nGot the bins, got the slips, got the full-zips loaded\nWhole database in my hand, server just exploded\nYeah, we off the leash with the cash and the punch\nSteak and lobster dinner for a casual lunch\nFuck a job application, we just print out the check\nPut a half a million dollar chain right round the neck" },
       { id: "b_dtp_8", type: "bridge", label: "Bridge", text: "Swipe it once, swipe it twice, do the transaction clear?\nSmilin' at the camera with a forty-carat ear\nNo trace, no case, hit the highway and skate\nNiggas talkin' down while we clearin' the plate\nGot the cash in duffle bags, flying first class\nWatching all the jealous motherfuckers kiss my ass\n(Yeah! What?)" },
-      { id: "b_dtp_9", type: "solo", label: "Solo", text: "(Huh? What?)\n(Count that shit up right now!)\n(Punch the keys!)\n(Cash out!)" },
+      { id: "b_dtp_9", type: "solo", label: "Solo", text: "(Huh? What?)\n(Count that shit up right now!)\n(Punch it!)\n(Cash out!)" },
       { id: "b_dtp_10", type: "chorus", label: "Chorus 3", text: "Wire transfers at five AM, nigga check the account\nEvery single day we withdraw the maximum amount\nGot the bins, got the slips, got the full-zips loaded\nWhole database in my hand, server just exploded\nYeah, we off the leash with the cash and the punch\nSteak and lobster dinner for a casual lunch\nFuck a job application, we just print out the check\nPut a half a million dollar chain right round the neck" },
       { id: "b_dtp_11", type: "outro", label: "Outro", text: "Transaction confirmed\nFunds deposited\nTuneBloom Detroit Punch Master\nAnother hundred bands in the account\n(What? Huh? Out!)" }
+    ]
+  });
+
+  registry.register({
+    id: "dnb_liquid_roller",
+    title: "Liquid Skyline",
+    genre: "Drum and Bass",
+    subgenre: "Liquid Drum & Bass / Atmospheric Jungle",
+    bpm: 174,
+    key: "F minor",
+    mood: "Euphoric, driving, rolling, soulful, deep.",
+    vocals: "Soulful female soprano with airy dynamic breath, high falsetto sustains, pitching vocal chops, subtle delay throws.",
+    arrangement: "Deep warm 808 Reece sub-bass, fast rolling 174 BPM Amen-derived drum break, Rhodes jazz chord stabs, shimmering vocal pad.",
+    blocks: [
+      { id: "b_dnb_1", type: "intro", label: "Intro", text: "Rolling through the late night sky\nWatching every single shadow fly\n(Liquid motion...)\n(Take it higher...)\n(Yeah, yeah)" },
+      { id: "b_dnb_2", type: "verse", label: "Verse 1", text: "City lights bleeding through the rainy glass\nWatching all the rapid transit shadows pass\nOne hundred seventy-four on the dashboard dial\nHaven't seen your face in a little while\nRolling bassline moving underneath my feet\nSynchronized perfectly to the breakbeat\nFloating on the current of the midnight sound\nLeaving all our worries on the solid ground\nFeel the sub-bass tearing through the open space\nFinding our salvation in this sacred place" },
+      { id: "b_dnb_3", type: "build", label: "Build-Up 1", text: "Climbing through the frequency, higher and higher\nSetting every single dark cloud on fire\nThree, two, one, let the bassline roll!\n(Let it roll!)\n(Higher!)" },
+      { id: "b_dnb_4", type: "drop", label: "Drop 1", text: "Rolling through the skyline!\n(Yeah! Feel the roll!)\n(Liquid motion in the soul!)\n(Take it higher!)\n(Yeah, yeah, yeah!)" },
+      { id: "b_dnb_5", type: "verse", label: "Verse 2", text: "Lush chord progression walking up the scale\nOur connection is a ship that'll never fail\nEchoes in the headphones ringing crystal clear\nNothing in this universe that we can fear\nFast drums rolling like the ocean wave\nThis is the dynamic energy we crave\nGlide through the turn with your hand in mine\nCrossing every single boundary and line" },
+      { id: "b_dnb_6", type: "build", label: "Build-Up 2", text: "Climbing through the frequency, higher and higher\nSetting every single dark cloud on fire\nThree, two, one, let the bassline roll!\n(Roll it out!)" },
+      { id: "b_dnb_7", type: "drop", label: "Drop 2", text: "Rolling through the skyline!\n(Yeah! Feel the roll!)\n(Deep bass resonance!)\n(Take it higher!)\n(Let it roll!)" },
+      { id: "b_dnb_8", type: "breakdown", label: "Breakdown", text: "When the drums cut out and the air is still\nFeel the space that our love can fill\nSuspended in the clouds at the break of dawn\nAll the pain from the past is gone\n(Floating in the atmosphere...)" },
+      { id: "b_dnb_9", type: "solo", label: "Solo", text: "(Soar!)\n(Take it all the way!)\n(Yeah!)\n(Higher!)" },
+      { id: "b_dnb_10", type: "drop", label: "Drop 3", text: "Rolling through the skyline!\n(Yeah! Maximum energy!)\n(Liquid roller in the night!)\n(Take it to the dawn!)\n(Yeah!)" },
+      { id: "b_dnb_11", type: "outro", label: "Outro", text: "Liquid skyline...\nFading out on the break...\nTuneBloom Drum & Bass Master\n(Rolling... gone)" }
+    ]
+  });
+
+  registry.register({
+    id: "ukg_london_garage",
+    title: "South London 2-Step",
+    genre: "UK Garage",
+    subgenre: "UK Garage / 2-Step Bassline",
+    bpm: 134,
+    key: "A minor",
+    mood: "Bouncy, swaggering, infectious, late-night, slick.",
+    vocals: "Slick British male sing-rap tenor, rapid conversational cadence, pitched female vocal sample chops, soulful call-and-response ad-libs.",
+    arrangement: "Shuffle-quantized 2-step kick and rimshot groove, warped FM Donk bassline, warm Rhodes chords, vinyl crackle, tape delay sweeps.",
+    blocks: [
+      { id: "b_ukg_1", type: "intro", label: "Intro", text: "Yeah, South London in the building\nTuneBloom two-step in full effect\nCheck the swing on the hi-hats\n(Rewind!)\n(Selecta, let the bass bounce!)" },
+      { id: "b_ukg_2", type: "verse", label: "Verse 1", text: "Step in the venue, air smelling sweet\nBouncers on the door, people dancing in the street\nTwo-step groove got the ladies looking clean\nBest underground rhythm that you've ever seen\nWhisper in her ear with that London slang\nStep to the bar with the whole damn gang\nChampagne flute overflowing to the brim\nBassline warped and it's looking real grim\nShoes looking fresh, got the Prada on lock\nDancing with my lady till it's five on the clock" },
+      { id: "b_ukg_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "Feel that swing when the snare hits late\nLondon city lifestyle determining our fate\nStep to the left, then you pivot on the right\nWe are taking over the entire UK night\n(Rewind!)\n(Drop the Donk!)" },
+      { id: "b_ukg_4", type: "chorus", label: "Chorus 1", text: "South London two-step bouncing in the chest\nEverybody knowing that the UK is the best\nBassline warped, got the speakers in a spin\nChampagne popping, another major win\n(Yeah, two-step!)\n(Keep that shuffle tight!)\n(Oi! Let's go!)" },
+      { id: "b_ukg_5", type: "verse", label: "Verse 2", text: "From Brixton to Hackney, we shut down the place\nSeeing all the joy written on every single face\nDJ on the decks with the vinyl slipmat\nCatching every single lyric just like that\nTwo-tone jacket with the zip pulled high\nWatching all the luxury vehicles drive by\nGot that rhythm locked right inside the blood\nRising up together straight out of the mud" },
+      { id: "b_ukg_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Feel that swing when the snare hits late\nLondon city lifestyle determining our fate\nStep to the left, then you pivot on the right\nWe are taking over the entire UK night" },
+      { id: "b_ukg_7", type: "chorus", label: "Chorus 2", text: "South London two-step bouncing in the chest\nEverybody knowing that the UK is the best\nBassline warped, got the speakers in a spin\nChampagne popping, another major win" },
+      { id: "b_ukg_8", type: "bridge", label: "Bridge", text: "Pull up the selector, let the vocal chop play\nWe don't care what anybody has to say\nFrom the pirate radio tower in the sky\nKeeping the authentic underground vibe high\n(Pull it up!)\n(Rewind that track!)" },
+      { id: "b_ukg_9", type: "solo", label: "Solo", text: "(Oi!)\n(Check the bass!)\n(Rewind!)\n(Let it swing!)" },
+      { id: "b_ukg_10", type: "chorus", label: "Chorus 3", text: "South London two-step bouncing in the chest\nEverybody knowing that the UK is the best\nBassline warped, got the speakers in a spin\nChampagne popping, another major win\n(Oi! UK Garage Master!)" },
+      { id: "b_ukg_11", type: "outro", label: "Outro", text: "Proper two-step\nTuneBloom London Master\nCatch you on the next block\nDone\n(Rewind)" }
     ]
   });
 
@@ -240,13 +290,13 @@
       { id: "b_ama_1", type: "intro", label: "Intro", text: "Yelele... Woza!\nTuneBloom Amapiano\nLet the log drum breathe, Jo'burg style\nSiyaphambili, halala, asambe!\n(Yelele mama, yelele baba)\n(Woza, woza, woza!)" },
       { id: "b_ama_2", type: "verse", label: "Verse 1", text: "Midnight cool air falling on the city\nDancing till the morning with my baby pretty\nDeep bass taking all the weight off the mind\nPrettiest groove that you ever could find\nMove to the left then you shift to the right\nLighting the fire in the middle of night\nEverybody know say the music is pure\nNatural medicine, ultimate cure\nFrom Soweto streets to the Sandton lights\nWe celebrate the rhythm of African nights\nDrink in the hand and the soul feeling free\nNothing in this world that I'd rather be" },
       { id: "b_ama_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "Woza weekend, woza dance\nGive the heavy rhythm a chance\nFeel the sub hitting down in the chest\nSouth African sound is the absolute best\nShaker is moving and keeping the time\nHarmonies ringing so pure and sublime\n(Woza, woza, asambe sonke!)" },
-      { id: "b_ama_4", type: "drop", label: "Drop 1", text: "Woza! Asambe!\n(Yelele mama, asambe!)\n(Woza, woza, let the log drum roll!)\n(Halala, halala, feel the bass!)\n(Asambe sonke, siyaya!)\n(Woza! Asambe!)" },
+      { id: "b_ama_4", type: "drop", label: "Drop 1", text: "Woza! Asambe!\n(Yelele mama, asambe!)\n(Woza, woza, woza!)\n(Halala, halala!)\n(Asambe sonke, siyaya!)\n(Woza! Asambe!)" },
       { id: "b_ama_5", type: "verse", label: "Verse 2", text: "Table filled with laughter, friends all around\nLost inside the beauty of the piano sound\nNo trouble, no drama, we keeping it clean\nSmoothest vibration the world's ever seen\nTake a little sip, let the melody glide\nNothing to hold back, nowhere to hide\nLog drum rolling with intricate rolls\nHealing the spirit and freeing our souls\nJoy in our eyes as the morning comes near\nLifting away every burden and fear\nDance with me now till the sun starts to rise\nPure golden light in the African skies" },
       { id: "b_ama_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Woza weekend, woza dance\nGive the heavy rhythm a chance\nFeel the sub hitting down in the chest\nSouth African sound is the absolute best\nShaker is moving and keeping the time\nHarmonies ringing so pure and sublime\n(Halala! Siyaya!)" },
-      { id: "b_ama_7", type: "drop", label: "Drop 2", text: "Woza! Halala!\n(Halala, halala, asambe!)\n(Log drum bounce on the one and two!)\n(Yelele mama, siyaphambili!)\n(Woza, woza, Jo'burg heat!)\n(Asambe sonke!)" },
+      { id: "b_ama_7", type: "drop", label: "Drop 2", text: "Woza! Halala!\n(Halala, halala, asambe!)\n(Hey! Hey! Hey!)\n(Yelele mama, siyaphambili!)\n(Woza, woza, Jo'burg heat!)\n(Asambe sonke!)" },
       { id: "b_ama_8", type: "breakdown", label: "Breakdown", text: "When the night is deep and still\nFeel the space that spirit fill\nMusic is life, music is peace\nLet the good vibration never cease\nHold hands together and look at the sky\nWatching the constellations rolling on by\n(Peace in our hearts, love in the sound)" },
-      { id: "b_ama_9", type: "solo", label: "Solo", text: "(Yelele...)\n(Woza mama!)\n(Let the jazz piano dance!)\n(Halala, halala!)\n(Asambe!)" },
-      { id: "b_ama_10", type: "drop", label: "Drop 3", text: "Asambe sonke!\n(Woza! Asambe!)\n(Maximum energy on the floor!)\n(Yelele mama, halala!)\n(Jo'burg vibration taking control!)\n(Woza! Halala!)" },
+      { id: "b_ama_9", type: "solo", label: "Solo", text: "(Yelele...)\n(Woza mama!)\n(Halala, halala!)\n(Asambe!)" },
+      { id: "b_ama_10", type: "drop", label: "Drop 3", text: "Asambe sonke!\n(Woza! Asambe!)\n(Yelele mama, halala!)\n(Jo'burg vibration!)\n(Woza! Halala!)" },
       { id: "b_ama_11", type: "outro", label: "Outro", text: "Yelele... Johannesburg\nTuneBloom Master\nSiyabonga kakhulu\nPeace and love\n(Halala... asambe)" }
     ]
   });
@@ -271,7 +321,7 @@
       { id: "b_jcb_7", type: "drop", label: "Drop 2", text: "Break it down! Let's go!\n(Rock! Rock! Hit the floor!)\n(Rock your hips! Shake that ass!)\n(Put the whole room on blast!)\n(Go! Go! Go! Go!)" },
       { id: "b_jcb_8", type: "breakdown", label: "Breakdown", text: "Jersey vibe in the atmosphere\nMaking it crystal clean and clear\nWhen the kick drum hits the floor\nYou already know what we came here for\nTake a quick breath, get ready to roll\nJersey club rhythm taking control" },
       { id: "b_jcb_9", type: "build", label: "Build-Up 3", text: "All my people make some noise!\nTurn up the power for the girls and boys!\nThree... two... one... let's go!" },
-      { id: "b_jcb_10", type: "drop", label: "Drop 3", text: "Rock your hips! Shake that ass!\nJersey Master in the class!\n(Work it! Let's go! Rock it out!)\n(Maximum bounce on the floor!)\n(Go! Go! Go! Go!)" },
+      { id: "b_jcb_10", type: "drop", label: "Drop 3", text: "Rock your hips! Shake that ass!\nJersey Master in the class!\n(Work it! Let's go! Rock it out!)\n(Maximum bounce!)\n(Go! Go! Go! Go!)" },
       { id: "b_jcb_11", type: "outro", label: "Outro", text: "Yeah! TuneBloom Jersey Club Master\nDrop that beat to a dead stop\nNewark stand up\nDrop\n(Work!)" }
     ]
   });
@@ -295,7 +345,7 @@
       { id: "b_afr_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Oya shake am, roll am, give me that wine\nEvery single rhythm design so divine\nFeel the heat in the room, temperature high\nReaching straight to the African sky\nNobody fit bring the energy down\nWe be the finest people in town" },
       { id: "b_afr_7", type: "chorus", label: "Chorus 2", text: "Lagos vibrations inside my soul\nThis heavy rhythm done take control\nGirl your body bad, you dey make me lose my head\nEverything sweet like the butter and the bread\n(Oya dance, oya move, make you feel the sound)\n(Best vibrations in the whole damn town)" },
       { id: "b_afr_8", type: "bridge", label: "Bridge", text: "Ehn ehn, take it down easy\nLet the sweet horn section blow breezy\nNobody can kill this natural vibe\nOne love for the entire tribe\nFrom Nigeria to Ghana, Jamaica to the UK\nCelebrate the music each and every day\n(One love! Oshey!)" },
-      { id: "b_afr_9", type: "solo", label: "Solo", text: "(Oya! Let the guitar sing!)\n(Feel the brass, feel the horn!)\n(Kilode! Sweet vibration!)\n(Oshey!)" },
+      { id: "b_afr_9", type: "solo", label: "Solo", text: "(Oya!)\n(Sweet vibration!)\n(Kilode!)\n(Oshey!)" },
       { id: "b_afr_10", type: "chorus", label: "Chorus 3", text: "Lagos vibrations inside my soul\nThis heavy rhythm done take control\nGirl your body bad, you dey make me lose my head\nEverything sweet like the butter and the bread\n(Oya dance, oya move, make you feel the sound)\n(Best vibrations in the whole damn town)" },
       { id: "b_afr_11", type: "outro", label: "Outro", text: "Yeah... Lagos to the world\nOshey!\nTuneBloom Master\nBlessings on blessings\nDone" }
     ]
@@ -345,7 +395,7 @@
       { id: "b_dh_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Wine up, bend down, touch di floor\nGive di selector something fi adore\nTemperature boiling right to di max\nFull dancehall power, straight facts\nLock down di venue from front to di back\nNobody can stop this aggressive attack" },
       { id: "b_dh_7", type: "chorus", label: "Chorus 2", text: "Kingston heatwave inna di place!\nWine up your body and set di pace!\nGyal you a win, nobody fit contest\nDancehall champion, you a di best!" },
       { id: "b_dh_8", type: "bridge", label: "Bridge", text: "Rewind selecta, make it roll again\nFrom Kingston town straight to every friend\nAuthentic energy dat cannot fake\nFeel how di heavy ground start to shake\nBig up Jamaica, big up di world\nEvery rude boy and every bad girl\n(Pull up!)" },
-      { id: "b_dh_9", type: "solo", label: "Solo", text: "(Pull up! Brap!)\n(Selector, drop di bass!)\n(Wine up, gyal!)\n(Full dancehall power!)" },
+      { id: "b_dh_9", type: "solo", label: "Solo", text: "(Pull up! Brap!)\n(Drop it!)\n(Wine up, gyal!)\n(Full power!)" },
       { id: "b_dh_10", type: "chorus", label: "Chorus 3", text: "Kingston heatwave inna di place!\nWine up your body and set di pace!\nGyal you a win, nobody fit contest\nDancehall champion, you a di best!\n(Pull up dat!)" },
       { id: "b_dh_11", type: "outro", label: "Outro", text: "Brap! Kingston sound\nTuneBloom Dancehall Master\nSelector sign off\nDone\n(Pull up!)" }
     ]
@@ -370,7 +420,7 @@
       { id: "b_syn_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Sensors ignite, engines awake\nToo much momentum for the system to break\nTarget acquired, locking the sight\nWe burn across the cybernetic night\nVoltage climbing past the critical peak\nFinding the power that we came here to seek" },
       { id: "b_syn_7", type: "chorus", label: "Chorus 2", text: "Push it into neon overdrive\nOnly the electric are gonna survive\nShatter the barrier, tear up the street\nLocked to the pulse of the digital beat" },
       { id: "b_syn_8", type: "bridge", label: "Bridge", text: "Overload the circuit, let the voltage peak\nFinding the transcendence that we came to seek\nFrequency rising, tearing through the noise\nListen to the thunder of the engine voice\nNo speed limit in the matrix core\nShatter the ceiling, break down the door\n(Redline!)" },
-      { id: "b_syn_9", type: "solo", label: "Solo", text: "(Overdrive!)\n(Systems redline!)\n(Feel the voltage!)\n(Pure electronic speed!)" },
+      { id: "b_syn_9", type: "solo", label: "Solo", text: "(Overdrive!)\n(Redline!)\n(Hold on!)\n(Speed!)" },
       { id: "b_syn_10", type: "chorus", label: "Chorus 3", text: "Push it into neon overdrive\nOnly the electric are gonna survive\nShatter the barrier, tear up the street\nLocked to the pulse of the digital beat\nFaster than light through the chrome corridor\nLeaving the past on the burning floor" },
       { id: "b_syn_11", type: "outro", label: "Outro", text: "System cooling down...\nDecelerating from orbit...\nPulse... fading... static\nMission complete\n(Power down)" }
     ]
@@ -394,8 +444,8 @@
       { id: "b_neo_5", type: "verse", label: "Verse 2", text: "Unfinished melodies written on a page\nStepping off the rush of the modern stage\nJust your fingers tapping out a simple chord\nRichest peace that we could afford\nHumming sweet counterpoint along with me\nPure natural acoustic harmony\nOutside the traffic crawls along the street\nInside we're floating to our own heart beat" },
       { id: "b_neo_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "No rush against the ticking hand\nDrifting like golden desert sand\nYou smile and tilt your head away\nNothing else matters in the day\nHarmonies breathing through the air\nWithout a single worry or a care" },
       { id: "b_neo_7", type: "chorus", label: "Chorus 2", text: "Caught in the golden hour light\nEverything feels easy and right\nLet the world keep rushing on by\nWe've got the sun and the morning sky" },
-      { id: "b_neo_8", type: "bridge", label: "Bridge", text: "No hurry, no race to win\nJust breathing the morning in\nHarmonies settling in the air\nWithout a single heavy care\nLet the Rhodes piano carry us away\nTo the promise of a brand new day\n(Stay right here)" },
-      { id: "b_neo_9", type: "solo", label: "Solo", text: "(Mmm... yeah)\n(Golden hour sweetness)\n(Let the horn breathe)\n(Pure love)" },
+      { id: "b_neo_8", type: "bridge", label: "Bridge", text: "No hurry, no race to win\nJust breathing the morning in\nHarmonies settling in the air\nWithout a single heavy care\nLet the sweet melody carry us away\nTo the promise of a brand new day\n(Stay right here)" },
+      { id: "b_neo_9", type: "solo", label: "Solo", text: "(Mmm... yeah)\n(Golden hour sweetness)\n(Breathe in)\n(Pure love)" },
       { id: "b_neo_10", type: "chorus", label: "Chorus 3", text: "Caught in the golden hour light\nEverything feels easy and right\nLet the world keep rushing on by\nWe've got the sun and the morning sky\nWrapped inside this gentle melodic stream\nLiving inside a waking dream" },
       { id: "b_neo_11", type: "outro", label: "Outro", text: "Stay right here...\nGolden hour...\nJust you and me\n(Mmm... yeah)\n(Fade slow)" }
     ]
@@ -420,7 +470,7 @@
       { id: "b_pop_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Past the dunes where the grasses sway\nWatching the daylight slip away\nColors bleeding into the tide\nWith the whole wide world on our side\nFeel the current pulling us along\nSinging our forgotten coastal song" },
       { id: "b_pop_7", type: "chorus", label: "Chorus 2", text: "Wash away into the coastal tide\nNowhere left we need to hide\nFloating on the current out to sea\nJust you and the open horizon with me" },
       { id: "b_pop_8", type: "bridge", label: "Bridge", text: "Let the waves crash high above\nEverything we were dreaming of\nCatch the swell before it breaks\nFor all our memories' sakes\nInto the mist where the stars awake\nFor every single promise that we make\n(Into the blue...)" },
-      { id: "b_pop_9", type: "solo", label: "Solo", text: "(Ooh...)\n(Lost in the reverb mist...)\n(Guitars shimmering across the sea...)\n(Floating away...)" },
+      { id: "b_pop_9", type: "solo", label: "Solo", text: "(Ooh...)\n(Lost in the mist...)\n(Floating...)\n(Floating away...)" },
       { id: "b_pop_10", type: "chorus", label: "Chorus 3", text: "Wash away into the coastal tide\nNowhere left we need to hide\nFloating on the current out to sea\nJust you and the open horizon with me\nShimmering light on the ocean floor\nNever going back to the crowded shore" },
       { id: "b_pop_11", type: "outro", label: "Outro", text: "Out to sea...\nJust you and me...\nWaves receding in the dusk...\n(Fade into the mist...)\n(Forever...)" }
     ]
@@ -452,6 +502,31 @@
   });
 
   registry.register({
+    id: "poppunk_all_my_fault",
+    title: "All My Fault",
+    genre: "Pop Punk",
+    subgenre: "Modern Pop-Punk / Emo Trap Revival",
+    bpm: 160,
+    key: "E major",
+    mood: "Aggressive, angsty, high-energy, infectious, cathartic.",
+    vocals: "Gritty, soaring male pop-punk tenor with chest belting, layered double-tracked chorus, shouted background gang vocals.",
+    arrangement: "Driven overdriven Marshall guitar power chords, fast driving 160 BPM skate-punk drum kit, melodic bassline, subtle 808 sub drops.",
+    blocks: [
+      { id: "b_ppk_1", type: "intro", label: "Intro", text: "Yeah! One, two, three, four!\n(Go!)\n(Here we go again!)" },
+      { id: "b_ppk_2", type: "verse", label: "Verse 1", text: "Woke up at noon with my clothes on the floor\nHeadache screaming, heading straight for the door\nLeft my keys and my phone in your car\nGuess we took that argument way too far\nStaring at the ceiling while the room starts to spin\nWondering how the hell I let you under my skin\nEvery little promise that we threw in the trash\nWatching every single bridge we built turn to ash\nSkate down the avenue to clear out my head\nRemembering every bitter word that you said" },
+      { id: "b_ppk_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "Tired of the drama, tired of the blame\nBoth of us addicted to this stupid ass game\nTurn the amp up to ten, let it blast through the wall\nGetting ready for the catastrophic downfall!\n(Yeah! Downfall!)" },
+      { id: "b_ppk_4", type: "chorus", label: "Chorus 1", text: "Say it's all my fault, yeah I know that it's true!\nI'm so sick and tired of screaming at you!\nPack up all my shit and throw it out in the street!\nWatch me land right back on my own two feet!\nNever coming back, you can cross out my name!\nI'm done being a pawn in your toxic ass game!\n(All my fault!)\n(Go!)" },
+      { id: "b_ppk_5", type: "verse", label: "Verse 2", text: "Saw your best friend, told her tell you goodbye\nI don't have a single tear that's left here to cry\nPlaying fast chords in the garage with the boys\nMaking up for every second lost in the noise\nRipped up jeans and my old pair of Vans\nDoing whatever the fuck that I can\nNo more curfew and no more control\nTaking back the dignity and heart of my soul" },
+      { id: "b_ppk_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Tired of the drama, tired of the blame\nBoth of us addicted to this stupid ass game\nTurn the amp up to ten, let it blast through the wall\nGetting ready for the catastrophic downfall!" },
+      { id: "b_ppk_7", type: "chorus", label: "Chorus 2", text: "Say it's all my fault, yeah I know that it's true!\nI'm so sick and tired of screaming at you!\nPack up all my shit and throw it out in the street!\nWatch me land right back on my own two feet!\nNever coming back, you can cross out my name!\nI'm done being a pawn in your toxic ass game!" },
+      { id: "b_ppk_8", type: "bridge", label: "Bridge", text: "Remember the night that we sat on your roof?\nWe were looking for love, but we needed the proof\nNow the memory is burning away in the dark\nAll it took was a single and dangerous spark\n(Burn it down!)\n(Go!)" },
+      { id: "b_ppk_9", type: "solo", label: "Solo", text: "(Yeah!)\n(Rip that guitar!)\n(One more time!)\n(Go! Go! Go!)" },
+      { id: "b_ppk_10", type: "chorus", label: "Chorus 3", text: "Say it's all my fault, yeah I know that it's true!\nI'm so sick and tired of screaming at you!\nPack up all my shit and throw it out in the street!\nWatch me land right back on my own two feet!\nNever coming back, you can cross out my name!\nI'm done being a pawn in your toxic ass game!" },
+      { id: "b_ppk_11", type: "outro", label: "Outro", text: "Yeah, it's all my fault\nAnd I don't give a fuck\nTuneBloom Pop Punk Master\n(Done!)" }
+    ]
+  });
+
+  registry.register({
     id: "metalcore_quantum_break",
     title: "Quantum Break",
     genre: "Metalcore",
@@ -469,8 +544,8 @@
       { id: "b_met_5", type: "verse", label: "Verse 2", text: "Zero tolerance for the silent decay\nWash all the compromised illusions away\nBinary structures collapse to dust\nIn our own conviction we put our trust\nFeel the recoil, embrace the sound\nNothing can tear our foundation down!\nPolyrhythmic fury inside the chest\nPutting our mortal fear to rest\nLook at the horizon beginning to bleed\nThis is the decisive hour we need!" },
       { id: "b_met_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Tearing through the veil of reality\nSevering the chains of our gravity\nLook into the fire and take the stand\nEverything we built is in our hands!\nNo more surrender, no more decay\nWash all the compromised visions away!" },
       { id: "b_met_7", type: "chorus", label: "Chorus 2", text: "Stand in the eye of the quantum storm!\nReinvent the ashes and take new form!\nThrough the darkest void we ignite the spark\nLeave an everlasting light in the dark!" },
-      { id: "b_met_8", type: "breakdown", label: "Breakdown", text: "BREAK THE MATRIX!\n(BLEGH!)\n(Crushing half-time breakdown!)\n(Shatter the perimeter!)\n(DIE!)" },
-      { id: "b_met_9", type: "solo", label: "Solo", text: "(Soar!)\n(Sweep through the timeline!)\n(Ignite the spark!)\n(Never surrender!)" },
+      { id: "b_met_8", type: "breakdown", label: "Breakdown", text: "BREAK THE MATRIX!\n(BLEGH!)\n(Break!)\n(Shatter!)\n(DIE!)" },
+      { id: "b_met_9", type: "solo", label: "Solo", text: "(Soar!)\n(Yeah!)\n(Ignite the spark!)\n(Never surrender!)" },
       { id: "b_met_10", type: "chorus", label: "Chorus 3", text: "Stand in the eye of the quantum storm!\nReinvent the ashes and take new form!\nThrough the darkest void we ignite the spark\nLeave an everlasting light in the dark!\nRising above where the titans fall\nAnswering the final battle call!" },
       { id: "b_met_11", type: "outro", label: "Outro", text: "Quantum break\nNothing remains of the cage\nWe are unbroken\nSilence" }
     ]
@@ -495,7 +570,7 @@
       { id: "b_cnt_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Sun sinking down past the harvest grain\nNothing quite cures like an open plain\nTurn the dial up till the speakers roar\nTo the songs that we've been waiting for\nGot the cool breeze blowing through the truck\nThanking the Lord for a little bit of luck" },
       { id: "b_cnt_7", type: "chorus", label: "Chorus 2", text: "Running on dust, diesel, and prayers tonight\nChasing the red glow of the taillight\nNothing in this world can slow me down\nThirty miles past the edge of town\nGot a full tank and a clear blue sky\nWatching all the hard miles roll on by" },
       { id: "b_cnt_8", type: "bridge", label: "Bridge", text: "There's a comfort in the rhythm of the highway line\nKnowing that the future's gonna turn out fine\nKeep your eyes on the horizon ahead\nRemembering every word that mama said\nHonest living and a steady hand\nRooted deep inside this open land\n(Roots run deep)" },
-      { id: "b_cnt_9", type: "solo", label: "Solo", text: "(Play that pedal steel...)\n(Yeah, pick it clean!)\n(Southern soul!)\n(Roll on!)" },
+      { id: "b_cnt_9", type: "solo", label: "Solo", text: "(Pick it clean!)\n(Yeah!)\n(Southern soul!)\n(Roll on!)" },
       { id: "b_cnt_10", type: "chorus", label: "Chorus 3", text: "Running on dust, diesel, and prayers tonight\nChasing the red glow of the taillight\nNothing in this world can slow me down\nThirty miles past the edge of town\nGot a full tank and a clear blue sky\nWatching all the hard miles roll on by" },
       { id: "b_cnt_11", type: "outro", label: "Outro", text: "Just rolling on home...\nDust and diesel\nCricket songs in the evening breeze\nTuneBloom Country Master\n(All the way home)" }
     ]
@@ -520,7 +595,7 @@
       { id: "b_lat_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "La música sube y no podemos parar\nEl bajo retumba hasta hacernos vibrar\nBailando pegados bajo el resplandor\nSintiendo en el pecho este gran calor\nNo hay marcha atrás cuando empieza a sonar\nEste dembow que te va a conquistar" },
       { id: "b_lat_7", type: "chorus", label: "Chorus 2", text: "Hay fuego en la noche, déjate llevar\nNadie como tú me puede controlar\nCon ese movimiento me vas a matar\nHasta que la luna se vaya a ocultar" },
       { id: "b_lat_8", type: "bridge", label: "Bridge", text: "Suavemente al oído susúrrame\nQue esta noche nunca se termine\nElevando el tempo sin condición\nSomos la chispa de la creación\nBajo las estrellas bailando los dos\nSin despedidas, sin ningún adiós\n(Dale suave)" },
-      { id: "b_lat_9", type: "solo", label: "Solo", text: "(Dale!)\n(Fuego en la noche!)\n(Siente la guitarra flamenca!)\n(Pegadito, mami!)" },
+      { id: "b_lat_9", type: "solo", label: "Solo", text: "(Dale!)\n(Fuego en la noche!)\n(Siente el calor!)\n(Pegadito, mami!)" },
       { id: "b_lat_10", type: "chorus", label: "Chorus 3", text: "Hay fuego en la noche, déjate llevar\nNadie como tú me puede controlar\nCon ese movimiento me vas a matar\nHasta que la luna se vaya a ocultar\n(Fuego en la noche... tú y yo)\n(Hasta que salga el sol)" },
       { id: "b_lat_11", type: "outro", label: "Outro", text: "Así mismito...\nHasta que salga el sol\nTuneBloom Master Latino\nFuego" }
     ]
@@ -620,7 +695,7 @@
       { id: "b_orc_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "Aeterna lux, veritas in armis\nSurge ad astra, victoria nos vocat\nWings of iron soaring through the tempest deep\nA sacred vigil that we swear to keep" },
       { id: "b_orc_7", type: "chorus", label: "Chorus 2", text: "Rise from the ashes of the battleground!\nWhere destiny and courage can be found!\nWith wings of iron we ascend the crest\nPutting our mortal fear to rest!" },
       { id: "b_orc_8", type: "breakdown", label: "Breakdown", text: "In silentio noctis\nGloria in excelsis deo\nSanctus, sanctus, requiem aeternam\nLight descending on the brave\n(Aeterna...)" },
-      { id: "b_orc_9", type: "solo", label: "Solo", text: "(Victoria!)\n(Aeterna lux!)\n(Solo violin soaring to the heavens!)\n(Ascendit in astra!)" },
+      { id: "b_orc_9", type: "solo", label: "Solo", text: "(Victoria!)\n(Aeterna lux!)\n(Surge ad astra!)\n(Ascendit in astra!)" },
       { id: "b_orc_10", type: "chorus", label: "Chorus 3", text: "Rise from the ashes of the battleground!\nWhere destiny and courage can be found!\nWith wings of iron we ascend the crest\nPutting our mortal fear to rest!\nAeterna gloria, triumphus animi\nWe conquer through the sacred symphony!" },
       { id: "b_orc_11", type: "outro", label: "Outro", text: "Victoria nos vocat\nAscendit in astra\nTuneBloom Cinematic Master\nAmen" }
     ]
