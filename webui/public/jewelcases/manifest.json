@@ -1,10 +1,17 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 3,
+  "total": 10,
   "covers": [
+    "Dark.jpg",
+    "bears.jpg",
     "chips.jpg",
+    "harp.jpg",
+    "planet.jpg",
+    "retro.jpg",
     "space.jpg",
-    "sunburst.jpg"
+    "status.jpg",
+    "sunburst.jpg",
+    "valhalla.jpg"
   ]
 }
