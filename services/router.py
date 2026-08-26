@@ -200,14 +200,16 @@ def get_user_registry_candidates() -> List[Path]:
     if is_standalone_mode():
         return [
             BACKEND_ROOT / "webui" / "config" / "users.json",
-            Path.cwd() / "webui" / "config" / "users.json"
+            Path.cwd() / "webui" / "config" / "users.json",
+            BACKEND_ROOT / "config" / "users.json"
         ]
 
     resolved_site = resolve_site_root()
     return [
-        resolved_site / "config" / "users.json",
         BACKEND_ROOT / "config" / "users.json",
         Path.cwd() / "config" / "users.json",
+        resolved_site / "config" / "users.json",
+        BACKEND_ROOT / "webui" / "config" / "users.json",
         SERVICES_DIR / "config" / "users.json"
     ]
 
@@ -234,12 +236,14 @@ def load_user_registry() -> Tuple[Dict[str, Any], Path]:
         "administrator": {
             "display_name": "Administrator",
             "daily_quota": 999,
-            "assigned_theme": "cyber_neon"
+            "assigned_theme": "cyber_neon",
+            "custom_permissions": ["admin", "unlimited_quota"]
         },
         "admin": {
             "display_name": "Administrator",
             "daily_quota": 999,
-            "assigned_theme": "cyber_neon"
+            "assigned_theme": "cyber_neon",
+            "custom_permissions": ["admin", "unlimited_quota"]
         }
     }
     return fallback, Path("EMBEDDED_MEMORY_FALLBACK")
@@ -853,6 +857,16 @@ async def login(payload: AuthPayload):
         except Exception:
             pass
 
+    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    tokens_used_today = sum(
+        1 for trk in tracks
+        if trk.get("created_at", "").startswith(today_utc)
+        and not trk.get("is_default", False)
+        and not str(trk.get("track_id", "")).startswith("default_")
+    )
+    daily_quota = int(user_meta.get("daily_quota", 2))
+    tokens_remaining = max(0, daily_quota - tokens_used_today)
+
     registry_path = get_themes_root() / "registry.json"
     assigned_theme = user_meta.get("assigned_theme") or "sky_peace"
     theme_manifest = {}
@@ -869,8 +883,8 @@ async def login(payload: AuthPayload):
         "user": {
             "slug": raw_slug,
             "display_name": user_meta.get("display_name", payload.username),
-            "daily_quota": user_meta.get("daily_quota", 2),
-            "tokens_remaining": user_meta.get("daily_quota", 2),
+            "daily_quota": daily_quota,
+            "tokens_remaining": tokens_remaining,
             "assigned_theme": assigned_theme
         },
         "theme": {
@@ -910,6 +924,35 @@ async def synthesize(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     slug = verify_session_token(token)
+
+    users_map, _ = load_user_registry()
+    user_meta = users_map.get(slug, {})
+    perms = user_meta.get("custom_permissions", [])
+    is_unlimited = "admin" in perms or "unlimited_quota" in perms
+
+    if not is_unlimited:
+        history_file = STORAGE_ROOT / slug / "history.json"
+        tokens_used_today = 0
+        if history_file.exists():
+            try:
+                with open(history_file, "r", encoding="utf-8-sig") as f:
+                    raw_tracks = json.load(f).get("tracks", [])
+                    today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+                    tokens_used_today = sum(
+                        1 for trk in raw_tracks
+                        if trk.get("created_at", "").startswith(today_utc)
+                        and not trk.get("is_default", False)
+                        and not str(trk.get("track_id", "")).startswith("default_")
+                    )
+            except Exception:
+                pass
+        daily_quota = int(user_meta.get("daily_quota", 2))
+        if tokens_used_today >= daily_quota:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Daily generation token quota reached. Quotas reset at 00:00 UTC."
+            )
+
     if not verify_pow_solution(payload.pow.challenge, payload.pow.signature, payload.pow.solution_nonce):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Bot defense verification failed.")
 
@@ -989,7 +1032,15 @@ async def get_audio_stream_direct(job_id: str):
     job = compute_queue.jobs.get(job_id)
     if not job or job.status != "COMPLETED" or not job.output_file or not job.output_file.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master audio stream not ready.")
-    return FileResponse(str(job.output_file), media_type="audio/ogg")
+    return FileResponse(
+        str(job.output_file),
+        media_type="audio/ogg",
+        headers={
+            "Cross-Origin-Resource-Policy": "cross-origin",
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "no-cache"
+        }
+    )
 
 
 @api_router.get("/audio/stream/{user_slug}/{filename}")
@@ -997,12 +1048,17 @@ async def get_audio_stream_user(user_slug: str, filename: str):
     safe_slug = slugify(user_slug)
     safe_name = Path(filename).name
     target_file = STORAGE_ROOT / safe_slug / "tracks" / safe_name
+    headers = {
+        "Cross-Origin-Resource-Policy": "cross-origin",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache"
+    }
     if not target_file.exists() or not target_file.is_file():
         default_file = resolve_site_root() / "public" / "default.opus"
         if default_file.exists():
-            return FileResponse(str(default_file), media_type="audio/ogg")
+            return FileResponse(str(default_file), media_type="audio/ogg", headers=headers)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
-    return FileResponse(str(target_file), media_type="audio/ogg")
+    return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
 
 
 ROUTE_PREFIXES = [
@@ -1057,7 +1113,13 @@ def mount_static_and_spa():
             if cleaned_path.lower().startswith("tunebloom/"):
                 cleaned_path = cleaned_path[len("tunebloom/"):]
             current_site = resolve_site_root()
-            target = current_site / cleaned_path
+            try:
+                target = (current_site / cleaned_path).resolve()
+                if not target.is_relative_to(current_site.resolve()):
+                    raise HTTPException(status_code=403, detail="Forbidden")
+            except Exception:
+                return FileResponse(str(current_site / "index.html"))
+
             if target.exists() and target.is_file():
                 if any(part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"] for part in target.parts):
                     raise HTTPException(status_code=403, detail="Forbidden")

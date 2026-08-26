@@ -276,7 +276,7 @@ function computeCanonicalRecipe(title, data) {
   const cleanBpm = Math.max(30, Math.min(300, isNaN(bpm) ? 96 : bpm));
 
   let lyricsStr = "";
-  if (typeof data.lyrics === "string") {
+  if (typeof data.lyrics === "string" && data.lyrics.trim().length > 0) {
     lyricsStr = sanitize(data.lyrics);
   } else if (Array.isArray(data.blocks) && window.compileBlocksToLyrics) {
     lyricsStr = sanitize(window.compileBlocksToLyrics(data.blocks));
@@ -514,18 +514,24 @@ async function handleAuthSubmit(event) {
     let userRecord = storage ? await storage.getUser(slug) : null;
 
     if (authData) {
+      const dailyQuota = authData.user?.daily_quota || 2;
+      const tokensRemaining = authData.user?.tokens_remaining !== undefined ? authData.user.tokens_remaining : dailyQuota;
+      const tokensUsed = Math.max(0, dailyQuota - tokensRemaining);
+
       if (!userRecord) {
         userRecord = {
           slug: slug,
           display_name: authData.user?.display_name || rawName,
-          daily_quota: authData.user?.daily_quota || 2,
-          tokens_used_today: 0,
+          daily_quota: dailyQuota,
+          tokens_used_today: tokensUsed,
           last_quota_utc_date: todayUtc,
           assigned_theme: authData.user?.assigned_theme || "sky_peace"
         };
       } else {
         userRecord.display_name = authData.user?.display_name || userRecord.display_name;
-        userRecord.daily_quota = authData.user?.daily_quota || userRecord.daily_quota;
+        userRecord.daily_quota = dailyQuota;
+        userRecord.tokens_used_today = tokensUsed;
+        userRecord.last_quota_utc_date = todayUtc;
         userRecord.assigned_theme = authData.user?.assigned_theme || userRecord.assigned_theme;
       }
 
@@ -754,9 +760,15 @@ function selectTrackById(trackId) {
     window.playerEngine.loadTrack(track);
   }
 
+  const isDefault = Boolean(track.is_default || String(track.track_id).startsWith("default_"));
+
   if (track.working_draft) {
-    loadDraftIntoForm(track.working_draft);
+    loadDraftIntoForm(track.working_draft, isDefault);
   } else if (track.recipe) {
+    const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
+      ? track.recipe.blocks
+      : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []);
+
     const draftFromRecipe = {
       title: track.title,
       genre: track.recipe.genre || "",
@@ -766,15 +778,18 @@ function selectTrackById(trackId) {
       mood: track.recipe.mood || "",
       vocals: track.recipe.vocals || "",
       arrangement: track.recipe.arrangement || "",
-      blocks: window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []
+      lyrics: track.recipe.lyrics || "",
+      blocks: parsedBlocks
     };
     track.working_draft = draftFromRecipe;
-    loadDraftIntoForm(draftFromRecipe);
+    loadDraftIntoForm(draftFromRecipe, isDefault);
+  } else {
+    loadDraftIntoForm({ title: track.title }, isDefault);
   }
 
   if (track.status === "COMPLETED" && Boolean(track.audio_url)) {
-    const hydratedPayload = getCurrentFormPayload();
-    AppState.activeTrackCleanRecipe = computeCanonicalRecipe(hydratedPayload.title, hydratedPayload);
+    const canonicalSource = track.recipe || track.working_draft;
+    AppState.activeTrackCleanRecipe = computeCanonicalRecipe(track.title, canonicalSource);
   } else {
     AppState.activeTrackCleanRecipe = null;
   }
@@ -783,7 +798,7 @@ function selectTrackById(trackId) {
   checkRecipeDirtyState();
 }
 
-function loadDraftIntoForm(draft) {
+function loadDraftIntoForm(draft, isDefaultTrack = false) {
   const setVal = (id, val) => {
     const el = document.getElementById(id);
     if (el && val !== undefined) el.value = val;
@@ -799,12 +814,19 @@ function loadDraftIntoForm(draft) {
 
   if (Array.isArray(draft.blocks) && draft.blocks.length > 0) {
     AppState.songBlocks = JSON.parse(JSON.stringify(draft.blocks));
-  } else {
+  } else if (typeof draft.lyrics === "string" && draft.lyrics.trim().length > 0) {
+    AppState.songBlocks = window.parseLyricsIntoBlocks
+      ? window.parseLyricsIntoBlocks(draft.lyrics)
+      : [];
+  } else if (isDefaultTrack) {
     const fallback = window.TuneBloomBlueprints
-      ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency").blocks
+      ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")?.blocks || []
       : [];
     AppState.songBlocks = JSON.parse(JSON.stringify(fallback));
+  } else {
+    AppState.songBlocks = [];
   }
+
   if (window.renderSongBlocks) window.renderSongBlocks();
 }
 
@@ -818,7 +840,7 @@ function checkRecipeDirtyState() {
   const currentSerialized = computeCanonicalRecipe(currentPayload.title, currentPayload);
 
   const isCompleted = currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
-  const isPristine = isCompleted && currentSerialized === AppState.activeTrackCleanRecipe;
+  const isPristine = isCompleted && AppState.activeTrackCleanRecipe !== null && currentSerialized === AppState.activeTrackCleanRecipe;
 
   if (isCompleted && isPristine) {
     btn.disabled = true;
@@ -837,9 +859,10 @@ function checkRecipeDirtyState() {
 
 function syncActiveTrackDraftDebounced() {
   if (syncTimeout) clearTimeout(syncTimeout);
+  const targetTrackId = AppState.activeTrackId;
   syncTimeout = setTimeout(async () => {
-    if (!AppState.user || !AppState.activeTrackId) return;
-    const track = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
+    if (!AppState.user || !targetTrackId || targetTrackId !== AppState.activeTrackId) return;
+    const track = AppState.tracks.find((t) => t.track_id === targetTrackId);
     if (track) {
       const payload = getCurrentFormPayload();
       track.working_draft = payload;
@@ -879,6 +902,14 @@ async function handleAddNewTrackCardClick() {
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed) : "default.jpg";
   const newOrderIndex = AppState.tracks.length;
 
+  const clonedBlocks = Array.isArray(blueprint.blocks)
+    ? JSON.parse(JSON.stringify(blueprint.blocks))
+    : [];
+
+  const compiledLyrics = window.compileBlocksToLyrics
+    ? window.compileBlocksToLyrics(clonedBlocks)
+    : "";
+
   const newDraftTrack = {
     track_id: trackId,
     user_slug: AppState.user.slug,
@@ -895,7 +926,9 @@ async function handleAddNewTrackCardClick() {
     recipe: null,
     working_draft: {
       ...JSON.parse(JSON.stringify(blueprint)),
-      title: enteredTitle.slice(0, 80)
+      title: enteredTitle.slice(0, 80),
+      lyrics: compiledLyrics,
+      blocks: clonedBlocks
     }
   };
 
@@ -1022,7 +1055,7 @@ async function handleGenerateSubmit(e) {
   const isCompleted = currentTrack && currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
   const formPayload = getCurrentFormPayload();
   const currentSerialized = computeCanonicalRecipe(formPayload.title, formPayload);
-  const isPristine = isCompleted && currentSerialized === AppState.activeTrackCleanRecipe;
+  const isPristine = isCompleted && AppState.activeTrackCleanRecipe !== null && currentSerialized === AppState.activeTrackCleanRecipe;
 
   if (isCompleted && isPristine) {
     await AppModal.alert(
@@ -1077,6 +1110,7 @@ async function handleGenerateSubmit(e) {
       arrangement: formPayload.arrangement,
       lyrics: formPayload.lyrics,
       audio_duration: formPayload.audio_duration,
+      blocks: formPayload.blocks,
       pow: {
         challenge: challengeData.challenge,
         signature: challengeData.signature,
@@ -1207,6 +1241,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
           audio_duration: compositionPayload.audio_duration,
+          blocks: compositionPayload.blocks,
           stage1_profile: "Studio Master Acoustic Arrangement",
           stage2_profile: "Spatial Air & Harmonic Balancing",
           stage3_profile: "Dynamic Envelope Optimization",
@@ -1230,7 +1265,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
           mood: compositionPayload.mood,
           vocals: compositionPayload.vocals,
           arrangement: compositionPayload.arrangement,
-          blocks: window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []
+          lyrics: compositionPayload.lyrics,
+          blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : [])
         }
       };
 
@@ -1386,27 +1422,49 @@ document.addEventListener("DOMContentLoaded", async () => {
           })
             .then((res) => (res.ok ? res.json() : null))
             .then(async (data) => {
-              if (data && Array.isArray(data.tracks)) {
-                let changed = false;
-                for (let i = 0; i < data.tracks.length; i++) {
-                  const remoteTrack = data.tracks[i];
-                  const existing = AppState.tracks.find((t) => t.track_id === remoteTrack.track_id);
-                  if (!existing) {
+              if (data) {
+                if (data.token) {
+                  AppState.token = data.token;
+                  localStorage.setItem("tb_session_token", data.token);
+                }
+                if (data.user) {
+                  userRecord.daily_quota = data.user.daily_quota ?? userRecord.daily_quota;
+                  const remaining = data.user.tokens_remaining !== undefined ? data.user.tokens_remaining : userRecord.daily_quota;
+                  userRecord.tokens_used_today = Math.max(0, userRecord.daily_quota - remaining);
+                  userRecord.last_quota_utc_date = getTodayUtcString();
+                  AppState.user = userRecord;
+                  await window.clientStorage.saveUser(userRecord);
+                  updateQuotaDisplay();
+                }
+                if (Array.isArray(data.tracks)) {
+                  let changed = false;
+                  for (let i = 0; i < data.tracks.length; i++) {
+                    const remoteTrack = data.tracks[i];
+                    const existingIdx = AppState.tracks.findIndex((t) => t.track_id === remoteTrack.track_id);
                     const resolvedAudioUrl = normalizeAudioStreamUrl(remoteTrack.audio_url, savedSlug);
                     const trackObj = {
                       ...remoteTrack,
                       audio_url: resolvedAudioUrl,
                       user_slug: savedSlug,
-                      order_index: i + 1
+                      order_index: existingIdx !== -1 ? AppState.tracks[existingIdx].order_index : (i + 1)
                     };
-                    await window.clientStorage.saveTrack(trackObj);
-                    AppState.tracks.push(trackObj);
-                    changed = true;
+                    if (existingIdx === -1) {
+                      await window.clientStorage.saveTrack(trackObj);
+                      AppState.tracks.push(trackObj);
+                      changed = true;
+                    } else if (AppState.tracks[existingIdx].status !== "COMPLETED" && trackObj.status === "COMPLETED") {
+                      AppState.tracks[existingIdx] = trackObj;
+                      await window.clientStorage.saveTrack(trackObj);
+                      changed = true;
+                    }
                   }
-                }
-                if (changed) {
-                  await ensureShowcaseTrack(savedSlug, window.clientStorage);
-                  renderDiscography();
+                  if (changed) {
+                    await ensureShowcaseTrack(savedSlug, window.clientStorage);
+                    renderDiscography();
+                    if (AppState.activeTrackId) {
+                      checkRecipeDirtyState();
+                    }
+                  }
                 }
               }
             })

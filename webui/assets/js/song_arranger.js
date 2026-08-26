@@ -36,11 +36,12 @@ function sanitizeTagString(tag) {
 }
 
 function compileBlocksToLyrics(blocks = (window.AppState ? window.AppState.songBlocks : [])) {
+  if (!Array.isArray(blocks)) return "";
   return blocks
     .map((b) => {
-      const cleanType = sanitizeTagString(b.type || b.label || "section");
-      const cleanText = (b.text || "").trim();
-      return `[${cleanType}]\n${cleanText}`;
+      const cleanLabel = sanitizeTagString(b.label || b.type || "Section");
+      const cleanText = (b.text || "").replace(/\r\n/g, "\n").trim();
+      return `[${cleanLabel}]\n${cleanText}`;
     })
     .filter((str) => str.length > 0)
     .join("\n\n")
@@ -48,12 +49,12 @@ function compileBlocksToLyrics(blocks = (window.AppState ? window.AppState.songB
 }
 
 function parseLyricsIntoBlocks(lyricsStr) {
-  const fallback = window.TuneBloomBlueprints
-    ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency").blocks
-    : [];
-  if (!lyricsStr) return JSON.parse(JSON.stringify(fallback));
+  if (typeof lyricsStr !== "string" || !lyricsStr.trim()) {
+    return [];
+  }
 
-  const lines = lyricsStr.split("\n");
+  const normalized = lyricsStr.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
   const blocks = [];
   let currentBlock = null;
 
@@ -65,8 +66,7 @@ function parseLyricsIntoBlocks(lyricsStr) {
         currentBlock.text = currentBlock.text.trim();
         blocks.push(currentBlock);
       }
-      const rawTag = tagMatch[1];
-      const cleanTag = sanitizeTagString(rawTag);
+      const cleanTag = sanitizeTagString(tagMatch[1]);
       currentBlock = {
         id: `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         type: cleanTag.toLowerCase(),
@@ -90,7 +90,7 @@ function parseLyricsIntoBlocks(lyricsStr) {
     blocks.push(currentBlock);
   }
 
-  return blocks.length > 0 ? blocks : JSON.parse(JSON.stringify(fallback));
+  return blocks;
 }
 
 function serializeRecipe(title, r) {
@@ -104,7 +104,7 @@ function serializeRecipe(title, r) {
     mood: (r.mood || "").trim().slice(0, 200),
     vocals: (r.vocals || "").trim().slice(0, 300),
     arrangement: (r.arrangement || "").trim().slice(0, 300),
-    lyrics: (r.lyrics || "").trim().slice(0, 4000)
+    lyrics: (r.lyrics || "").replace(/\r\n/g, "\n").trim().slice(0, 4000)
   });
 }
 
@@ -119,52 +119,54 @@ function renderSongBlocks() {
 
   window.AppState.songBlocks.forEach((block, index) => {
     const sectionRow = document.createElement("div");
-    sectionRow.className = "flex items-start gap-3 py-1.5 px-2 rounded-lg group transition-colors hover:bg-white/5";
+    sectionRow.className = "w-full flex items-stretch gap-2 sm:gap-3 py-1.5 px-2 rounded-xl group transition-colors hover:bg-white/5 box-border";
     sectionRow.dataset.index = index;
 
     const isEditingTag = window.AppState.editingTagIndex === index;
-    const cleanLabel = sanitizeTagString(block.label);
+    const cleanLabel = sanitizeTagString(block.label || block.type || "Section");
 
     const tagHtml = isEditingTag
       ? `
       <input type="text" id="tag-input-${index}" value="${cleanLabel}"
              onblur="saveCustomTag(${index}, this.value)" 
              onkeydown="handleTagKeydown(event, ${index}, this.value)"
-             class="px-1.5 py-0.5 rounded bg-black/80 border border-sky-400 text-[10px] font-mono font-bold uppercase text-white focus:outline-none w-24">
+             class="px-1.5 py-0.5 rounded bg-black/90 border border-sky-400 text-[10px] sm:text-[11px] font-mono font-bold uppercase text-white focus:outline-none w-full">
     `
       : `
       <button type="button" onclick="startTagEdit(${index})" 
-              class="text-[10px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1 group/btn" title="Click to rename tag">
+              class="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Click to rename tag: [${cleanLabel}]">
         <span>[${cleanLabel}]</span>
-        <i class="fa-solid fa-pen text-[7px] opacity-0 group-hover/btn:opacity-100 transition-opacity"></i>
+        <i class="fa-solid fa-pen text-[7px] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"></i>
       </button>
     `;
 
     sectionRow.innerHTML = `
-      <div class="flex-shrink-0 w-28 pt-1 flex items-center justify-between select-none">
-        ${tagHtml}
-        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div class="flex-shrink-0 w-[124px] sm:w-[172px] self-stretch flex items-center justify-between select-none pr-2.5 border-r border-white/10">
+        <div class="flex items-center min-w-0">
+          ${tagHtml}
+        </div>
+        <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-black/50 border border-white/10 px-1 py-0.5 rounded-md flex-shrink-0 ml-1.5">
           <button type="button" onclick="moveSongBlock(${index}, -1)" ${index === 0 ? "disabled" : ""} 
-                  class="w-4 h-4 flex items-center justify-center text-[8px] text-white/40 hover:text-white disabled:opacity-0 transition" title="Move Up">
+                  class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white disabled:opacity-0 transition" title="Move Up">
             <i class="fa-solid fa-chevron-up"></i>
           </button>
           <button type="button" onclick="moveSongBlock(${index}, 1)" ${index === total - 1 ? "disabled" : ""} 
-                  class="w-4 h-4 flex items-center justify-center text-[8px] text-white/40 hover:text-white disabled:opacity-0 transition" title="Move Down">
+                  class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white disabled:opacity-0 transition" title="Move Down">
             <i class="fa-solid fa-chevron-down"></i>
           </button>
           <button type="button" onclick="duplicateSongBlock(${index})" 
-                  class="w-4 h-4 flex items-center justify-center text-[8px] text-white/40 hover:text-white transition" title="Duplicate">
+                  class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white transition" title="Duplicate">
             <i class="fa-solid fa-copy"></i>
           </button>
           <button type="button" onclick="removeSongBlock(${index})" 
-                  class="w-4 h-4 flex items-center justify-center text-[8px] text-white/40 hover:text-rose-400 transition" title="Delete">
+                  class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-rose-400 transition" title="Delete">
             <i class="fa-solid fa-xmark"></i>
           </button>
         </div>
       </div>
-      <div class="flex-grow">
-        <textarea oninput="handleBlockTextInput(${index}, this)" placeholder="Write lyrics or musical direction..."
-                  class="lyric-textarea w-full bg-transparent px-0 py-0.5 focus:outline-none text-xs font-mono text-white/90 leading-relaxed resize-none overflow-hidden placeholder-white/20 transition-colors" style="min-height: 24px;">${block.text || ""}</textarea>
+      <div class="flex-1 min-w-0 pl-2.5 flex items-center">
+        <textarea oninput="handleBlockTextInput(${index}, this)" placeholder="Write lyrics or vocal direction..."
+                  class="lyric-textarea w-full bg-transparent px-0 py-0.5 focus:outline-none text-xs font-mono text-white/90 leading-relaxed resize-none overflow-hidden placeholder-white/20 transition-colors block" style="min-height: 24px;">${block.text || ""}</textarea>
       </div>
     `;
 
@@ -319,6 +321,8 @@ function loadSongBlueprint(blueprintOrId = null) {
 
   renderSongBlocks();
   setTimeout(() => resizeAllTextareas(), 30);
+  if (typeof window.checkRecipeDirtyState === "function") window.checkRecipeDirtyState();
+  if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
 }
 
 window.calculateQuantizedDuration = calculateQuantizedDuration;
