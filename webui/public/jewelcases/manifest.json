@@ -1,12 +1,14 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 10,
+  "total": 12,
   "covers": [
     "Dark.jpg",
     "bears.jpg",
     "chips.jpg",
+    "colorful.jpg",
     "harp.jpg",
+    "heist.jpg",
     "planet.jpg",
     "retro.jpg",
     "space.jpg",
