@@ -149,35 +149,102 @@ class PlayerEngine {
     return isHead || isTags;
   }
 
+  getOpusPacketSampleCount(pkt, sampleRate = 48000) {
+    if (!pkt || pkt.length < 1) return 960;
+    const toc = pkt[0];
+    const config = (toc >> 3) & 0x1f;
+    const code = toc & 0x03;
+
+    let frameSamples = 960;
+    if (config >= 0 && config <= 11) {
+      const sub = config & 0x03;
+      if (sub === 0) frameSamples = 480;
+      else if (sub === 1) frameSamples = 960;
+      else if (sub === 2) frameSamples = 1920;
+      else if (sub === 3) frameSamples = 2880;
+    } else if (config >= 12 && config <= 15) {
+      const sub = config & 0x01;
+      frameSamples = sub === 0 ? 480 : 960;
+    } else if (config >= 16 && config <= 31) {
+      const sub = config & 0x03;
+      if (sub === 0) frameSamples = 120;
+      else if (sub === 1) frameSamples = 240;
+      else if (sub === 2) frameSamples = 480;
+      else if (sub === 3) frameSamples = 960;
+    }
+
+    let frameCount = 1;
+    if (code === 1 || code === 2) {
+      frameCount = 2;
+    } else if (code === 3) {
+      if (pkt.length > 1) {
+        frameCount = pkt[1] & 0x3f;
+      }
+    }
+
+    const total = frameSamples * frameCount;
+    return sampleRate === 48000 ? total : Math.floor((total * sampleRate) / 48000);
+  }
+
   parseOggOpusStream(arrayBuffer) {
+    const view = new DataView(arrayBuffer);
     const bytes = new Uint8Array(arrayBuffer);
     const packets = [];
     let offset = 0;
     let cumulativeSamples = 0;
     let extractedPreSkip = 312;
+    let finalGranule = -1n;
+    let pendingSegments = [];
 
-    while (offset + 27 < bytes.length) {
+    while (offset + 27 <= bytes.length) {
       if (
         bytes[offset] === 0x4f &&
         bytes[offset + 1] === 0x67 &&
         bytes[offset + 2] === 0x67 &&
         bytes[offset + 3] === 0x53
       ) {
+        const headerType = bytes[offset + 5];
+        const isContinued = (headerType & 0x01) !== 0;
+        const isEos = (headerType & 0x04) !== 0;
+        const pageGranule = view.getBigInt64(offset + 6, true);
         const numSegments = bytes[offset + 26];
+
+        if (offset + 27 + numSegments > bytes.length) break;
+
         const segmentTable = bytes.subarray(offset + 27, offset + 27 + numSegments);
         let bodyOffset = offset + 27 + numSegments;
 
+        if (isEos && pageGranule > 0n) {
+          finalGranule = pageGranule;
+        }
+
+        if (!isContinued && pendingSegments.length > 0) {
+          pendingSegments = [];
+        }
+
         let segIdx = 0;
         while (segIdx < numSegments) {
-          let pktLen = 0;
-          while (segIdx < numSegments) {
-            const s = segmentTable[segIdx++];
-            pktLen += s;
-            if (s < 255) break;
-          }
-          if (pktLen > 0 && bodyOffset + pktLen <= bytes.length) {
-            const pktData = bytes.slice(bodyOffset, bodyOffset + pktLen);
-            bodyOffset += pktLen;
+          const segLen = segmentTable[segIdx++];
+          const spansNext = segLen === 255;
+
+          if (bodyOffset + segLen > bytes.length) break;
+          const slice = bytes.subarray(bodyOffset, bodyOffset + segLen);
+          bodyOffset += segLen;
+
+          pendingSegments.push(slice);
+
+          if (!spansNext) {
+            let totalLen = 0;
+            for (let i = 0; i < pendingSegments.length; i++) {
+              totalLen += pendingSegments[i].length;
+            }
+            const pktData = new Uint8Array(totalLen);
+            let writeOffset = 0;
+            for (let i = 0; i < pendingSegments.length; i++) {
+              pktData.set(pendingSegments[i], writeOffset);
+              writeOffset += pendingSegments[i].length;
+            }
+            pendingSegments = [];
 
             if (
               pktData.length >= 19 &&
@@ -189,13 +256,14 @@ class PlayerEngine {
             ) {
               extractedPreSkip = pktData[10] | (pktData[11] << 8);
             } else if (!this.isHeaderPacket(pktData)) {
+              const samplesInPkt = this.getOpusPacketSampleCount(pktData, 48000);
               packets.push({
                 data: pktData,
                 sampleOffset: cumulativeSamples,
                 timeSec: cumulativeSamples / 48000.0,
-                samples: 960
+                samples: samplesInPkt
               });
-              cumulativeSamples += 960;
+              cumulativeSamples += samplesInPkt;
             }
           }
         }
@@ -205,7 +273,15 @@ class PlayerEngine {
       }
     }
 
-    const activeSamples = Math.max(0, cumulativeSamples - extractedPreSkip);
+    let activeSamples = cumulativeSamples - extractedPreSkip;
+    if (finalGranule > 0n) {
+      const granInt = Number(finalGranule) - extractedPreSkip;
+      if (granInt > 0 && Math.abs(granInt - activeSamples) < 5760) {
+        activeSamples = granInt;
+      }
+    }
+    activeSamples = Math.max(0, activeSamples);
+
     return {
       packets,
       preSkip: extractedPreSkip,
@@ -251,6 +327,7 @@ class PlayerEngine {
           this.isPlaying = false;
           this.skipRemaining = 0;
           this.isPulling = false;
+          this.maxOutputSamples = 5760;
 
           this.port.onmessage = async (e) => {
             const msg = e.data;
@@ -261,8 +338,8 @@ class PlayerEngine {
               this.wasmInstance = instance;
               this.wasmMemory = instance.exports.memory;
               this.decoderHandle = instance.exports.tb_decoder_init(48000, 2);
-              this.inPtr = instance.exports.wasm_malloc(4096);
-              this.outPtr = instance.exports.wasm_malloc(960 * 2 * 4);
+              this.inPtr = instance.exports.wasm_malloc(8192);
+              this.outPtr = instance.exports.wasm_malloc(this.maxOutputSamples * 2 * 4);
               this.port.postMessage({ type: "READY" });
             } else if (msg.type === "FEED_PACKETS" && this.decoderHandle) {
               this.isPulling = false;
@@ -271,7 +348,7 @@ class PlayerEngine {
                 const inView = new Uint8Array(this.wasmMemory.buffer, this.inPtr, pkt.length);
                 inView.set(pkt);
                 const samples = this.wasmInstance.exports.tb_decoder_decode(
-                  this.decoderHandle, this.inPtr, pkt.length, this.outPtr, 960
+                  this.decoderHandle, this.inPtr, pkt.length, this.outPtr, this.maxOutputSamples
                 );
                 if (samples > 0) {
                   let outView = new Float32Array(this.wasmMemory.buffer, this.outPtr, samples * 2);
@@ -591,8 +668,22 @@ class PlayerEngine {
     targetSec = Math.max(0, Math.min(this.totalDurationSec, targetSec));
     this.playbackPositionSec = targetSec;
 
-    const targetPkt = Math.floor(targetSec / (960.0 / 48000.0));
-    this.currentPacketIndex = Math.min(targetPkt, this.audioPackets.length);
+    const targetSample = Math.floor(targetSec * 48000.0) + this.preSkipSamples;
+    let targetIndex = 0;
+
+    let low = 0;
+    let high = this.audioPackets.length - 1;
+    while (low <= high) {
+      const mid = (low + high) >> 1;
+      const pkt = this.audioPackets[mid];
+      if (pkt.sampleOffset <= targetSample) {
+        targetIndex = mid;
+        low = mid + 1;
+      } else {
+        high = mid - 1;
+      }
+    }
+    this.currentPacketIndex = targetIndex;
 
     if (this.workletNode) {
       this.workletNode.port.postMessage({
