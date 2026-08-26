@@ -1,7 +1,7 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 12,
+  "total": 13,
   "covers": [
     "Dark.jpg",
     "bears.jpg",
@@ -14,6 +14,7 @@
     "space.jpg",
     "status.jpg",
     "sunburst.jpg",
-    "valhalla.jpg"
+    "valhalla.jpg",
+    "wonderland.jpg"
   ]
 }
