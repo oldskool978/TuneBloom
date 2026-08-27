@@ -1,0 +1,13 @@
+torch
+torchaudio
+soundfile
+numpy
+scipy
+safetensors
+pyyaml
+huggingface_hub
+fastapi
+uvicorn[standard]
+pydantic
+rich
+requests
