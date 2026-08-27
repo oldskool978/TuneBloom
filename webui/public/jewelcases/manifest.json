@@ -1,7 +1,7 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 16,
+  "total": 17,
   "covers": [
     "Dark.jpg",
     "bears.jpg",
@@ -10,6 +10,7 @@
     "flake.jpg",
     "harp.jpg",
     "heist.jpg",
+    "maniacs.jpg",
     "planet.jpg",
     "prime (1).jpg",
     "retro.jpg",
