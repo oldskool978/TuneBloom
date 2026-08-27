@@ -1,6 +1,5 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
-import math
+from typing import Dict, Any, Tuple
 import torch
 import torch.nn as nn
 from safetensors.torch import load_file as load_safetensors
@@ -69,15 +68,9 @@ class UniverSRModel(nn.Module):
         self,
         waveform: torch.Tensor,
         input_sr: int = 24000,
-        ode_method: str = "midpoint",
+        ode_method: str = "heun",
         ode_steps: int = 16,
         guidance_scale: float = 0.0,
-        scheduler_type: str = "uniform",
-        time_warp_gamma: float = 1.0,
-        noise_prior: Optional[torch.Tensor] = None,
-        seed: Optional[int] = 42,
-        cross_band_gain_match: bool = True,
-        crossover_blend_bins: int = 0,
     ) -> torch.Tensor:
         orig_device = waveform.device
         orig_len = waveform.shape[-1]
@@ -103,15 +96,7 @@ class UniverSRModel(nn.Module):
         Y_lr = Y[:, :, :lr_bin_count, :].to(dtype=self.model_dtype)
         Y_hr = Y[:, :, hf_start_bin:, :]
 
-        if noise_prior is not None:
-            x_0 = noise_prior.to(device=orig_device, dtype=self.model_dtype)
-        else:
-            generator = None
-            if seed is not None:
-                generator = torch.Generator(device=orig_device)
-                generator.manual_seed(int(seed))
-            x_0 = torch.randn(Y_hr.shape, generator=generator, device=orig_device, dtype=self.model_dtype)
-
+        x_0 = torch.randn_like(Y_hr, device=orig_device, dtype=self.model_dtype)
         w = float(guidance_scale)
 
         sr_proj_c, spatial_cond_c = self.backbone.precompute_spatial_conditioning(
@@ -156,75 +141,22 @@ class UniverSRModel(nn.Module):
                 model_fn=guided_velocity_field,
                 x_0=x_0,
                 num_steps=ode_steps,
-                scheduler_type=scheduler_type,
-                gamma=time_warp_gamma,
             )
-        elif method == "rk4":
-            x_1 = FlowMatchingODESolver.solve_rk4(
-                model_fn=guided_velocity_field,
-                x_0=x_0,
-                num_steps=ode_steps,
-                scheduler_type=scheduler_type,
-                gamma=time_warp_gamma,
-            )
-        elif method == "heun":
-            x_1 = FlowMatchingODESolver.solve_heun(
-                model_fn=guided_velocity_field,
-                x_0=x_0,
-                num_steps=ode_steps,
-                scheduler_type=scheduler_type,
-                gamma=time_warp_gamma,
-            )
-        else:
+        elif method == "midpoint":
             x_1 = FlowMatchingODESolver.solve_midpoint(
                 model_fn=guided_velocity_field,
                 x_0=x_0,
                 num_steps=ode_steps,
-                scheduler_type=scheduler_type,
-                gamma=time_warp_gamma,
+            )
+        else:
+            x_1 = FlowMatchingODESolver.solve_heun(
+                model_fn=guided_velocity_field,
+                x_0=x_0,
+                num_steps=ode_steps,
             )
 
-        overlap_start_lr = hf_start_bin
-        overlap_end_lr = lr_bin_count
-        overlap_len = overlap_end_lr - overlap_start_lr
-
-        if cross_band_gain_match and overlap_len > 0:
-            lr_overlap = Y_lr[:, :, overlap_start_lr:overlap_end_lr, :].float()
-            gen_overlap = x_1[:, :, :overlap_len, :].float()
-            p_decomp = 1.0 / self.alpha
-            mag_lr_lin = torch.pow(torch.clamp(torch.sqrt(lr_overlap[:, 0]**2 + lr_overlap[:, 1]**2), min=1e-8), p_decomp)
-            mag_gen_lin = torch.pow(torch.clamp(torch.sqrt(gen_overlap[:, 0]**2 + gen_overlap[:, 1]**2), min=1e-8), p_decomp)
-            energy_lr = torch.mean(mag_lr_lin**2, dim=(-2, -1), keepdim=True)
-            energy_gen = torch.mean(mag_gen_lin**2, dim=(-2, -1), keepdim=True)
-            gain_lin = torch.sqrt((energy_lr + 1e-12) / (energy_gen + 1e-12))
-            gain_lin = torch.clamp(gain_lin, min=0.35, max=2.85)
-            gain_latent = torch.pow(gain_lin, self.alpha).unsqueeze(1)
-            x_1 = x_1 * gain_latent
-
-        splice_idx = lr_bin_count
         slice_start = max(0, lr_bin_count - hf_start_bin)
-        x_1_hf = x_1[:, :, slice_start:, :].float().clone()
-
-        m_blend = max(0, int(crossover_blend_bins))
-        if m_blend > 0 and m_blend < x_1_hf.shape[2]:
-            edge_r = Y_lr[:, 0, splice_idx - 1, :].float()
-            edge_i = Y_lr[:, 1, splice_idx - 1, :].float()
-            edge_mag = torch.sqrt(edge_r**2 + edge_i**2 + 1e-12)
-
-            for i in range(m_blend):
-                u = float(i + 1) / float(m_blend + 1)
-                w_gen = math.sin(u * (math.pi / 2.0)) ** 2
-                w_edge = 1.0 - w_gen
-
-                gen_r = x_1_hf[:, 0, i, :]
-                gen_i = x_1_hf[:, 1, i, :]
-                gen_mag = torch.sqrt(gen_r**2 + gen_i**2 + 1e-12)
-                gen_phase = torch.atan2(gen_i, gen_r)
-
-                tapered_mag = w_edge * edge_mag + w_gen * gen_mag
-                x_1_hf[:, 0, i, :] = tapered_mag * torch.cos(gen_phase)
-                x_1_hf[:, 1, i, :] = tapered_mag * torch.sin(gen_phase)
-
+        x_1_hf = x_1[:, :, slice_start:, :]
         full_spec = torch.cat([Y_lr.float(), x_1_hf], dim=2)
 
         return inverse_stft(

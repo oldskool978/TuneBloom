@@ -3,8 +3,7 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
 
-SUPPORTED_SOLVERS = ["midpoint", "heun", "euler", "rk4"]
-SUPPORTED_SCHEDULERS = ["uniform", "polynomial", "cosine"]
+SUPPORTED_SOLVERS = ["heun", "midpoint", "euler"]
 SUPPORTED_TARGET_RATES = ["48k", "44.1k", "both"]
 SUPPORTED_HEADROOM_MODES = ["bypass", "peak_resistant", "strict_ceiling"]
 
@@ -21,11 +20,6 @@ class FurgieRequest:
     ode_steps: int = 16
     solver: str = "heun"
     guidance_scale: float = 0.0
-    scheduler_type: str = "uniform"
-    time_warp_gamma: float = 1.0
-    seed: Optional[int] = 42
-    cross_band_gain_match: bool = True
-    crossover_blend_bins: int = 0
     device: str = "cuda"
     repo_id: str = "OLDSKOOL978/universr-audio"
 
@@ -55,11 +49,6 @@ class FurgieTelemetry:
     solver_used: str
     ode_steps: int
     guidance_scale: float
-    scheduler_type: str
-    time_warp_gamma: float
-    seed: Optional[int]
-    cross_band_gain_match: bool
-    crossover_blend_bins: int
     input_sr_anchor: int
     target_rate: str
     headroom_mode: str

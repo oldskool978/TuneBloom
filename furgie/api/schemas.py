@@ -2,7 +2,6 @@ from typing import List, Optional, Union
 from pydantic import BaseModel, Field
 from furgie_core.schema import (
     SUPPORTED_SOLVERS,
-    SUPPORTED_SCHEDULERS,
     SUPPORTED_TARGET_RATES,
     SUPPORTED_HEADROOM_MODES,
 )
@@ -22,28 +21,6 @@ class FurgieInferenceConfig(BaseModel):
         default=0.0,
         ge=0.0,
         description="Classifier-Free Guidance (CFG) scale",
-    )
-    scheduler_type: str = Field(
-        default="uniform",
-        description=f"Time-grid discretization scheduler: {SUPPORTED_SCHEDULERS}",
-    )
-    time_warp_gamma: float = Field(
-        default=1.0,
-        ge=0.1,
-        description="Polynomial time-grid warping exponent",
-    )
-    seed: Optional[int] = Field(
-        default=42,
-        description="Deterministic Gaussian noise seed",
-    )
-    cross_band_gain_match: bool = Field(
-        default=True,
-        description="Linear power-space cross-band spectral energy normalization",
-    )
-    crossover_blend_bins: int = Field(
-        default=0,
-        ge=0,
-        description="One-sided upper-band crossover blend width in bins",
     )
     input_sr_anchor: int = Field(
         default=24000,

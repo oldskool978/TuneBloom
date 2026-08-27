@@ -22,7 +22,7 @@ class UniverSRWrapper(nn.Module):
         flow_cfg = self.cfg.get("universr_flow_core", {})
         self.target_sr = audio_cfg.get("target_sample_rate", 48000)
         self.ode_steps = flow_cfg.get("ode_steps", 16)
-        self.solver = flow_cfg.get("solver", "midpoint")
+        self.solver = flow_cfg.get("solver", "heun")
         self.guidance_scale = flow_cfg.get("guidance_scale", 0.0)
         self.weight_dir = Path(weight_dir)
         self.model: Optional[UniverSRModel] = None
@@ -70,11 +70,6 @@ class UniverSRWrapper(nn.Module):
         steps: int,
         solve_method: str,
         cfg_scale: float,
-        scheduler_type: str = "uniform",
-        time_warp_gamma: float = 1.0,
-        seed: Optional[int] = 42,
-        cross_band_gain_match: bool = True,
-        crossover_blend_bins: int = 0,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> torch.Tensor:
         channels, total_samples = wav_tensor.shape
@@ -102,44 +97,15 @@ class UniverSRWrapper(nn.Module):
         )
         win_expanded = window.unsqueeze(0)
 
-        generator = None
-        if seed is not None:
-            generator = torch.Generator(device=self.device)
-            generator.manual_seed(int(seed))
-
-        n_fft = self.model.n_fft
-        hop_length = self.model.hop_length
-        total_frames = (padded_samples // hop_length) + 1
-        hr_freq_bins = self.model.hr_freq_bins
-        global_noise = torch.randn(
-            (channels, 2, hr_freq_bins, total_frames),
-            generator=generator,
-            device=self.device,
-            dtype=self.model.model_dtype,
-        )
-
         for tile_idx, start in enumerate(starts):
             end = start + chunk_len
             chunk_in = wav_padded[:, start:end]
-            frame_start = start // hop_length
-            tile_frames = (chunk_len // hop_length) + 1
-            frame_end = min(frame_start + tile_frames, total_frames)
-            tile_noise = global_noise[:, :, :, frame_start:frame_end]
-            if tile_noise.shape[-1] < tile_frames:
-                tile_noise = F.pad(tile_noise, (0, tile_frames - tile_noise.shape[-1]), mode="replicate")
-
             res_tensor = self.model.enhance(
                 waveform=chunk_in,
                 input_sr=input_sr,
                 ode_method=solve_method,
                 ode_steps=steps,
                 guidance_scale=cfg_scale,
-                scheduler_type=scheduler_type,
-                time_warp_gamma=time_warp_gamma,
-                noise_prior=tile_noise,
-                seed=seed,
-                cross_band_gain_match=cross_band_gain_match,
-                crossover_blend_bins=crossover_blend_bins,
             )
             if res_tensor.shape[-1] != chunk_len:
                 res_tensor = F.interpolate(
@@ -162,11 +128,6 @@ class UniverSRWrapper(nn.Module):
         ode_steps: Optional[int] = None,
         solver: Optional[str] = None,
         guidance_scale: Optional[float] = None,
-        scheduler_type: str = "uniform",
-        time_warp_gamma: float = 1.0,
-        seed: Optional[int] = 42,
-        cross_band_gain_match: bool = True,
-        crossover_blend_bins: int = 0,
         tile_progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> torch.Tensor:
         if not self._is_loaded or self.model is None:
@@ -182,10 +143,5 @@ class UniverSRWrapper(nn.Module):
             steps=steps,
             solve_method=solve_method,
             cfg_scale=cfg_scale,
-            scheduler_type=scheduler_type,
-            time_warp_gamma=time_warp_gamma,
-            seed=seed,
-            cross_band_gain_match=cross_band_gain_match,
-            crossover_blend_bins=crossover_blend_bins,
             progress_callback=tile_progress_callback,
         )

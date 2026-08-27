@@ -453,11 +453,6 @@ class EnginePipeline:
             ode_steps=16,
             solver="heun",
             guidance_scale=0.0,
-            scheduler_type="uniform",
-            time_warp_gamma=1.0,
-            seed=42,
-            cross_band_gain_match=True,
-            crossover_blend_bins=0,
             device=self.device_str,
         )
         furgie_eng = FurgieEngine(device=self.device_str)
