@@ -436,8 +436,13 @@ class EnginePipeline:
 
     def run_stage2_enhancement(self, raw_path: Path, out_path: Path, progress_cb: Callable[[int, str], None]) -> None:
         progress_cb(45, "Refining Acoustic Space & High-Frequency Detail...")
-        from furgie.furgie_core.schema import FurgieRequest
-        from furgie.furgie_core.engine import FurgieEngine
+        try:
+            from furgie.furgie_core.schema import FurgieRequest
+            from furgie.furgie_core.engine import FurgieEngine
+        except ImportError:
+            from furgie_core.schema import FurgieRequest
+            from furgie_core.engine import FurgieEngine
+        
         furgie_req = FurgieRequest(
             input_path=str(raw_path),
             output_path=str(out_path),
@@ -446,13 +451,18 @@ class EnginePipeline:
             headroom_mode="bypass",
             target_peak_dbfs=0.0,
             ode_steps=16,
-            solver="midpoint",
+            solver="heun",
             guidance_scale=0.0,
-            device=self.device_str
+            scheduler_type="uniform",
+            time_warp_gamma=1.0,
+            seed=42,
+            cross_band_gain_match=True,
+            crossover_blend_bins=0,
+            device=self.device_str,
         )
         furgie_eng = FurgieEngine(device=self.device_str)
 
-        def furgie_progress(tile_cur, tile_tot):
+        def furgie_progress(tile_cur: int, tile_tot: int) -> None:
             pct = 45 + int((tile_cur / max(1, tile_tot)) * 25)
             progress_cb(pct, "Refining Acoustic Space & High-Frequency Detail...")
 
