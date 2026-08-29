@@ -1,11 +1,13 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 17,
+  "total": 19,
   "covers": [
     "Dark.jpg",
+    "basic.jpg",
     "bears.jpg",
     "chips.jpg",
+    "color.jpg",
     "colorful.jpg",
     "flake.jpg",
     "harp.jpg",
