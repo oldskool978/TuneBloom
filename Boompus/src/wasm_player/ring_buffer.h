@@ -5,11 +5,12 @@
 #include <stddef.h>
 
 typedef struct {
+    void *raw_buffer;
     float *buffer;
     uint32_t capacity;
     uint32_t mask;
-    volatile uint32_t write_idx;
-    volatile uint32_t read_idx;
+    uint32_t write_idx;
+    uint32_t read_idx;
 } RingBuffer;
 
 RingBuffer *ring_buffer_create(uint32_t capacity);

@@ -8,7 +8,6 @@ class PlayerEngine {
     this.wasmFetchPromise = null;
     this.transcodeInitPromise = null;
     this.freqData = null;
-
     this.activeTrack = null;
     this.cachedOpusArrayBuffer = null;
     this.audioPackets = [];
@@ -18,14 +17,12 @@ class PlayerEngine {
     this.totalDurationSec = 0;
     this.playbackPositionSec = 0;
     this.lastTime = 0;
-
     this.isPlaying = false;
     this.isMuted = false;
     this.isSeeking = false;
     this.previousVolume = 0.8;
     this.isFlipped = false;
     this.animFrameId = null;
-
     this.transcodeWorker = null;
     this.transcodeWorkerReady = false;
 
@@ -38,11 +35,11 @@ class PlayerEngine {
   async initEngine() {
     if (this.decoderWasmBytes) return this.decoderWasmBytes;
     if (this.wasmFetchPromise) return this.wasmFetchPromise;
-
     this.wasmFetchPromise = (async () => {
       const candidates = [
         new URL("wasm/tunebloom_decoder.wasm", document.baseURI).href,
-        new URL("wasm/boompus.wasm", document.baseURI).href
+        new URL("wasm/boompus.wasm", document.baseURI).href,
+        new URL("../dist/wasm/tunebloom_decoder.wasm", document.baseURI).href
       ];
       for (const url of candidates) {
         try {
@@ -55,7 +52,6 @@ class PlayerEngine {
       }
       return null;
     })();
-
     return this.wasmFetchPromise;
   }
 
@@ -65,7 +61,6 @@ class PlayerEngine {
       seekSlider.addEventListener("pointerdown", () => {
         this.isSeeking = true;
       });
-
       seekSlider.addEventListener("input", (e) => {
         this.isSeeking = true;
         const pct = parseFloat(e.target.value);
@@ -76,13 +71,11 @@ class PlayerEngine {
           if (timeCurrent) timeCurrent.textContent = this.formatTime(targetSec);
         }
       });
-
       seekSlider.addEventListener("change", (e) => {
         const pct = parseFloat(e.target.value);
         this.seek(pct);
         this.isSeeking = false;
       });
-
       seekSlider.addEventListener("pointerup", () => {
         this.isSeeking = false;
       });
@@ -92,7 +85,6 @@ class PlayerEngine {
   async initTranscoderWorker() {
     if (this.transcodeWorkerReady && this.transcodeWorker) return;
     if (this.transcodeInitPromise) return this.transcodeInitPromise;
-
     this.transcodeInitPromise = (async () => {
       try {
         const workerUrl = new URL("wasm/op3transcode-worker.js", document.baseURI).href;
@@ -117,7 +109,6 @@ class PlayerEngine {
         this.transcodeWorkerReady = false;
       }
     })();
-
     return this.transcodeInitPromise;
   }
 
@@ -154,7 +145,6 @@ class PlayerEngine {
     const toc = pkt[0];
     const config = (toc >> 3) & 0x1f;
     const code = toc & 0x03;
-
     let frameSamples = 960;
     if (config >= 0 && config <= 11) {
       const sub = config & 0x03;
@@ -172,7 +162,6 @@ class PlayerEngine {
       else if (sub === 2) frameSamples = 480;
       else if (sub === 3) frameSamples = 960;
     }
-
     let frameCount = 1;
     if (code === 1 || code === 2) {
       frameCount = 2;
@@ -181,7 +170,6 @@ class PlayerEngine {
         frameCount = pkt[1] & 0x3f;
       }
     }
-
     const total = frameSamples * frameCount;
     return sampleRate === 48000 ? total : Math.floor((total * sampleRate) / 48000);
   }
@@ -208,7 +196,6 @@ class PlayerEngine {
         const isEos = (headerType & 0x04) !== 0;
         const pageGranule = view.getBigInt64(offset + 6, true);
         const numSegments = bytes[offset + 26];
-
         if (offset + 27 + numSegments > bytes.length) break;
 
         const segmentTable = bytes.subarray(offset + 27, offset + 27 + numSegments);
@@ -226,11 +213,10 @@ class PlayerEngine {
         while (segIdx < numSegments) {
           const segLen = segmentTable[segIdx++];
           const spansNext = segLen === 255;
-
           if (bodyOffset + segLen > bytes.length) break;
+
           const slice = bytes.subarray(bodyOffset, bodyOffset + segLen);
           bodyOffset += segLen;
-
           pendingSegments.push(slice);
 
           if (!spansNext) {
@@ -292,10 +278,13 @@ class PlayerEngine {
 
   async initAudioWorklet() {
     if (this.audioCtx && this.workletNode) return;
-
     if (!this.audioCtx) {
       const AudioCtxClass = window.AudioContext || window.webkitAudioContext;
-      this.audioCtx = new AudioCtxClass({ sampleRate: 48000 });
+      try {
+        this.audioCtx = new AudioCtxClass({ sampleRate: 48000, latencyHint: "playback" });
+      } catch {
+        this.audioCtx = new AudioCtxClass();
+      }
     }
 
     if (!this.analyser) {
@@ -322,12 +311,26 @@ class PlayerEngine {
           this.wasmMemory = null;
           this.decoderHandle = 0;
           this.inPtr = 0;
-          this.outPtr = 0;
-          this.pcmQueue = [];
+          this.scratchPtr = 0;
           this.isPlaying = false;
-          this.skipRemaining = 0;
           this.isPulling = false;
-          this.maxOutputSamples = 5760;
+          this.preSkipPending = 0;
+
+          this.hostRate = sampleRate;
+          this.srcRate = 48000;
+          this.ratio = this.srcRate / this.hostRate;
+          this.isIdentityRate = (this.hostRate === 48000);
+
+          this.resampMu = 0.0;
+          this.hL = new Float32Array(4);
+          this.hR = new Float32Array(4);
+          this.hFilled = false;
+
+          this.stagingInterleaved = new Float32Array(2048);
+          this.stagingReadIdx = 0;
+          this.stagingAvailable = 0;
+
+          this.samplePair = new Float32Array(2);
 
           this.port.onmessage = async (e) => {
             const msg = e.data;
@@ -338,88 +341,177 @@ class PlayerEngine {
               this.wasmInstance = instance;
               this.wasmMemory = instance.exports.memory;
               this.decoderHandle = instance.exports.tb_decoder_init(48000, 2);
-              this.inPtr = instance.exports.wasm_malloc(8192);
-              this.outPtr = instance.exports.wasm_malloc(this.maxOutputSamples * 2 * 4);
+              this.inPtr = instance.exports.wasm_malloc(4096);
+              this.scratchPtr = instance.exports.wasm_malloc(4096 * 4);
+              this.isPulling = false;
               this.port.postMessage({ type: "READY" });
             } else if (msg.type === "FEED_PACKETS" && this.decoderHandle) {
               this.isPulling = false;
-              for (let i = 0; i < msg.packets.length; i++) {
-                const pkt = msg.packets[i];
-                const inView = new Uint8Array(this.wasmMemory.buffer, this.inPtr, pkt.length);
-                inView.set(pkt);
-                const samples = this.wasmInstance.exports.tb_decoder_decode(
-                  this.decoderHandle, this.inPtr, pkt.length, this.outPtr, this.maxOutputSamples
+              const pkts = msg.packets;
+              const wasmView = new Uint8Array(this.wasmMemory.buffer, this.inPtr, 4096);
+              for (let i = 0; i < pkts.length; i++) {
+                const pkt = pkts[i];
+                wasmView.set(pkt);
+                this.wasmInstance.exports.tb_decoder_decode_to_ring(
+                  this.decoderHandle,
+                  this.inPtr,
+                  pkt.length
                 );
-                if (samples > 0) {
-                  let outView = new Float32Array(this.wasmMemory.buffer, this.outPtr, samples * 2);
-                  if (this.skipRemaining > 0) {
-                    const toTrim = Math.min(samples, this.skipRemaining);
-                    this.skipRemaining -= toTrim;
-                    if (toTrim < samples) {
-                      this.pcmQueue.push(new Float32Array(outView.subarray(toTrim * 2)));
-                    }
-                  } else {
-                    this.pcmQueue.push(new Float32Array(outView));
-                  }
-                }
               }
+              this.drainPreSkip();
             } else if (msg.type === "SEEK_FLUSH") {
-              this.pcmQueue = [];
-              this.isPulling = false;
-              this.skipRemaining = msg.isStart ? msg.preSkip : 0;
               if (this.wasmInstance && this.decoderHandle) {
                 this.wasmInstance.exports.tb_decoder_reset(this.decoderHandle);
               }
+              this.isPulling = false;
+              this.preSkipPending = msg.isStart ? msg.preSkip : 0;
+              this.stagingReadIdx = 0;
+              this.stagingAvailable = 0;
+              this.resampMu = 0.0;
+              this.hFilled = false;
+              this.hL.fill(0);
+              this.hR.fill(0);
             } else if (msg.type === "SET_STATE") {
               this.isPlaying = msg.isPlaying;
             }
           };
         }
 
+        drainPreSkip() {
+          if (this.preSkipPending <= 0 || !this.decoderHandle) return;
+          const availFloats = this.wasmInstance.exports.tb_decoder_ring_avail(this.decoderHandle);
+          const availSamples = Math.floor(availFloats / 2);
+          const toDrain = Math.min(availSamples, this.preSkipPending);
+          if (toDrain > 0) {
+            const floatsToDrain = toDrain * 2;
+            let drained = 0;
+            while (drained < floatsToDrain) {
+              const chunk = Math.min(floatsToDrain - drained, 4096);
+              this.wasmInstance.exports.tb_decoder_ring_read(this.decoderHandle, this.scratchPtr, chunk);
+              drained += chunk;
+            }
+            this.preSkipPending -= toDrain;
+          }
+        }
+
+        fetchSourceSample(pairOut) {
+          if (this.stagingReadIdx >= this.stagingAvailable) {
+            const availFloats = this.wasmInstance.exports.tb_decoder_ring_avail(this.decoderHandle);
+            if (availFloats < 2) return false;
+            const maxFloatsToRead = this.stagingInterleaved.length;
+            const toReadFloats = Math.min(availFloats - (availFloats % 2), maxFloatsToRead);
+            if (toReadFloats < 2) return false;
+            const readCount = this.wasmInstance.exports.tb_decoder_ring_read(
+              this.decoderHandle,
+              this.scratchPtr,
+              toReadFloats
+            );
+            if (readCount < 2) return false;
+            const wasmFloatView = new Float32Array(this.wasmMemory.buffer, this.scratchPtr, readCount);
+            this.stagingInterleaved.set(wasmFloatView);
+            this.stagingAvailable = readCount;
+            this.stagingReadIdx = 0;
+          }
+          pairOut[0] = this.stagingInterleaved[this.stagingReadIdx++];
+          pairOut[1] = this.stagingInterleaved[this.stagingReadIdx++];
+          return true;
+        }
+
+        interpolateHermite(x_m1, x_0, x_1, x_2, mu) {
+          const c0 = x_0;
+          const c1 = 0.5 * (x_1 - x_m1);
+          const c2 = x_m1 - 2.5 * x_0 + 2.0 * x_1 - 0.5 * x_2;
+          const c3 = 0.5 * (x_2 - x_m1) + 1.5 * (x_0 - x_1);
+          return ((c3 * mu + c2) * mu + c1) * mu + c0;
+        }
+
         process(inputs, outputs) {
           const out = outputs[0];
+          const channelCount = out.length;
           const left = out[0];
-          const right = out[1];
+          const right = channelCount > 1 ? out[1] : null;
           const quantum = left.length;
 
-          if (!this.isPlaying || this.pcmQueue.length === 0) {
+          if (!this.isPlaying || !this.decoderHandle) {
             for (let i = 0; i < quantum; i++) {
               left[i] = 0.0;
-              right[i] = 0.0;
-            }
-            if (this.isPlaying && !this.isPulling) {
-              this.isPulling = true;
-              this.port.postMessage({ type: "PULL_REQUEST" });
+              if (right) right[i] = 0.0;
             }
             return true;
           }
 
-          let written = 0;
-          while (written < quantum && this.pcmQueue.length > 0) {
-            const head = this.pcmQueue[0];
-            const avail = head.length / 2;
-            const needed = quantum - written;
-            const toTake = Math.min(avail, needed);
+          const pair = this.samplePair;
 
-            for (let i = 0; i < toTake; i++) {
-              left[written + i] = head[i * 2];
-              right[written + i] = head[i * 2 + 1];
+          if (this.isIdentityRate) {
+            let written = 0;
+            while (written < quantum) {
+              if (!this.fetchSourceSample(pair)) break;
+              const l = pair[0];
+              const r = pair[1];
+              if (right) {
+                left[written] = Math.max(-1.0, Math.min(1.0, l));
+                right[written] = Math.max(-1.0, Math.min(1.0, r));
+              } else {
+                left[written] = Math.max(-1.0, Math.min(1.0, 0.70710678 * (l + r)));
+              }
+              written++;
+            }
+            for (let i = written; i < quantum; i++) {
+              left[i] = 0.0;
+              if (right) right[i] = 0.0;
+            }
+          } else {
+            if (!this.hFilled) {
+              for (let k = 0; k < 4; k++) {
+                if (this.fetchSourceSample(pair)) {
+                  this.hL[k] = pair[0];
+                  this.hR[k] = pair[1];
+                } else {
+                  this.hL[k] = 0.0;
+                  this.hR[k] = 0.0;
+                }
+              }
+              this.hFilled = true;
             }
 
-            written += toTake;
-            if (toTake === avail) {
-              this.pcmQueue.shift();
-            } else {
-              this.pcmQueue[0] = head.subarray(toTake * 2);
+            let written = 0;
+            while (written < quantum) {
+              while (this.resampMu >= 1.0) {
+                this.hL[0] = this.hL[1];
+                this.hL[1] = this.hL[2];
+                this.hL[2] = this.hL[3];
+
+                this.hR[0] = this.hR[1];
+                this.hR[1] = this.hR[2];
+                this.hR[2] = this.hR[3];
+
+                if (this.fetchSourceSample(pair)) {
+                  this.hL[3] = pair[0];
+                  this.hR[3] = pair[1];
+                } else {
+                  this.hL[3] = 0.0;
+                  this.hR[3] = 0.0;
+                }
+                this.resampMu -= 1.0;
+              }
+
+              const sL = this.interpolateHermite(this.hL[0], this.hL[1], this.hL[2], this.hL[3], this.resampMu);
+              const sR = this.interpolateHermite(this.hR[0], this.hR[1], this.hR[2], this.hR[3], this.resampMu);
+
+              if (right) {
+                left[written] = Math.max(-1.0, Math.min(1.0, sL));
+                right[written] = Math.max(-1.0, Math.min(1.0, sR));
+              } else {
+                left[written] = Math.max(-1.0, Math.min(1.0, 0.70710678 * (sL + sR)));
+              }
+
+              this.resampMu += this.ratio;
+              written++;
             }
           }
 
-          for (let i = written; i < quantum; i++) {
-            left[i] = 0.0;
-            right[i] = 0.0;
-          }
-
-          if (this.pcmQueue.length < 16 && !this.isPulling) {
+          const avail = this.wasmInstance.exports.tb_decoder_ring_avail(this.decoderHandle);
+          if (avail < 32768 && !this.isPulling) {
             this.isPulling = true;
             this.port.postMessage({ type: "PULL_REQUEST" });
           }
@@ -444,7 +536,7 @@ class PlayerEngine {
     this.workletNode.port.onmessage = (e) => {
       const msg = e.data;
       if (msg.type === "PULL_REQUEST") {
-        this.feedNextChunk(16);
+        this.feedNextChunk(24);
       }
     };
 
@@ -456,7 +548,7 @@ class PlayerEngine {
     }
   }
 
-  feedNextChunk(batchCount = 16) {
+  feedNextChunk(batchCount = 24) {
     if (!this.audioPackets || this.currentPacketIndex >= this.audioPackets.length) return;
     const chunk = [];
     for (let i = 0; i < batchCount && this.currentPacketIndex < this.audioPackets.length; i++) {
@@ -497,6 +589,7 @@ class PlayerEngine {
     if (jewelImg) {
       jewelImg.src = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : "public/jewelcases/default.jpg";
     }
+
     if (timeCurrent) timeCurrent.textContent = "0:00";
     if (timeTotal) timeTotal.textContent = this.formatTime(track.duration_seconds || 240.0);
     if (seekSlider) {
@@ -505,6 +598,7 @@ class PlayerEngine {
     }
 
     this.populateRecipeBackdrop(track);
+
     if (quoteCard) {
       quoteCard.textContent = '"Pristine Dynamic Headroom & Harmonic Air | Broadcast Master Quality"';
     }
@@ -535,10 +629,9 @@ class PlayerEngine {
       this.preSkipSamples = stream.preSkip;
       this.totalSamples = stream.totalSamples;
       this.totalDurationSec = stream.durationSec || track.duration_seconds || 240.0;
-
       if (timeTotal) timeTotal.textContent = this.formatTime(this.totalDurationSec);
-      await this.initAudioWorklet();
 
+      await this.initAudioWorklet();
       if (this.workletNode) {
         this.workletNode.port.postMessage({
           type: "SEEK_FLUSH",
@@ -546,7 +639,6 @@ class PlayerEngine {
           preSkip: this.preSkipSamples
         });
       }
-
       if (autoplay) {
         this.play();
       } else {
@@ -667,10 +759,9 @@ class PlayerEngine {
   seekToTime(targetSec) {
     targetSec = Math.max(0, Math.min(this.totalDurationSec, targetSec));
     this.playbackPositionSec = targetSec;
-
     const targetSample = Math.floor(targetSec * 48000.0) + this.preSkipSamples;
-    let targetIndex = 0;
 
+    let targetIndex = 0;
     let low = 0;
     let high = this.audioPackets.length - 1;
     while (low <= high) {
@@ -683,8 +774,8 @@ class PlayerEngine {
         high = mid - 1;
       }
     }
-    this.currentPacketIndex = targetIndex;
 
+    this.currentPacketIndex = targetIndex;
     if (this.workletNode) {
       this.workletNode.port.postMessage({
         type: "SEEK_FLUSH",
@@ -695,7 +786,6 @@ class PlayerEngine {
     }
 
     this.lastTime = performance.now();
-
     const timeCurrent = document.getElementById("time-current");
     const seekSlider = document.getElementById("seek-slider");
     if (timeCurrent) timeCurrent.textContent = this.formatTime(this.playbackPositionSec);
@@ -880,6 +970,7 @@ class PlayerEngine {
       downloadBtn.disabled = false;
       downloadBtn.innerHTML = '<i class="fa-solid fa-file-audio mr-1"></i> Download Master Audio (MP3)';
     }
+
     const blob = new Blob([data.mp3Bytes], { type: "audio/mpeg" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");

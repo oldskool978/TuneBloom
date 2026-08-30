@@ -17,6 +17,7 @@ WINSDK_DIR = TOOLCHAIN_DIR / "winsdk"
 OPUS_SRC = LIBRARY_DIR / "opus"
 
 IS_WIN = sys.platform == "win32"
+
 CLANG_EXE = TOOLCHAIN_DIR / "llvm" / "bin" / ("clang.exe" if IS_WIN else "clang")
 CLANG_CL_EXE = TOOLCHAIN_DIR / "llvm" / "bin" / ("clang-cl.exe" if IS_WIN else "clang-cl")
 LLD_LINK_EXE = TOOLCHAIN_DIR / "llvm" / "bin" / ("lld-link.exe" if IS_WIN else "lld-link")
@@ -40,16 +41,13 @@ WASM_ENCODER_EXCLUDES = {
 
 HARDWARE_ARCHS = {"arm", "x86", "mips", "xtensa", "tests", "dnn"}
 
-
 def sanitize_path(path_obj: Path) -> str:
     return str(path_obj.resolve()).replace("\\", "/")
-
 
 def preflight_check() -> None:
     if not (NATIVE_SYSROOT / "lib" / ("opus.lib" if IS_WIN else "libopus.a")).exists():
         print("[!] Native sysroot missing. Please run 'python tools/build_native.py' first.")
         sys.exit(1)
-
     wasi_lib_candidates = [
         WASI_SYSROOT / "lib" / "wasm32-wasip1" / "libc.a",
         WASI_SYSROOT / "lib" / "libc.a",
@@ -58,14 +56,12 @@ def preflight_check() -> None:
     if not any(cand.exists() for cand in wasi_lib_candidates):
         print("[!] WASI sysroot missing. Please run 'python tools/build_wasi.py' first.")
         sys.exit(1)
-
     try:
         res_dir_str = subprocess.check_output([str(CLANG_EXE), "-print-resource-dir"], text=True).strip()
         res_dir = Path(res_dir_str)
     except Exception:
         res_dirs = list((TOOLCHAIN_DIR / "llvm" / "lib" / "clang").glob("*"))
         res_dir = res_dirs[0] if res_dirs else TOOLCHAIN_DIR / "llvm" / "lib" / "clang" / "22"
-
     builtins_target = res_dir / "lib" / "wasm32-unknown-wasip1" / "libclang_rt.builtins.a"
     if not builtins_target.exists():
         wasi_build = CACHE_DIR / "wasi-build"
@@ -77,7 +73,6 @@ def preflight_check() -> None:
                 shutil.copy2(found[0], td / "libclang_rt.builtins.a")
                 shutil.copy2(found[0], td / "libclang_rt.builtins-wasm32.a")
             print("[+] Auto-staged missing compiler-rt builtins to LLVM resource path.")
-
 
 def is_wasm_decoder_source(c_file: Path) -> bool:
     name = c_file.name
@@ -91,11 +86,9 @@ def is_wasm_decoder_source(c_file: Path) -> bool:
         return False
     return True
 
-
 def main() -> None:
     preflight_check()
     print("[*] Synthesizing Ninja DAG for Native Converter and WASM Player...")
-
     dag_dir = CACHE_DIR / "dag-build"
     dag_dir.mkdir(parents=True, exist_ok=True)
     DIST_DIR.mkdir(parents=True, exist_ok=True)
@@ -120,7 +113,6 @@ def main() -> None:
 
     opus_dirs = [OPUS_SRC / "src", OPUS_SRC / "celt", OPUS_SRC / "silk"]
     wasm_opus_c_files = []
-
     for d in opus_dirs:
         if not d.exists():
             continue
@@ -163,8 +155,9 @@ def main() -> None:
             f"-target wasm32-wasip1 --sysroot={wasi_sysroot_posix} "
             f"-isystem {wasi_sysroot_posix}/include -isystem {wasi_sysroot_posix}/include/wasm32-wasip1 "
             "-O3 -flto -msimd128 -mbulk-memory -DNDEBUG -fvisibility=hidden -fno-exceptions -fno-rtti "
-            "-fno-asynchronous-unwind-tables -fno-unwind-tables -fmerge-all-constants "
-            "-DOPUS_BUILD -DVAR_ARRAYS -DFLOATING_POINT -DFLOAT_APPROX -DHAVE_LRINT -DHAVE_LRINTF -ffast-math -fno-math-errno "
+            "-fno-asynchronous-unwind-tables -fno-unwind-tables -fno-ident -fomit-frame-pointer "
+            "-fdata-sections -ffunction-sections -fmerge-all-constants "
+            "-DOPUS_BUILD -DVAR_ARRAYS -DFLOATING_POINT -DFLOAT_APPROX -DHAVE_LRINT -DHAVE_LRINTF "
             f"-I{to_posix(OPUS_SRC / 'include')} -I{to_posix(OPUS_SRC / 'celt')} -I{to_posix(OPUS_SRC / 'silk')} -I{to_posix(OPUS_SRC / 'silk' / 'float')} "
             f"-I{to_posix(SRC_DIR / 'wasm_player')}"
         )
@@ -176,6 +169,7 @@ def main() -> None:
             "-Wl,-z,stack-size=1048576 -Wl,--initial-memory=16777216 "
             "-Wl,--export=wasm_malloc -Wl,--export=wasm_free "
             "-Wl,--export=tb_decoder_init -Wl,--export=tb_decoder_decode -Wl,--export=tb_decoder_reset -Wl,--export=tb_decoder_destroy "
+            "-Wl,--export=tb_decoder_decode_to_ring -Wl,--export=tb_decoder_ring_read -Wl,--export=tb_decoder_ring_avail -Wl,--export=tb_decoder_ring_reset "
             "-lc -lm"
         )
         f.write("rule cc_wasm\n")
@@ -189,7 +183,6 @@ def main() -> None:
                 obj = f"native_{src_f.stem}.obj" if IS_WIN else f"native_{src_f.stem}.o"
                 f.write(f"build {obj}: cc_native {to_posix(src_f)}\n")
                 native_objs.append(obj)
-
         out_enc_bin = to_posix(DIST_DIR / "bin" / ("tunebloom-opusenc.exe" if IS_WIN else "tunebloom-opusenc"))
         f.write(f"build {out_enc_bin}: link_native {' '.join(native_objs)}\n\n")
 
@@ -198,7 +191,6 @@ def main() -> None:
             obj = f"wasm_opus_{src_f.stem}_{src_f.parent.name}.o"
             f.write(f"build {obj}: cc_wasm {to_posix(src_f)}\n")
             wasm_objs.append(obj)
-
         if bridge_wasm.exists():
             f.write(f"build wasm_bridge.o: cc_wasm {to_posix(bridge_wasm)}\n")
             wasm_objs.append("wasm_bridge.o")
@@ -211,7 +203,6 @@ def main() -> None:
 
     subprocess.run([str(NINJA_EXE)], cwd=dag_dir, check=True)
     print(f"[+] Compiled deliverables generated in dist/bin/ and dist/wasm/.")
-
 
 if __name__ == "__main__":
     main()
