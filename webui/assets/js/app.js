@@ -53,7 +53,6 @@ const AppModal = {
   show(title, message, iconClass = "fa-circle-info") {
     this.init();
     this.lastFocusedElement = document.activeElement;
-
     if (this.titleEl) this.titleEl.textContent = title;
     if (this.messageEl) this.messageEl.textContent = message;
     if (this.iconEl) this.iconEl.className = `fa-solid ${iconClass}`;
@@ -216,7 +215,8 @@ const AppState = {
   formFocusTimestamp: 0,
   editingTagIndex: null,
   activeTrackCleanRecipe: null,
-  songBlocks: []
+  songBlocks: [],
+  isDispatching: false
 };
 
 let syncTimeout = null;
@@ -272,14 +272,12 @@ function computeCanonicalRecipe(title, data) {
   const sanitize = (val) => String(val || "").replace(/\r\n/g, "\n").trim();
   const bpm = parseInt(data.bpm, 10);
   const cleanBpm = Math.max(30, Math.min(300, isNaN(bpm) ? 96 : bpm));
-
   let lyricsStr = "";
   if (typeof data.lyrics === "string" && data.lyrics.trim().length > 0) {
     lyricsStr = sanitize(data.lyrics);
   } else if (Array.isArray(data.blocks) && window.compileBlocksToLyrics) {
     lyricsStr = sanitize(window.compileBlocksToLyrics(data.blocks));
   }
-
   const canonical = {
     title: sanitize(title || data.title),
     genre: sanitize(data.genre),
@@ -291,7 +289,6 @@ function computeCanonicalRecipe(title, data) {
     arrangement: sanitize(data.arrangement),
     lyrics: lyricsStr
   };
-
   return JSON.stringify(canonical);
 }
 
@@ -425,13 +422,11 @@ async function ensureShowcaseTrack(slug, storage) {
   });
 
   const normalizedTracks = [defaultTrack, ...otherTracks];
-
   if (storage) {
     for (const track of normalizedTracks) {
       await storage.saveTrack(track);
     }
   }
-
   AppState.tracks = normalizedTracks;
 }
 
@@ -481,7 +476,6 @@ async function handleAuthSubmit(event) {
   try {
     let authData = null;
     const router = window.RouterDiscovery;
-
     if (router && router.isOnline) {
       try {
         const loginResp = await fetch(`${router.activeBase}/auth/login`, {
@@ -489,7 +483,6 @@ async function handleAuthSubmit(event) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ username: rawName })
         });
-
         if (loginResp.ok) {
           authData = await loginResp.json();
           AppState.token = authData.token;
@@ -510,7 +503,6 @@ async function handleAuthSubmit(event) {
     }
 
     let userRecord = storage ? await storage.getUser(slug) : null;
-
     if (authData) {
       const dailyQuota = authData.user?.daily_quota || 2;
       const tokensRemaining = authData.user?.tokens_remaining !== undefined ? authData.user.tokens_remaining : dailyQuota;
@@ -596,12 +588,10 @@ async function handleAuthSubmit(event) {
     }
 
     await ensureShowcaseTrack(slug, storage);
-
     AppState.user = userRecord;
     localStorage.setItem("tb_active_user_slug", slug);
 
     unlockWorkspaceUI();
-
     const userGreeting = document.getElementById("user-greeting-tag");
     if (userGreeting) userGreeting.textContent = `${userRecord.display_name} Studio`;
     updateQuotaDisplay();
@@ -623,12 +613,12 @@ async function handleAuthSubmit(event) {
     const pendingJobJson = localStorage.getItem(`tb_active_job_${slug}`);
     if (pendingJobJson) {
       try {
-        const { jobId, compositionPayload, isFork, originTrackId } = JSON.parse(pendingJobJson);
+        const { jobId, compositionPayload, isFork, originTrackId, assignedCover } = JSON.parse(pendingJobJson);
         const btnEl = document.getElementById("gen-submit-btn");
         const hudEl = document.getElementById("queue-status-hud");
         if (btnEl) btnEl.classList.add("hidden");
         if (hudEl) hudEl.classList.remove("hidden");
-        startTrackingJob(jobId, compositionPayload, isFork, originTrackId);
+        startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover);
       } catch {
         localStorage.removeItem(`tb_active_job_${slug}`);
       }
@@ -660,6 +650,8 @@ function handleLogout() {
   AppState.tracks = [];
   AppState.activeTrackId = null;
   AppState.activeTrackCleanRecipe = null;
+  AppState.isDispatching = false;
+
   if (AppState.activeEventSource) {
     AppState.activeEventSource.close();
     AppState.activeEventSource = null;
@@ -694,8 +686,8 @@ function renderDiscography() {
   const container = document.getElementById("discography-carousel");
   const counter = document.getElementById("discography-counter");
   if (!container) return;
-  container.innerHTML = "";
 
+  container.innerHTML = "";
   AppState.tracks = sortTracks(AppState.tracks);
   const total = AppState.tracks.length;
   if (counter) counter.textContent = `${total} Track${total === 1 ? "" : "s"} In Vault`;
@@ -705,6 +697,7 @@ function renderDiscography() {
     const isDefault = track.is_default || track.track_id.startsWith("default_");
     const isSelected = track.track_id === AppState.activeTrackId;
     const isDraft = track.status === "DRAFT";
+    const isProcessing = track.status === "PROCESSING";
     const coverUrl = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : resolveAssetUrl("public/jewelcases/default.jpg");
 
     const item = document.createElement("div");
@@ -713,15 +706,28 @@ function renderDiscography() {
     }`;
     item.onclick = () => selectTrackById(track.track_id);
 
+    let badgeText = "Master";
+    let badgeColor = "text-emerald-300";
+    if (isDefault) {
+      badgeText = "Master";
+      badgeColor = "text-amber-300";
+    } else if (isProcessing) {
+      badgeText = "Studio";
+      badgeColor = "text-sky-400 animate-pulse";
+    } else if (isDraft) {
+      badgeText = "Draft";
+      badgeColor = "text-sky-300";
+    }
+
     const badgeOrDeleteHtml = isDefault
       ? `
-      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase text-amber-300 pointer-events-none">
-        Master
+      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
+        ${badgeText}
       </div>
     `
       : `
-      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${isDraft ? "text-sky-300" : "text-emerald-300"} pointer-events-none">
-        ${isDraft ? "Draft" : "Master"}
+      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
+        ${badgeText}
       </div>
       <button type="button" onclick="handleTrackDelete('${track.track_id}', event)"
               class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-white/80 hover:text-white border border-white/20 flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition shadow-md z-10"
@@ -733,9 +739,9 @@ function renderDiscography() {
     item.innerHTML = `
       ${badgeOrDeleteHtml}
       <div class="w-full h-24 rounded-xl overflow-hidden relative mb-2 bg-black/40 border border-white/10 flex items-center justify-center">
-        <img src="${coverUrl}" 
+        <img src="${coverUrl}"
              onerror="this.onerror=null; this.src='${resolveAssetUrl("public/jewelcases/default.jpg")}';"
-             alt="Cover Art" 
+             alt="Cover Art"
              class="w-full h-full object-cover">
       </div>
       <div class="text-[11px] font-black truncate text-white leading-tight">${track.working_draft?.title || track.title}</div>
@@ -764,11 +770,10 @@ function selectTrackById(trackId) {
     clearTimeout(syncTimeout);
     syncTimeout = null;
   }
-
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
-  AppState.activeTrackId = trackId;
 
+  AppState.activeTrackId = trackId;
   if (AppState.user) {
     localStorage.setItem(`tb_active_track_${AppState.user.slug}`, trackId);
   }
@@ -778,14 +783,12 @@ function selectTrackById(trackId) {
   }
 
   const isDefault = Boolean(track.is_default || String(track.track_id).startsWith("default_"));
-
   if (track.working_draft) {
     loadDraftIntoForm(track.working_draft, isDefault);
   } else if (track.recipe) {
     const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
       ? track.recipe.blocks
       : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []);
-
     const draftFromRecipe = {
       title: track.title,
       genre: track.recipe.genre || "",
@@ -820,6 +823,7 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
     const el = document.getElementById(id);
     if (el && val !== undefined) el.value = val;
   };
+
   setVal("field-title", draft.title || "");
   setVal("field-genre", draft.genre || "");
   setVal("field-subgenre", draft.subgenre || "");
@@ -849,13 +853,13 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
 
 function checkRecipeDirtyState() {
   const btn = document.getElementById("gen-submit-btn");
-  if (!btn) return;
+  if (!btn || AppState.isDispatching) return;
+
   const currentTrack = AppState.tracks.find((t) => t.track_id === AppState.activeTrackId);
   if (!currentTrack) return;
 
   const currentPayload = getCurrentFormPayload();
   const currentSerialized = computeCanonicalRecipe(currentPayload.title, currentPayload);
-
   const isCompleted = currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
   const isPristine = isCompleted && AppState.activeTrackCleanRecipe !== null && currentSerialized === AppState.activeTrackCleanRecipe;
 
@@ -877,6 +881,7 @@ function checkRecipeDirtyState() {
 function syncActiveTrackDraftDebounced() {
   if (syncTimeout) clearTimeout(syncTimeout);
   const targetTrackId = AppState.activeTrackId;
+
   syncTimeout = setTimeout(async () => {
     if (!AppState.user || !targetTrackId || targetTrackId !== AppState.activeTrackId) return;
     const track = AppState.tracks.find((t) => t.track_id === targetTrackId);
@@ -916,13 +921,13 @@ async function handleAddNewTrackCardClick() {
   const trackId = `track_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const seed = Math.floor(Math.random() * 90000000);
   const resolver = window.ClientJewelResolver;
-  const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed) : "default.jpg";
+  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
+  const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed, usedCovers) : "default.jpg";
   const newOrderIndex = AppState.tracks.length;
 
   const clonedBlocks = Array.isArray(blueprint.blocks)
     ? JSON.parse(JSON.stringify(blueprint.blocks))
     : [];
-
   const compiledLyrics = window.compileBlocksToLyrics
     ? window.compileBlocksToLyrics(clonedBlocks)
     : "";
@@ -959,7 +964,6 @@ async function handleAddNewTrackCardClick() {
   if (carousel) {
     carousel.scrollTo({ left: carousel.scrollWidth, behavior: "smooth" });
   }
-
   const dock = document.getElementById("studio-generation-dock");
   if (dock) dock.scrollIntoView({ behavior: "smooth" });
 }
@@ -968,6 +972,7 @@ async function handleTrackDelete(trackId, e) {
   if (e) e.stopPropagation();
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
+
   if (track.is_default || track.track_id.startsWith("default_")) {
     await AppModal.alert("Action Disallowed", "The showcase reference track is permanently preserved and cannot be removed.", "fa-lock");
     return;
@@ -1030,7 +1035,9 @@ function handleEasterEggTrigger() {
 
 async function handleGenerateSubmit(e) {
   e.preventDefault();
+  if (AppState.isDispatching) return;
   if (!AppState.user) return;
+
   const honeypot = document.getElementById("field-honeypot");
   if (honeypot && honeypot.value.length > 0) return;
   if (Date.now() - AppState.formFocusTimestamp < 600) return;
@@ -1063,15 +1070,53 @@ async function handleGenerateSubmit(e) {
     return;
   }
 
+  AppState.isDispatching = true;
   const isFork = Boolean(isCompleted);
   const originTrackId = currentTrack ? currentTrack.track_id : null;
-
   const btn = document.getElementById("gen-submit-btn");
   const hud = document.getElementById("queue-status-hud");
   const statusLabel = document.getElementById("queue-hud-status");
 
-  if (btn) btn.classList.add("hidden");
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add("hidden");
+  }
   if (hud) hud.classList.remove("hidden");
+
+  const seed = Math.floor(Math.random() * 90000000) + 100000;
+  const resolver = window.ClientJewelResolver;
+  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
+  const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+  const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
+
+  let workingTrackTarget = null;
+  if (isFork) {
+    workingTrackTarget = {
+      track_id: stagedId,
+      user_slug: AppState.user.slug,
+      order_index: AppState.tracks.length,
+      is_default: false,
+      status: "PROCESSING",
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      title: formPayload.title,
+      artist: AppState.user.display_name,
+      audio_url: null,
+      assigned_jewelcase: assignedCover,
+      duration_seconds: formPayload.audio_duration,
+      recipe: null,
+      working_draft: JSON.parse(JSON.stringify(formPayload))
+    };
+    AppState.tracks.push(workingTrackTarget);
+    selectTrackById(stagedId);
+  } else if (currentTrack) {
+    currentTrack.title = formPayload.title;
+    currentTrack.assigned_jewelcase = assignedCover;
+    currentTrack.status = "PROCESSING";
+    currentTrack.working_draft = JSON.parse(JSON.stringify(formPayload));
+    selectTrackById(currentTrack.track_id);
+  }
+  renderDiscography();
 
   try {
     if (statusLabel) statusLabel.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></span>Securing Studio Challenge...';
@@ -1082,7 +1127,6 @@ async function handleGenerateSubmit(e) {
     const solutionNonce = window.solveClientProofOfWork ? await window.solveClientProofOfWork(challengeData) : "0";
 
     if (statusLabel) statusLabel.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping"></span>Dispatching Master Job...';
-
     const payload = {
       title: formPayload.title,
       genre: formPayload.genre,
@@ -1094,6 +1138,8 @@ async function handleGenerateSubmit(e) {
       arrangement: formPayload.arrangement,
       lyrics: formPayload.lyrics,
       audio_duration: formPayload.audio_duration,
+      seed: seed,
+      assigned_jewelcase: assignedCover,
       blocks: formPayload.blocks,
       pow: {
         challenge: challengeData.challenge,
@@ -1129,22 +1175,44 @@ async function handleGenerateSubmit(e) {
     if (storage) await storage.saveUser(AppState.user);
     updateQuotaDisplay();
 
+    if (isFork && workingTrackTarget) {
+      workingTrackTarget.track_id = jobData.job_id;
+      AppState.activeTrackId = jobData.job_id;
+    } else if (currentTrack) {
+      currentTrack.track_id = jobData.job_id;
+      AppState.activeTrackId = jobData.job_id;
+    }
+    renderDiscography();
+
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
       compositionPayload: formPayload,
       isFork,
-      originTrackId
+      originTrackId,
+      assignedCover
     }));
 
-    startTrackingJob(jobData.job_id, formPayload, isFork, originTrackId);
+    startTrackingJob(jobData.job_id, formPayload, isFork, originTrackId, assignedCover);
   } catch (err) {
+    if (isFork) {
+      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId);
+      if (originTrackId) selectTrackById(originTrackId);
+    } else if (currentTrack) {
+      currentTrack.status = "DRAFT";
+      renderDiscography();
+    }
+    AppState.isDispatching = false;
     await AppModal.alert("Dispatch Error", `Synthesis submission failed:\n${err.message}`, "fa-triangle-exclamation");
-    if (btn) btn.classList.remove("hidden");
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove("hidden");
+    }
     if (hud) hud.classList.add("hidden");
+    checkRecipeDirtyState();
   }
 }
 
-function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
+function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover) {
   if (AppState.activeEventSource) {
     AppState.activeEventSource.close();
     AppState.activeEventSource = null;
@@ -1159,6 +1227,51 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
   const progressBar = document.getElementById("queue-hud-bar");
   const token = AppState.token || localStorage.getItem("tb_session_token");
   const router = window.RouterDiscovery;
+
+  const handleJobLost = async () => {
+    if (AppState.pollIntervalId) {
+      clearInterval(AppState.pollIntervalId);
+      AppState.pollIntervalId = null;
+    }
+    if (AppState.activeEventSource) {
+      AppState.activeEventSource.close();
+      AppState.activeEventSource = null;
+    }
+    if (AppState.user) {
+      localStorage.removeItem(`tb_active_job_${AppState.user.slug}`);
+      if (AppState.user.tokens_used_today > 0) {
+        AppState.user.tokens_used_today -= 1;
+        const storage = window.clientStorage;
+        if (storage) await storage.saveUser(AppState.user);
+        updateQuotaDisplay();
+      }
+    }
+
+    AppState.isDispatching = false;
+    const btnEl = document.getElementById("gen-submit-btn");
+    const hudEl = document.getElementById("queue-status-hud");
+    if (btnEl) {
+      btnEl.disabled = false;
+      btnEl.classList.remove("hidden");
+    }
+    if (hudEl) hudEl.classList.add("hidden");
+
+    if (isFork) {
+      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId);
+      if (originTrackId) selectTrackById(originTrackId);
+    } else {
+      const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
+      if (active) active.status = "DRAFT";
+      renderDiscography();
+    }
+    checkRecipeDirtyState();
+
+    await AppModal.alert(
+      "Session Reset",
+      "The compute studio was restarted and the pending job was cleared. Your lyrics, arrangement draft, and generation token remain intact.",
+      "fa-rotate-right"
+    );
+  };
 
   const onJobUpdate = async (data) => {
     if (!data) return;
@@ -1180,24 +1293,14 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         clearInterval(AppState.pollIntervalId);
         AppState.pollIntervalId = null;
       }
-
       if (AppState.user) localStorage.removeItem(`tb_active_job_${AppState.user.slug}`);
 
       if (statusLabel) statusLabel.textContent = "Master Complete!";
       if (progressBar) progressBar.style.width = "100%";
 
       const seed = data.telemetry?.seed || Math.floor(Math.random() * 90000000);
-      const resolver = window.ClientJewelResolver;
       const targetTrackId = jobId;
-
-      let assignedCover;
-      if (isFork) {
-        assignedCover = resolver ? await resolver.resolve(AppState.user.slug, jobId, seed) : "default.jpg";
-      } else {
-        const matchedTrack = AppState.tracks.find((t) => t.track_id === originTrackId);
-        assignedCover = matchedTrack?.assigned_jewelcase || (resolver ? await resolver.resolve(AppState.user.slug, jobId, seed) : "default.jpg");
-      }
-
+      const finalCover = assignedCover || (window.ClientJewelResolver ? await window.ClientJewelResolver.resolve(AppState.user.slug, jobId, seed, AppState.tracks.map(t => t.assigned_jewelcase)) : "default.jpg");
       const audioUrl = `${router.activeBase}/audio/stream/${AppState.user.slug}/${jobId}_master.opus`;
 
       const completedTrack = {
@@ -1205,7 +1308,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         user_slug: AppState.user.slug,
         order_index: isFork
           ? AppState.tracks.length
-          : (AppState.tracks.find((t) => t.track_id === originTrackId)?.order_index ?? AppState.tracks.length),
+          : (AppState.tracks.find((t) => t.track_id === originTrackId || t.track_id === targetTrackId)?.order_index ?? AppState.tracks.length),
         is_default: false,
         status: "COMPLETED",
         created_at: new Date().toISOString(),
@@ -1214,7 +1317,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         artist: `${AppState.user.display_name}`,
         audio_url: audioUrl,
         duration_seconds: compositionPayload.audio_duration,
-        assigned_jewelcase: assignedCover,
+        assigned_jewelcase: finalCover,
         recipe: {
           genre: compositionPayload.genre,
           subgenre: compositionPayload.subgenre,
@@ -1268,17 +1371,14 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
           .catch(() => {});
       }
 
-      if (isFork) {
-        AppState.tracks.push(completedTrack);
+      const existingIdx = AppState.tracks.findIndex((t) => t.track_id === originTrackId || t.track_id === targetTrackId);
+      if (existingIdx !== -1) {
+        AppState.tracks[existingIdx] = completedTrack;
       } else {
-        const idx = AppState.tracks.findIndex((t) => t.track_id === originTrackId || t.track_id === targetTrackId);
-        if (idx !== -1) {
-          AppState.tracks[idx] = completedTrack;
-        } else {
-          AppState.tracks.push(completedTrack);
-        }
+        AppState.tracks.push(completedTrack);
       }
 
+      AppState.isDispatching = false;
       renderDiscography();
       selectTrackById(targetTrackId);
 
@@ -1287,6 +1387,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         const hudEl = document.getElementById("queue-status-hud");
         if (btnEl) btnEl.classList.remove("hidden");
         if (hudEl) hudEl.classList.add("hidden");
+        checkRecipeDirtyState();
       }, 1200);
     } else if (data.status === "FAILED") {
       if (AppState.activeEventSource) {
@@ -1297,12 +1398,26 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         clearInterval(AppState.pollIntervalId);
         AppState.pollIntervalId = null;
       }
-      if (AppState.user) localStorage.removeItem(`tb_active_job_${AppState.user.slug}`);
+      if (AppState.user) {
+        localStorage.removeItem(`tb_active_job_${AppState.user.slug}`);
+        if (AppState.user.tokens_used_today > 0) {
+          AppState.user.tokens_used_today -= 1;
+          const storage = window.clientStorage;
+          if (storage) await storage.saveUser(AppState.user);
+          updateQuotaDisplay();
+        }
+      }
+
+      AppState.isDispatching = false;
       await AppModal.alert("Synthesis Failed", data.error || "Audio mastering process interrupted.", "fa-circle-xmark");
       const btnEl = document.getElementById("gen-submit-btn");
       const hudEl = document.getElementById("queue-status-hud");
-      if (btnEl) btnEl.classList.remove("hidden");
+      if (btnEl) {
+        btnEl.disabled = false;
+        btnEl.classList.remove("hidden");
+      }
       if (hudEl) hudEl.classList.add("hidden");
+      checkRecipeDirtyState();
     }
   };
 
@@ -1315,14 +1430,16 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
       try {
         const headers = { Authorization: `Bearer ${token}` };
         if (lastEtag) headers["If-None-Match"] = lastEtag;
-
         const resp = await fetch(`${router.activeBase}/jobs/${jobId}`, { headers });
         if (resp.status === 304) return;
+        if (resp.status === 404 || resp.status === 410) {
+          await handleJobLost();
+          return;
+        }
         if (!resp.ok) return;
 
         const etag = resp.headers.get("ETag");
         if (etag) lastEtag = etag;
-
         const data = await resp.json();
         await onJobUpdate(data);
 
@@ -1349,7 +1466,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         } catch {}
       };
 
-      es.onerror = () => {
+      es.onerror = async () => {
         if (AppState.activeEventSource) {
           AppState.activeEventSource.close();
           AppState.activeEventSource = null;
@@ -1366,6 +1483,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
 
 document.addEventListener("DOMContentLoaded", async () => {
   AppModal.init();
+
   if (window.RouterDiscovery) {
     await window.RouterDiscovery.resolve();
   }
@@ -1378,7 +1496,6 @@ document.addEventListener("DOMContentLoaded", async () => {
         AppState.user = userRecord;
         AppState.token = localStorage.getItem("tb_session_token");
         await ensureShowcaseTrack(savedSlug, window.clientStorage);
-
         unlockWorkspaceUI();
 
         const userGreeting = document.getElementById("user-greeting-tag");
@@ -1433,6 +1550,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                       user_slug: savedSlug,
                       order_index: existingIdx !== -1 ? AppState.tracks[existingIdx].order_index : (i + 1)
                     };
+
                     if (existingIdx === -1) {
                       await window.clientStorage.saveTrack(trackObj);
                       AppState.tracks.push(trackObj);
@@ -1459,12 +1577,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const pendingJobJson = localStorage.getItem(`tb_active_job_${savedSlug}`);
         if (pendingJobJson) {
           try {
-            const { jobId, compositionPayload, isFork, originTrackId } = JSON.parse(pendingJobJson);
+            const { jobId, compositionPayload, isFork, originTrackId, assignedCover } = JSON.parse(pendingJobJson);
             const btnEl = document.getElementById("gen-submit-btn");
             const hudEl = document.getElementById("queue-status-hud");
             if (btnEl) btnEl.classList.add("hidden");
             if (hudEl) hudEl.classList.remove("hidden");
-            startTrackingJob(jobId, compositionPayload, isFork, originTrackId);
+            startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover);
           } catch {
             localStorage.removeItem(`tb_active_job_${savedSlug}`);
           }

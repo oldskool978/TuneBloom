@@ -290,7 +290,13 @@ class TuneBloomStorage {
 
 class ClientJewelResolver {
   static manifestCache = null;
-  static FALLBACK_COVERS = ["space.jpg", "default.jpg"];
+  static FALLBACK_COVERS = [
+    "Dark.jpg", "basic.jpg", "bears.jpg", "chips.jpg", "color.jpg",
+    "colorful.jpg", "flake.jpg", "harp.jpg", "heist.jpg", "maniacs.jpg",
+    "planet.jpg", "prime.jpg", "retro.jpg", "space.jpg", "status.jpg",
+    "sunburst.jpg", "tiger.jpg", "valhalla.jpg", "wonderland.jpg"
+  ];
+  static RESERVED_COVERS = new Set(["default.jpg", "default.png", "midnight.jpg", "case_default.png"]);
 
   static async getManifest() {
     if (this.manifestCache) return this.manifestCache;
@@ -319,8 +325,23 @@ class ClientJewelResolver {
     return this.manifestCache;
   }
 
-  static async resolve(slug, trackId, seed) {
-    const covers = await this.getManifest();
+  static async resolve(slug, trackId, seed, usedCovers = []) {
+    const rawCovers = await this.getManifest();
+    const availablePool = rawCovers.filter(c => !this.RESERVED_COVERS.has(c));
+    if (availablePool.length === 0) {
+      return "default.jpg";
+    }
+
+    const windowSize = Math.max(1, availablePool.length - 1);
+    const validUsed = (Array.isArray(usedCovers) ? usedCovers : [])
+      .filter(c => c && !this.RESERVED_COVERS.has(c));
+    const recentUsed = new Set(validUsed.slice(-windowSize));
+    let candidates = availablePool.filter(c => !recentUsed.has(c));
+
+    if (candidates.length === 0) {
+      candidates = availablePool;
+    }
+
     const key = `${slug}:${trackId}:${seed}`;
     let hex = "";
     if (typeof crypto !== "undefined" && crypto.subtle && typeof crypto.subtle.digest === "function") {
@@ -337,8 +358,9 @@ class ClientJewelResolver {
     } else {
       hex = "42";
     }
-    const index = parseInt(hex.slice(0, 8), 16) % covers.length;
-    return covers[index] || "space.jpg";
+
+    const index = parseInt(hex.slice(0, 8), 16) % candidates.length;
+    return candidates[index] || candidates[0];
   }
 
   static getCoverUrl(filename) {

@@ -37,6 +37,7 @@ mimetypes.add_type("text/css", ".css")
 
 SERVICES_DIR = Path(__file__).resolve().parent
 BACKEND_ROOT = SERVICES_DIR.parent
+
 PATH_ANCHORS = [
     BACKEND_ROOT,
     BACKEND_ROOT / "Intelligen",
@@ -76,6 +77,7 @@ except Exception:
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
 STORAGE_ROOT = BACKEND_ROOT / "storage" / "users"
 CONFIG_DIR = BACKEND_ROOT / "config"
+
 for d in [ARTIFACTS_DIR, STORAGE_ROOT, CONFIG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
@@ -142,11 +144,14 @@ def resolve_site_root() -> Path:
             if (c / "index.html").exists():
                 return c.resolve()
         return (BACKEND_ROOT / "webui").resolve()
+
     if _CLI_SITE_ROOT and _CLI_SITE_ROOT.exists():
         return _CLI_SITE_ROOT.resolve()
+
     env_site = os.environ.get("TUNEBLOOM_SITE_DIR")
     if env_site and Path(env_site).exists():
         return Path(env_site).resolve()
+
     candidates = [
         BACKEND_ROOT / "site",
         Path.cwd() / "site",
@@ -243,6 +248,7 @@ def load_user_registry() -> Tuple[Dict[str, Any], Path]:
                         return data, resolved
             except Exception as e:
                 logging.getLogger("uvicorn.error").warning(f"Failed parsing user registry at {resolved}: {e}")
+
     fallback = {
         "administrator": {
             "display_name": "Administrator",
@@ -304,12 +310,15 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
     global _REPLAY_CACHE
     now = time.time()
     _REPLAY_CACHE = {k: v for k, v in _REPLAY_CACHE.items() if now - v < POW_EXPIRATION_SECONDS}
+
     cache_key = f"{challenge}:{solution_nonce}"
     if cache_key in _REPLAY_CACHE:
         return False
+
     expected_sig = hmac.new(POW_SECRET.encode("utf-8"), challenge.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected_sig):
         return False
+
     try:
         ts_str, _, diff_str = challenge.split(":")
         ts = int(ts_str)
@@ -318,10 +327,12 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
             return False
     except Exception:
         return False
+
     attempt = f"{challenge}:{solution_nonce}".encode("utf-8")
     h = hashlib.sha256(attempt).hexdigest()
     if not h.startswith("0" * diff):
         return False
+
     _REPLAY_CACHE[cache_key] = now
     return True
 
@@ -350,6 +361,7 @@ class SynthesisPayload(BaseModel):
     prompt: Optional[str] = Field(default=None, max_length=5000)
     audio_duration: float = Field(default=240.0, ge=30.0, le=300.0)
     seed: Optional[int] = Field(default=None, ge=0)
+    assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     pow: PowSubmission
 
@@ -507,7 +519,6 @@ class EnginePipeline:
         audio_tensor = None
         limited_tensor = None
         final_audio_np = None
-
         try:
             audio_48k, _ = sf.read(str(stage2_path), dtype="float32")
             if audio_48k.ndim == 1:
@@ -601,7 +612,6 @@ class EnginePipeline:
             raw_stage1_path = tmp_dir / "stage1_raw.wav"
             furgie_stage2_path = tmp_dir / "stage2_48k.wav"
             stage3_wav_path = tmp_dir / "stage3_limited_48k.wav"
-
             try:
                 intelli_resp = self.run_stage1_composition(
                     request_data=job.request_data,
@@ -628,7 +638,6 @@ class EnginePipeline:
                     output_opus_path=output_opus_path,
                     progress_cb=progress_cb,
                 )
-
                 full_recipe = {
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
                     "subgenre": job.request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
@@ -640,7 +649,6 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     **recipe_meta,
                 }
-
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
@@ -653,7 +661,6 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
                 }
-
                 return output_opus_path, telemetry, full_recipe, working_draft
             finally:
                 if raw_stage1_path.exists():
@@ -747,6 +754,7 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
+
             dead_jobs = [
                 jid
                 for jid, j in self.jobs.items()
@@ -799,17 +807,15 @@ class ComputeQueue:
                 covers = []
                 jewelcases_dir = get_jewelcases_root()
                 if jewelcases_dir.exists():
-                    covers = [
+                    covers = sorted([
                         f.name
                         for f in jewelcases_dir.iterdir()
                         if f.is_file()
                         and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".avif")
                         and f.name not in RESERVED_DEFAULT_COVERS
-                    ]
+                    ])
                 if not covers:
                     covers = ["default.jpg"]
-                cover_digest = hashlib.sha256(f"{job.user_slug}:{job.job_id}:{seed}".encode("utf-8")).hexdigest()
-                assigned_cover = covers[int(cover_digest[:8], 16) % len(covers)]
 
                 history_file = user_dir / "history.json"
                 history_data = {"user_slug": job.user_slug, "tracks": []}
@@ -819,6 +825,23 @@ class ComputeQueue:
                             history_data = json.load(f)
                     except Exception:
                         pass
+
+                requested_cover = job.request_data.get("assigned_jewelcase")
+                if requested_cover and requested_cover not in RESERVED_DEFAULT_COVERS:
+                    assigned_cover = requested_cover
+                else:
+                    used_covers = [
+                        t.get("assigned_jewelcase")
+                        for t in history_data.get("tracks", [])
+                        if t.get("assigned_jewelcase") and t.get("assigned_jewelcase") not in RESERVED_DEFAULT_COVERS
+                    ]
+                    window_size = max(1, len(covers) - 1)
+                    recent_used = set(used_covers[:window_size])
+                    candidates = [c for c in covers if c not in recent_used]
+                    if not candidates:
+                        candidates = covers
+                    cover_digest = hashlib.sha256(f"{job.user_slug}:{job.job_id}:{seed}".encode("utf-8")).hexdigest()
+                    assigned_cover = candidates[int(cover_digest[:8], 16) % len(candidates)]
 
                 track_entry = {
                     "track_id": job.job_id,
@@ -1034,6 +1057,7 @@ async def synthesize(
                     )
             except Exception:
                 pass
+
         daily_quota = int(user_meta.get("daily_quota", 2))
         if tokens_used_today >= daily_quota:
             raise HTTPException(
@@ -1056,6 +1080,7 @@ async def get_job_status(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     verify_session_token(token)
+
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
@@ -1064,6 +1089,7 @@ async def get_job_status(
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
+
     return JSONResponse(content=info, headers={"ETag": etag})
 
 
@@ -1157,7 +1183,6 @@ ROUTE_PREFIXES = [
     "/tunebloom/api",
     "/tunebloom/api/v1",
 ]
-
 for prefix in ROUTE_PREFIXES:
     app.include_router(api_router, prefix=prefix)
 
@@ -1233,7 +1258,6 @@ def launch_standalone(host: str, port: int):
         import webview
     except ImportError:
         import webbrowser
-
         threading.Thread(target=run_server, args=(host, port), daemon=True).start()
         time.sleep(1.0)
         webbrowser.open(f"http://{host}:{port}/")
