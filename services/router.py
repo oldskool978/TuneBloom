@@ -37,7 +37,6 @@ mimetypes.add_type("text/css", ".css")
 
 SERVICES_DIR = Path(__file__).resolve().parent
 BACKEND_ROOT = SERVICES_DIR.parent
-
 PATH_ANCHORS = [
     BACKEND_ROOT,
     BACKEND_ROOT / "Intelligen",
@@ -46,7 +45,6 @@ PATH_ANCHORS = [
     BACKEND_ROOT / "Boompus",
     BACKEND_ROOT / "OP3Transcode",
 ]
-
 for p in reversed(PATH_ANCHORS):
     p_str = str(p)
     if p.exists() and p_str not in sys.path:
@@ -78,7 +76,6 @@ except Exception:
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
 STORAGE_ROOT = BACKEND_ROOT / "storage" / "users"
 CONFIG_DIR = BACKEND_ROOT / "config"
-
 for d in [ARTIFACTS_DIR, STORAGE_ROOT, CONFIG_DIR]:
     d.mkdir(parents=True, exist_ok=True)
 
@@ -145,14 +142,11 @@ def resolve_site_root() -> Path:
             if (c / "index.html").exists():
                 return c.resolve()
         return (BACKEND_ROOT / "webui").resolve()
-
     if _CLI_SITE_ROOT and _CLI_SITE_ROOT.exists():
         return _CLI_SITE_ROOT.resolve()
-
     env_site = os.environ.get("TUNEBLOOM_SITE_DIR")
     if env_site and Path(env_site).exists():
         return Path(env_site).resolve()
-
     candidates = [
         BACKEND_ROOT / "site",
         Path.cwd() / "site",
@@ -349,9 +343,11 @@ class SynthesisPayload(BaseModel):
     bpm: int = Field(default=96, ge=30, le=300)
     key: str = Field(default="F minor", max_length=30)
     mood: str = Field(default="Sensual, passionate, smooth, confident, driving.", max_length=200)
-    vocals: str = Field(default="Silky male tenor lead vocal, chest-to-falsetto transitions.", max_length=300)
+    vocals: str = Field(default="Silky male tenor lead vocal, dynamic chest-to-falsetto transitions.", max_length=300)
     arrangement: str = Field(default="Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords.", max_length=300)
     lyrics: str = Field(default="", max_length=4000)
+    raw_prompt: Optional[str] = Field(default=None, max_length=5000)
+    prompt: Optional[str] = Field(default=None, max_length=5000)
     audio_duration: float = Field(default=240.0, ge=30.0, le=300.0)
     seed: Optional[int] = Field(default=None, ge=0)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
@@ -405,9 +401,10 @@ class EnginePipeline:
             bpm=int(request_data.get("bpm", 96)),
             key=request_data.get("key", "F minor"),
             mood=request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-            vocals=request_data.get("vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions."),
+            vocals=request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions."),
             arrangement=request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
             lyrics=request_data.get("lyrics", ""),
+            raw_prompt=request_data.get("raw_prompt") or request_data.get("prompt"),
             temperature=0.94,
             top_p=0.90,
             top_k=43,
@@ -508,12 +505,14 @@ class EnginePipeline:
         audio_tensor = None
         limited_tensor = None
         final_audio_np = None
+
         try:
             audio_48k, _ = sf.read(str(stage2_path), dtype="float32")
             if audio_48k.ndim == 1:
                 audio_48k = np.stack([audio_48k, audio_48k], axis=0)
             elif audio_48k.shape[0] > audio_48k.shape[1]:
                 audio_48k = audio_48k.T
+
             with torch.inference_mode():
                 host_tensor = torch.from_numpy(audio_48k)
                 if self.device_str == "cuda":
@@ -522,10 +521,12 @@ class EnginePipeline:
                     audio_tensor = host_tensor.to(self.device)
                 del host_tensor
                 del audio_48k
+
                 limited_tensor = limiter.process_full_prepass(audio_tensor)
                 final_audio_np = limited_tensor.detach().cpu().numpy().T
 
             sf.write(str(stage3_wav_path), final_audio_np, 48000, subtype="FLOAT")
+
             peak_val = float(np.max(np.abs(final_audio_np)))
             peak_dbfs = float(20.0 * np.log10(max(peak_val, 1e-9)))
             rms_val = float(np.sqrt(np.mean(final_audio_np**2)))
@@ -598,6 +599,7 @@ class EnginePipeline:
             raw_stage1_path = tmp_dir / "stage1_raw.wav"
             furgie_stage2_path = tmp_dir / "stage2_48k.wav"
             stage3_wav_path = tmp_dir / "stage3_limited_48k.wav"
+
             try:
                 intelli_resp = self.run_stage1_composition(
                     request_data=job.request_data,
@@ -624,6 +626,7 @@ class EnginePipeline:
                     output_opus_path=output_opus_path,
                     progress_cb=progress_cb,
                 )
+
                 full_recipe = {
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
                     "subgenre": job.request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
@@ -635,6 +638,7 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     **recipe_meta,
                 }
+
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
@@ -647,6 +651,7 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
                 }
+
                 return output_opus_path, telemetry, full_recipe, working_draft
             finally:
                 if raw_stage1_path.exists():
@@ -703,11 +708,13 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
+
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
+
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -750,6 +757,7 @@ class ComputeQueue:
             job.progress_pct = 5
             job.stage_description = "Initializing Master Audio Engine..."
             self.notify_job(job.job_id)
+
             loop = asyncio.get_running_loop()
 
             def progress_hook(pct: int, desc: str):
@@ -803,6 +811,7 @@ class ComputeQueue:
                             history_data = json.load(f)
                     except Exception:
                         pass
+
                 track_entry = {
                     "track_id": job.job_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
@@ -885,6 +894,7 @@ async def login(payload: AuthPayload):
     raw_input = payload.username.strip()
     input_slug = slugify(raw_input)
     users_map, _ = load_user_registry()
+
     matched_slug = None
     if input_slug in users_map:
         matched_slug = input_slug
@@ -897,14 +907,17 @@ async def login(payload: AuthPayload):
             if display_name and (display_name.lower() == raw_input.lower() or slugify(display_name) == input_slug):
                 matched_slug = key
                 break
+
     if not matched_slug:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid creator credentials.",
         )
+
     raw_slug = slugify(matched_slug)
     user_meta = users_map.get(matched_slug, {})
     token = create_session_token(raw_slug)
+
     history_file = STORAGE_ROOT / raw_slug / "history.json"
     tracks = []
     if history_file.exists():
@@ -990,10 +1003,12 @@ async def synthesize(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     slug = verify_session_token(token)
+
     users_map, _ = load_user_registry()
     user_meta = users_map.get(slug, {})
     perms = user_meta.get("custom_permissions", [])
     is_unlimited = "admin" in perms or "unlimited_quota" in perms
+
     if not is_unlimited:
         history_file = STORAGE_ROOT / slug / "history.json"
         tokens_used_today = 0
@@ -1036,6 +1051,7 @@ async def get_job_status(
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
+
     etag = f'W/"{job_id}-{info.get("status")}-{info.get("progress_pct")}-{info.get("users_ahead")}"'
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
@@ -1052,6 +1068,7 @@ async def stream_job_status(
 ):
     auth_token = token or (authorization.replace("Bearer ", "").strip() if authorization else None)
     verify_session_token(auth_token)
+
     job = compute_queue.jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
@@ -1170,9 +1187,11 @@ def mount_static_and_spa():
                 or "api/" in path_lower
             ):
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
+
             cleaned_path = full_path
             if cleaned_path.lower().startswith("tunebloom/"):
                 cleaned_path = cleaned_path[len("tunebloom/") :]
+
             current_site = resolve_site_root()
             try:
                 target = (current_site / cleaned_path).resolve()
@@ -1180,6 +1199,7 @@ def mount_static_and_spa():
                     raise HTTPException(status_code=403, detail="Forbidden")
             except Exception:
                 return FileResponse(str(current_site / "index.html"))
+
             if target.exists() and target.is_file():
                 if any(
                     part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"]
@@ -1187,6 +1207,7 @@ def mount_static_and_spa():
                 ):
                     raise HTTPException(status_code=403, detail="Forbidden")
                 return FileResponse(str(target))
+
             return FileResponse(str(current_site / "index.html"))
 
 
@@ -1217,12 +1238,13 @@ def launch_standalone(host: str, port: int):
     server_thread = threading.Thread(target=run_server, args=(host, port), daemon=True)
     server_thread.start()
     time.sleep(1.0)
+
     window = webview.create_window(
         title="TuneBloom - Studio Master Audio Creation",
         url=f"http://{host}:{port}/",
         width=1280,
         height=860,
-        min_size=(960, 640),
+        min_size=(960, 680),
         background_color="#020617",
     )
     webview.start(debug=False)
@@ -1230,28 +1252,22 @@ def launch_standalone(host: str, port: int):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="TuneBloom Unified Audio Daemon & Standalone App")
+    parser = argparse.ArgumentParser(description="TuneBloom Unified Services & Compute Daemon Router")
     parser.add_argument("--host", type=str, default="127.0.0.1", help="Host interface to bind")
     parser.add_argument("--port", type=int, default=8765, help="Port to bind")
-    parser.add_argument("--standalone", action="store_true", help="Launch native desktop WebView interface")
-    parser.add_argument("--headless", action="store_true", help="Run strictly as a headless daemon")
-    parser.add_argument("--site-root", type=str, default=None, help="Explicit path to served webroot")
-    parser.add_argument("--config", type=str, default=None, help="Explicit path to authoritative users.json")
+    parser.add_argument("--standalone", action="store_true", help="Launch native desktop window")
+    parser.add_argument("--headless", action="store_true", help="Run strictly as headless daemon")
+    parser.add_argument("--site-root", type=str, default=None, help="Explicit path to site/webui assets directory")
+    parser.add_argument("--config", type=str, default=None, help="Explicit path to users.json file")
     args = parser.parse_args()
 
-    standalone_flag = None
-    if args.headless:
-        standalone_flag = False
-    elif args.standalone:
-        standalone_flag = True
-
     set_cli_overrides(
-        standalone=standalone_flag,
+        standalone=args.standalone if args.standalone else (False if args.headless else None),
         site_root=args.site_root,
         config_file=args.config,
     )
 
-    if is_standalone_mode() and not args.headless:
+    if is_standalone_mode():
         launch_standalone(args.host, args.port)
     else:
         run_server(args.host, args.port)

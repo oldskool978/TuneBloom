@@ -35,15 +35,33 @@ function sanitizeTagString(tag) {
     .trim();
 }
 
+function mapToCanonicalTag(tagOrLabel) {
+  const clean = sanitizeTagString(tagOrLabel).toLowerCase();
+  if (!clean) return "verse";
+  if (clean.includes("intro") || clean === "start") return "intro";
+  if (clean.includes("pre-chorus") || clean.includes("prechorus") || clean.includes("build")) return "pre-chorus";
+  if (clean.includes("post-chorus") || clean.includes("postchorus")) return "post-chorus";
+  if (clean.includes("chorus") || clean.includes("hook") || clean.includes("drop") || clean.includes("refrain")) return "chorus";
+  if (clean.includes("bridge") || clean.includes("transition")) return "bridge";
+  if (clean.includes("breakdown") || clean.includes("instrumental") || clean.includes("beat drop") || clean.includes("interlude")) return "instrumental";
+  if (clean.includes("solo")) return "solo";
+  if (clean.includes("outro") || clean.includes("fade") || clean.includes("ending")) return "outro";
+  if (clean.includes("verse")) return "verse";
+  return clean.replace(/[^a-z0-9_-]/g, "");
+}
+
 function compileBlocksToLyrics(blocks = (window.AppState ? window.AppState.songBlocks : [])) {
   if (!Array.isArray(blocks)) return "";
   return blocks
     .map((b) => {
-      const cleanLabel = sanitizeTagString(b.label || b.type || "Section");
+      const canonicalTag = mapToCanonicalTag(b.label || b.type || "verse");
       const cleanText = (b.text || "").replace(/\r\n/g, "\n").trim();
-      return `[${cleanLabel}]\n${cleanText}`;
+      if (!cleanText && (canonicalTag === "solo" || canonicalTag === "instrumental" || canonicalTag === "intro" || canonicalTag === "outro")) {
+        return `[${canonicalTag}]`;
+      }
+      return `[${canonicalTag}]\n${cleanText}`;
     })
-    .filter((str) => str.length > 0)
+    .filter((str) => str.trim().length > 0)
     .join("\n\n")
     .slice(0, 4000);
 }
@@ -52,7 +70,6 @@ function parseLyricsIntoBlocks(lyricsStr) {
   if (typeof lyricsStr !== "string" || !lyricsStr.trim()) {
     return [];
   }
-
   const normalized = lyricsStr.replace(/\r\n/g, "\n");
   const lines = normalized.split("\n");
   const blocks = [];
@@ -66,11 +83,12 @@ function parseLyricsIntoBlocks(lyricsStr) {
         currentBlock.text = currentBlock.text.trim();
         blocks.push(currentBlock);
       }
-      const cleanTag = sanitizeTagString(tagMatch[1]);
+      const rawTag = sanitizeTagString(tagMatch[1]);
+      const canonicalTag = mapToCanonicalTag(rawTag);
       currentBlock = {
         id: `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-        type: cleanTag.toLowerCase(),
-        label: cleanTag,
+        type: canonicalTag,
+        label: rawTag.charAt(0).toUpperCase() + rawTag.slice(1),
         text: ""
       };
     } else if (currentBlock) {
@@ -89,7 +107,6 @@ function parseLyricsIntoBlocks(lyricsStr) {
     currentBlock.text = currentBlock.text.trim();
     blocks.push(currentBlock);
   }
-
   return blocks;
 }
 
@@ -124,6 +141,7 @@ function renderSongBlocks() {
 
     const isEditingTag = window.AppState.editingTagIndex === index;
     const cleanLabel = sanitizeTagString(block.label || block.type || "Section");
+    const canonicalTag = mapToCanonicalTag(cleanLabel);
 
     const tagHtml = isEditingTag
       ? `
@@ -134,7 +152,7 @@ function renderSongBlocks() {
     `
       : `
       <button type="button" onclick="startTagEdit(${index})" 
-              class="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Click to rename tag: [${cleanLabel}]">
+              class="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Click to rename tag (maps to [${canonicalTag}])">
         <span>[${cleanLabel}]</span>
         <i class="fa-solid fa-pen text-[7px] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"></i>
       </button>
@@ -199,7 +217,7 @@ function saveCustomTag(index, newLabel) {
     const cleanLabel = sanitizeTagString(newLabel);
     if (cleanLabel) {
       window.AppState.songBlocks[index].label = cleanLabel;
-      window.AppState.songBlocks[index].type = cleanLabel.toLowerCase();
+      window.AppState.songBlocks[index].type = mapToCanonicalTag(cleanLabel);
     }
   }
   if (window.AppState) window.AppState.editingTagIndex = null;
@@ -219,7 +237,7 @@ function handleTagKeydown(e, index, val) {
 function addSongBlock(type, label, text = "") {
   if (!window.AppState) return;
   const cleanLabel = sanitizeTagString(label);
-  const cleanType = sanitizeTagString(type).toLowerCase();
+  const cleanType = mapToCanonicalTag(type || label);
   const newBlock = {
     id: `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
     type: cleanType,
@@ -245,7 +263,7 @@ async function addCustomSongBlock() {
   if (!label || !label.trim()) return;
   const cleanLabel = sanitizeTagString(label);
   if (!cleanLabel) return;
-  addSongBlock(cleanLabel.toLowerCase(), cleanLabel, "");
+  addSongBlock(mapToCanonicalTag(cleanLabel), cleanLabel, "");
 }
 
 function duplicateSongBlock(index) {
@@ -314,7 +332,7 @@ function loadSongBlueprint(blueprintOrId = null) {
 
   window.AppState.songBlocks = (bp.blocks || []).map((b) => ({
     id: b.id || `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
-    type: sanitizeTagString(b.type || b.label || "verse").toLowerCase(),
+    type: mapToCanonicalTag(b.type || b.label || "verse"),
     label: sanitizeTagString(b.label || b.type || "Verse"),
     text: b.text || ""
   }));
@@ -329,6 +347,7 @@ window.calculateQuantizedDuration = calculateQuantizedDuration;
 window.autoResizeTextarea = autoResizeTextarea;
 window.resizeAllTextareas = resizeAllTextareas;
 window.sanitizeTagString = sanitizeTagString;
+window.mapToCanonicalTag = mapToCanonicalTag;
 window.compileBlocksToLyrics = compileBlocksToLyrics;
 window.parseLyricsIntoBlocks = parseLyricsIntoBlocks;
 window.serializeRecipe = serializeRecipe;
