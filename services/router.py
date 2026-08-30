@@ -408,8 +408,6 @@ class EnginePipeline:
             temperature=0.94,
             top_p=0.90,
             top_k=43,
-            enable_speculative_markov=True,
-            speculative_draft_k=4,
             scheduler_type="heun",
             num_inference_steps=42,
             guidance_scale=1.78,
