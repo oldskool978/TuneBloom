@@ -44,7 +44,7 @@ PATH_ANCHORS = [
     BACKEND_ROOT / "furgie",
     BACKEND_ROOT / "SICKOMODE",
     BACKEND_ROOT / "Boompus",
-    BACKEND_ROOT / "OP3Transcode"
+    BACKEND_ROOT / "OP3Transcode",
 ]
 
 for p in reversed(PATH_ANCHORS):
@@ -59,7 +59,7 @@ for pkg_dir in [
     BACKEND_ROOT / "SICKOMODE",
     BACKEND_ROOT / "SICKOMODE" / "core",
     BACKEND_ROOT / "Boompus",
-    SERVICES_DIR
+    SERVICES_DIR,
 ]:
     if pkg_dir.exists():
         init_file = pkg_dir / "__init__.py"
@@ -87,8 +87,8 @@ SESSION_SECRET = os.environ.get("TUNEBLOOM_SESSION_SECRET", "tb_session_key_2026
 POW_DIFFICULTY = int(os.environ.get("TUNEBLOOM_POW_DIFFICULTY", "4"))
 POW_EXPIRATION_SECONDS = 300
 ARTIFACT_TTL_SECONDS = 86400
-_REPLAY_CACHE: Dict[str, float] = {}
 
+_REPLAY_CACHE: Dict[str, float] = {}
 _IS_STANDALONE: bool = os.environ.get("TUNEBLOOM_STANDALONE", "0").lower() in ("1", "true", "yes")
 _CLI_SITE_ROOT: Optional[Path] = None
 _CLI_CONFIG_FILE: Optional[Path] = None
@@ -119,7 +119,7 @@ _bootstrap_cli_environment()
 def set_cli_overrides(
     standalone: Optional[bool] = None,
     site_root: Optional[str] = None,
-    config_file: Optional[str] = None
+    config_file: Optional[str] = None,
 ) -> None:
     global _IS_STANDALONE, _CLI_SITE_ROOT, _CLI_CONFIG_FILE
     if standalone is not None:
@@ -139,7 +139,7 @@ def resolve_site_root() -> Path:
     if is_standalone_mode():
         candidates = [
             BACKEND_ROOT / "webui",
-            Path.cwd() / "webui"
+            Path.cwd() / "webui",
         ]
         for c in candidates:
             if (c / "index.html").exists():
@@ -159,7 +159,7 @@ def resolve_site_root() -> Path:
         BACKEND_ROOT / "webui",
         Path.cwd() / "webui",
         Path.cwd(),
-        BACKEND_ROOT
+        BACKEND_ROOT,
     ]
     for c in candidates:
         if (c / "index.html").exists():
@@ -172,7 +172,7 @@ def resolve_boompus_binary() -> Optional[Path]:
     candidates = [
         BACKEND_ROOT / "Boompus" / "dist" / "bin" / bin_name,
         Path.cwd() / "Boompus" / "dist" / "bin" / bin_name,
-        BACKEND_ROOT / "dist" / "bin" / bin_name
+        BACKEND_ROOT / "dist" / "bin" / bin_name,
     ]
     for c in candidates:
         if c.exists() and c.is_file():
@@ -210,29 +210,25 @@ def slugify(username: str) -> str:
 def get_user_registry_candidates() -> List[Path]:
     if _CLI_CONFIG_FILE and _CLI_CONFIG_FILE.exists():
         return [_CLI_CONFIG_FILE.resolve()]
-
     custom_file = os.environ.get("TUNEBLOOM_USERS_FILE")
     if custom_file and Path(custom_file).exists():
         return [Path(custom_file).resolve()]
-
     custom_dir = os.environ.get("TUNEBLOOM_CONFIG_DIR")
     if custom_dir and (Path(custom_dir) / "users.json").exists():
         return [(Path(custom_dir) / "users.json").resolve()]
-
     if is_standalone_mode():
         return [
             BACKEND_ROOT / "webui" / "config" / "users.json",
             Path.cwd() / "webui" / "config" / "users.json",
-            BACKEND_ROOT / "config" / "users.json"
+            BACKEND_ROOT / "config" / "users.json",
         ]
-
     resolved_site = resolve_site_root()
     return [
         resolved_site / "config" / "users.json",
         BACKEND_ROOT / "config" / "users.json",
         Path.cwd() / "config" / "users.json",
         BACKEND_ROOT / "webui" / "config" / "users.json",
-        SERVICES_DIR / "config" / "users.json"
+        SERVICES_DIR / "config" / "users.json",
     ]
 
 
@@ -253,20 +249,19 @@ def load_user_registry() -> Tuple[Dict[str, Any], Path]:
                         return data, resolved
             except Exception as e:
                 logging.getLogger("uvicorn.error").warning(f"Failed parsing user registry at {resolved}: {e}")
-
     fallback = {
         "administrator": {
             "display_name": "Administrator",
             "daily_quota": 999,
             "assigned_theme": "cyber_neon",
-            "custom_permissions": ["admin", "unlimited_quota"]
+            "custom_permissions": ["admin", "unlimited_quota"],
         },
         "admin": {
             "display_name": "Administrator",
             "daily_quota": 999,
             "assigned_theme": "cyber_neon",
-            "custom_permissions": ["admin", "unlimited_quota"]
-        }
+            "custom_permissions": ["admin", "unlimited_quota"],
+        },
     }
     return fallback, Path("EMBEDDED_MEMORY_FALLBACK")
 
@@ -307,7 +302,7 @@ def generate_pow_challenge() -> Dict[str, Any]:
         "nonce": nonce,
         "difficulty": POW_DIFFICULTY,
         "challenge": raw,
-        "signature": sig
+        "signature": sig,
     }
 
 
@@ -392,10 +387,18 @@ class EnginePipeline:
             torch.cuda.empty_cache()
             torch.cuda.ipc_collect()
 
-    def run_stage1_composition(self, request_data: Dict[str, Any], target_duration: float, seed: int, out_path: Path, progress_cb: Callable[[int, str], None]) -> None:
-        progress_cb(10, "Arranging Harmonic Structure & Instrumentation...")
+    def run_stage1_composition(
+        self,
+        request_data: Dict[str, Any],
+        target_duration: float,
+        seed: int,
+        out_path: Path,
+        progress_cb: Callable[[int, str], None],
+    ) -> Any:
+        progress_cb(5, "Arranging Harmonic Structure & Instrumentation...")
         from Intelligen.schema import GenerationRequest
         from Intelligen.engine import MusicEngine
+
         gen_req = GenerationRequest(
             genre=request_data.get("genre", "Contemporary R&B"),
             subgenre=request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
@@ -422,17 +425,32 @@ class EnginePipeline:
             output_path=str(out_path),
             device=self.device_str,
             apply_declick=True,
-            cpu_offload=False
+            cpu_offload=False,
         )
+
+        def on_intelli_step(stage: str, cur: int, tot: int):
+            if stage == "stage1":
+                pct = 5 + int((cur / max(1, tot)) * 20)
+                progress_cb(pct, f"Arranging Harmonic Structure ({cur}/{tot} frames)...")
+            elif stage == "stage2":
+                pct = 25 + int((cur / max(1, tot)) * 20)
+                progress_cb(pct, f"Synthesizing Continuous Vector Field ({cur}/{tot} steps)...")
+
         music_eng = MusicEngine(device=self.device_str)
         try:
             with torch.inference_mode():
-                music_eng.synthesize(gen_req)
+                resp = music_eng.synthesize(gen_req, progress_callback=on_intelli_step)
+                return resp
         finally:
             del music_eng
             self._flush_hardware_memory()
 
-    def run_stage2_enhancement(self, raw_path: Path, out_path: Path, progress_cb: Callable[[int, str], None]) -> None:
+    def run_stage2_enhancement(
+        self,
+        raw_path: Path,
+        out_path: Path,
+        progress_cb: Callable[[int, str], None],
+    ) -> Any:
         progress_cb(45, "Refining Acoustic Space & High-Frequency Detail...")
         try:
             from furgie.furgie_core.schema import FurgieRequest
@@ -440,7 +458,7 @@ class EnginePipeline:
         except ImportError:
             from furgie_core.schema import FurgieRequest
             from furgie_core.engine import FurgieEngine
-        
+
         furgie_req = FurgieRequest(
             input_path=str(raw_path),
             output_path=str(out_path),
@@ -457,25 +475,34 @@ class EnginePipeline:
 
         def furgie_progress(tile_cur: int, tile_tot: int) -> None:
             pct = 45 + int((tile_cur / max(1, tile_tot)) * 25)
-            progress_cb(pct, "Refining Acoustic Space & High-Frequency Detail...")
+            progress_cb(pct, f"Refining Acoustic Space & High-Frequency Detail ({tile_cur}/{tile_tot} tiles)...")
 
         try:
             with torch.inference_mode():
-                furgie_eng.synthesize_request(furgie_req, tile_progress_callback=furgie_progress)
+                return furgie_eng.synthesize_request(furgie_req, tile_progress_callback=furgie_progress)
         finally:
             del furgie_eng
             self._flush_hardware_memory()
 
-    def run_stage3_limiting(self, stage2_path: Path, stage3_wav_path: Path, seed: int, progress_cb: Callable[[int, str], None]) -> Tuple[Dict[str, Any], Dict[str, Any]]:
-        progress_cb(75, "Balancing Dynamic Range & Psychoacoustic Profile...")
+    def run_stage3_limiting(
+        self,
+        stage2_path: Path,
+        stage3_wav_path: Path,
+        seed: int,
+        intelli_resp: Any,
+        furgie_telem: Any,
+        progress_cb: Callable[[int, str], None],
+    ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+        progress_cb(70, "Balancing Dynamic Range & Psychoacoustic Profile...")
         from SICKOMODE.core.schema import LimiterConfig
         from SICKOMODE.core.engine import PsychoacousticLimiterEngine
+
         config = LimiterConfig(
             sample_rate=48000,
             mode="psychoacoustic_celt",
             true_peak_ceiling_db=-0.30,
             prepass_enabled=True,
-            device=self.device_str
+            device=self.device_str,
         )
         limiter = PsychoacousticLimiterEngine(config)
         audio_tensor = None
@@ -487,7 +514,6 @@ class EnginePipeline:
                 audio_48k = np.stack([audio_48k, audio_48k], axis=0)
             elif audio_48k.shape[0] > audio_48k.shape[1]:
                 audio_48k = audio_48k.T
-
             with torch.inference_mode():
                 host_tensor = torch.from_numpy(audio_48k)
                 if self.device_str == "cuda":
@@ -496,15 +522,13 @@ class EnginePipeline:
                     audio_tensor = host_tensor.to(self.device)
                 del host_tensor
                 del audio_48k
-
                 limited_tensor = limiter.process_full_prepass(audio_tensor)
                 final_audio_np = limited_tensor.detach().cpu().numpy().T
 
             sf.write(str(stage3_wav_path), final_audio_np, 48000, subtype="FLOAT")
-
             peak_val = float(np.max(np.abs(final_audio_np)))
             peak_dbfs = float(20.0 * np.log10(max(peak_val, 1e-9)))
-            rms_val = float(np.sqrt(np.mean(final_audio_np ** 2)))
+            rms_val = float(np.sqrt(np.mean(final_audio_np**2)))
             rms_dbfs = float(20.0 * np.log10(max(rms_val, 1e-9)))
             crest_factor = peak_dbfs - rms_dbfs
             actual_duration = float(final_audio_np.shape[0] / 48000.0)
@@ -516,13 +540,22 @@ class EnginePipeline:
                 "true_peak_dbtp": round(peak_dbfs, 2),
                 "integrated_loudness_db": round(rms_dbfs, 2),
                 "dynamic_punch_db": round(crest_factor, 2),
-                "master_format": "48.0 kHz Master Audio Bitstream"
+                "master_format": "48.0 kHz Master Audio Bitstream",
+                "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 3) if intelli_resp else None,
+                "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 2) if intelli_resp else None,
+                "stage1_scheduler": getattr(intelli_resp, "scheduler_used", "heun") if intelli_resp else None,
+                "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", "blue_noise") if intelli_resp else None,
+                "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", True) if intelli_resp else None,
+                "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 3) if furgie_telem else None,
+                "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 2) if furgie_telem else None,
+                "crossover_step_db": getattr(furgie_telem, "crossover_magnitude_step_db", None) if furgie_telem else None,
+                "spectral_tilt_slope": getattr(furgie_telem, "spectral_tilt_slope", None) if furgie_telem else None,
             }
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
-                "stage2_profile": "Spatial Air & Harmonic Balancing",
-                "stage3_profile": "Dynamic Envelope Optimization",
-                "stage4_profile": "Boompus Standalone Bitstream Delivery"
+                "stage2_profile": "Spatial Air & Harmonic Balancing (24kHz Anchor)",
+                "stage3_profile": "Dynamic Envelope Optimization (CELT Psychoacoustic)",
+                "stage4_profile": "Boompus Standalone Bitstream Delivery",
             }
             return master_telemetry, master_recipe
         finally:
@@ -532,7 +565,12 @@ class EnginePipeline:
             del limiter
             self._flush_hardware_memory()
 
-    def run_stage4_encoding(self, stage3_wav_path: Path, output_opus_path: Path, progress_cb: Callable[[int, str], None]) -> None:
+    def run_stage4_encoding(
+        self,
+        stage3_wav_path: Path,
+        output_opus_path: Path,
+        progress_cb: Callable[[int, str], None],
+    ) -> None:
         progress_cb(90, "Mastering Delivery Bitstream via Boompus Engine...")
         boompus_bin = resolve_boompus_binary()
         if boompus_bin and boompus_bin.exists():
@@ -544,40 +582,47 @@ class EnginePipeline:
         else:
             data, sr = sf.read(str(stage3_wav_path), dtype="float32")
             sf.write(str(output_opus_path), data, sr, format="OGG", subtype="OPUS")
+        progress_cb(98, "Finalizing Master Container...")
 
-    def run(self, job: SynthesisJob, progress_cb: Callable[[int, str], None]) -> Tuple[Path, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
+    def run(
+        self,
+        job: SynthesisJob,
+        progress_cb: Callable[[int, str], None],
+    ) -> Tuple[Path, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         seed = job.request_data.get("seed") or int(np.random.randint(100000, 99999999))
         target_duration = float(job.request_data.get("audio_duration", 240.0))
         output_opus_path = ARTIFACTS_DIR / f"{job.job_id}.opus"
 
         with tempfile.TemporaryDirectory() as tmp_dir_str:
             tmp_dir = Path(tmp_dir_str)
-            raw_stage1_path = tmp_dir / "stage1_32k.wav"
+            raw_stage1_path = tmp_dir / "stage1_raw.wav"
             furgie_stage2_path = tmp_dir / "stage2_48k.wav"
             stage3_wav_path = tmp_dir / "stage3_limited_48k.wav"
             try:
-                self.run_stage1_composition(
+                intelli_resp = self.run_stage1_composition(
                     request_data=job.request_data,
                     target_duration=target_duration,
                     seed=seed,
                     out_path=raw_stage1_path,
-                    progress_cb=progress_cb
+                    progress_cb=progress_cb,
                 )
-                self.run_stage2_enhancement(
+                furgie_telem = self.run_stage2_enhancement(
                     raw_path=raw_stage1_path,
                     out_path=furgie_stage2_path,
-                    progress_cb=progress_cb
+                    progress_cb=progress_cb,
                 )
                 telemetry, recipe_meta = self.run_stage3_limiting(
                     stage2_path=furgie_stage2_path,
                     stage3_wav_path=stage3_wav_path,
                     seed=seed,
-                    progress_cb=progress_cb
+                    intelli_resp=intelli_resp,
+                    furgie_telem=furgie_telem,
+                    progress_cb=progress_cb,
                 )
                 self.run_stage4_encoding(
                     stage3_wav_path=stage3_wav_path,
                     output_opus_path=output_opus_path,
-                    progress_cb=progress_cb
+                    progress_cb=progress_cb,
                 )
                 full_recipe = {
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
@@ -588,7 +633,7 @@ class EnginePipeline:
                     "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions."),
                     "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
                     "lyrics": job.request_data.get("lyrics", ""),
-                    **recipe_meta
+                    **recipe_meta,
                 }
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
@@ -600,7 +645,7 @@ class EnginePipeline:
                     "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions."),
                     "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
                     "lyrics": job.request_data.get("lyrics", ""),
-                    "blocks": job.request_data.get("blocks", [])
+                    "blocks": job.request_data.get("blocks", []),
                 }
                 return output_opus_path, telemetry, full_recipe, working_draft
             finally:
@@ -658,13 +703,11 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
-
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
-
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -676,7 +719,7 @@ class ComputeQueue:
             "telemetry": job.telemetry,
             "recipe": job.recipe,
             "working_draft": job.working_draft,
-            "error": job.error_message
+            "error": job.error_message,
         }
 
     async def _cleanup_loop(self):
@@ -689,10 +732,11 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
-
             dead_jobs = [
-                jid for jid, j in self.jobs.items()
-                if j.status in ("COMPLETED", "FAILED") and (now - datetime.fromisoformat(j.created_at).timestamp()) > ARTIFACT_TTL_SECONDS
+                jid
+                for jid, j in self.jobs.items()
+                if j.status in ("COMPLETED", "FAILED")
+                and (now - datetime.fromisoformat(j.created_at).timestamp()) > ARTIFACT_TTL_SECONDS
             ]
             for jid in dead_jobs:
                 self.jobs.pop(jid, None)
@@ -706,7 +750,6 @@ class ComputeQueue:
             job.progress_pct = 5
             job.stage_description = "Initializing Master Audio Engine..."
             self.notify_job(job.job_id)
-
             loop = asyncio.get_running_loop()
 
             def progress_hook(pct: int, desc: str):
@@ -719,7 +762,7 @@ class ComputeQueue:
                     None,
                     self.pipeline.run,
                     job,
-                    progress_hook
+                    progress_hook,
                 )
                 job.output_file = output_file
                 job.telemetry = telemetry
@@ -741,8 +784,10 @@ class ComputeQueue:
                 jewelcases_dir = get_jewelcases_root()
                 if jewelcases_dir.exists():
                     covers = [
-                        f.name for f in jewelcases_dir.iterdir()
-                        if f.is_file() and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".avif")
+                        f.name
+                        for f in jewelcases_dir.iterdir()
+                        if f.is_file()
+                        and f.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".avif")
                         and f.name not in RESERVED_DEFAULT_COVERS
                     ]
                 if not covers:
@@ -758,7 +803,6 @@ class ComputeQueue:
                             history_data = json.load(f)
                     except Exception:
                         pass
-
                 track_entry = {
                     "track_id": job.job_id,
                     "created_at": datetime.now(timezone.utc).isoformat(),
@@ -769,7 +813,7 @@ class ComputeQueue:
                     "assigned_jewelcase": assigned_cover,
                     "recipe": recipe,
                     "working_draft": working_draft,
-                    "telemetry": telemetry
+                    "telemetry": telemetry,
                 }
                 history_data.setdefault("tracks", []).insert(0, track_entry)
                 with open(history_file, "w", encoding="utf-8") as f:
@@ -816,7 +860,7 @@ app = FastAPI(
     title="TuneBloom Unified Audio Daemon",
     version="2.0.0",
     root_path="",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
@@ -825,7 +869,7 @@ app.add_middleware(
     allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"]
+    allow_headers=["*"],
 )
 
 api_router = APIRouter()
@@ -842,7 +886,6 @@ async def login(payload: AuthPayload):
     input_slug = slugify(raw_input)
     users_map, _ = load_user_registry()
     matched_slug = None
-
     if input_slug in users_map:
         matched_slug = input_slug
     else:
@@ -854,17 +897,14 @@ async def login(payload: AuthPayload):
             if display_name and (display_name.lower() == raw_input.lower() or slugify(display_name) == input_slug):
                 matched_slug = key
                 break
-
     if not matched_slug:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid creator credentials."
+            detail="Invalid creator credentials.",
         )
-
     raw_slug = slugify(matched_slug)
     user_meta = users_map.get(matched_slug, {})
     token = create_session_token(raw_slug)
-
     history_file = STORAGE_ROOT / raw_slug / "history.json"
     tracks = []
     if history_file.exists():
@@ -884,7 +924,8 @@ async def login(payload: AuthPayload):
 
     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
     tokens_used_today = sum(
-        1 for trk in tracks
+        1
+        for trk in tracks
         if trk.get("created_at", "").startswith(today_utc)
         and not trk.get("is_default", False)
         and not str(trk.get("track_id", "")).startswith("default_")
@@ -910,13 +951,13 @@ async def login(payload: AuthPayload):
             "display_name": user_meta.get("display_name", payload.username),
             "daily_quota": daily_quota,
             "tokens_remaining": tokens_remaining,
-            "assigned_theme": assigned_theme
+            "assigned_theme": assigned_theme,
         },
         "theme": {
             "theme_id": assigned_theme,
-            "manifest": theme_manifest
+            "manifest": theme_manifest,
         },
-        "tracks": tracks
+        "tracks": tracks,
     }
 
 
@@ -938,23 +979,21 @@ async def health():
         "status": "online",
         "engine_device": compute_queue.pipeline.device_str,
         "active_job": compute_queue.active_job.job_id if compute_queue.active_job else None,
-        "queue_depth": compute_queue.queue.qsize()
+        "queue_depth": compute_queue.queue.qsize(),
     }
 
 
 @api_router.post("/synthesize")
 async def synthesize(
     payload: SynthesisPayload,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     slug = verify_session_token(token)
-
     users_map, _ = load_user_registry()
     user_meta = users_map.get(slug, {})
     perms = user_meta.get("custom_permissions", [])
     is_unlimited = "admin" in perms or "unlimited_quota" in perms
-
     if not is_unlimited:
         history_file = STORAGE_ROOT / slug / "history.json"
         tokens_used_today = 0
@@ -964,7 +1003,8 @@ async def synthesize(
                     raw_tracks = json.load(f).get("tracks", [])
                     today_utc = datetime.now(timezone.utc).strftime("%Y-%m-%d")
                     tokens_used_today = sum(
-                        1 for trk in raw_tracks
+                        1
+                        for trk in raw_tracks
                         if trk.get("created_at", "").startswith(today_utc)
                         and not trk.get("is_default", False)
                         and not str(trk.get("track_id", "")).startswith("default_")
@@ -975,7 +1015,7 @@ async def synthesize(
         if tokens_used_today >= daily_quota:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Daily generation token quota reached. Quotas reset at 00:00 UTC."
+                detail="Daily generation token quota reached. Quotas reset at 00:00 UTC.",
             )
 
     if not verify_pow_solution(payload.pow.challenge, payload.pow.signature, payload.pow.solution_nonce):
@@ -989,20 +1029,17 @@ async def synthesize(
 async def get_job_status(
     job_id: str,
     request: Request,
-    authorization: Optional[str] = Header(None)
+    authorization: Optional[str] = Header(None),
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     verify_session_token(token)
-
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
-
     etag = f'W/"{job_id}-{info.get("status")}-{info.get("progress_pct")}-{info.get("users_ahead")}"'
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
-
     return JSONResponse(content=info, headers={"ETag": etag})
 
 
@@ -1011,11 +1048,10 @@ async def stream_job_status(
     job_id: str,
     request: Request,
     authorization: Optional[str] = Header(None),
-    token: Optional[str] = None
+    token: Optional[str] = None,
 ):
     auth_token = token or (authorization.replace("Bearer ", "").strip() if authorization else None)
     verify_session_token(auth_token)
-
     job = compute_queue.jobs.get(job_id)
     if not job:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
@@ -1047,8 +1083,8 @@ async def stream_job_status(
         headers={
             "Cache-Control": "no-cache, no-transform",
             "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"
-        }
+            "X-Accel-Buffering": "no",
+        },
     )
 
 
@@ -1063,8 +1099,8 @@ async def get_audio_stream_direct(job_id: str):
         headers={
             "Cross-Origin-Resource-Policy": "cross-origin",
             "Accept-Ranges": "bytes",
-            "Cache-Control": "no-cache"
-        }
+            "Cache-Control": "no-cache",
+        },
     )
 
 
@@ -1076,7 +1112,7 @@ async def get_audio_stream_user(user_slug: str, filename: str):
     headers = {
         "Cross-Origin-Resource-Policy": "cross-origin",
         "Accept-Ranges": "bytes",
-        "Cache-Control": "no-cache"
+        "Cache-Control": "no-cache",
     }
     if not target_file.exists() or not target_file.is_file():
         default_file = resolve_site_root() / "public" / "default.opus"
@@ -1094,7 +1130,7 @@ ROUTE_PREFIXES = [
     "/TuneBloom/api",
     "/TuneBloom/api/v1",
     "/tunebloom/api",
-    "/tunebloom/api/v1"
+    "/tunebloom/api/v1",
 ]
 
 for prefix in ROUTE_PREFIXES:
@@ -1136,7 +1172,7 @@ def mount_static_and_spa():
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
             cleaned_path = full_path
             if cleaned_path.lower().startswith("tunebloom/"):
-                cleaned_path = cleaned_path[len("tunebloom/"):]
+                cleaned_path = cleaned_path[len("tunebloom/") :]
             current_site = resolve_site_root()
             try:
                 target = (current_site / cleaned_path).resolve()
@@ -1144,9 +1180,11 @@ def mount_static_and_spa():
                     raise HTTPException(status_code=403, detail="Forbidden")
             except Exception:
                 return FileResponse(str(current_site / "index.html"))
-
             if target.exists() and target.is_file():
-                if any(part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"] for part in target.parts):
+                if any(
+                    part in ["config", "storage", "Intelligen", "furgie", "SICKOMODE", "Boompus", "OP3Transcode"]
+                    for part in target.parts
+                ):
                     raise HTTPException(status_code=403, detail="Forbidden")
                 return FileResponse(str(target))
             return FileResponse(str(current_site / "index.html"))
@@ -1166,6 +1204,7 @@ def launch_standalone(host: str, port: int):
         import webview
     except ImportError:
         import webbrowser
+
         threading.Thread(target=run_server, args=(host, port), daemon=True).start()
         time.sleep(1.0)
         webbrowser.open(f"http://{host}:{port}/")
@@ -1184,7 +1223,7 @@ def launch_standalone(host: str, port: int):
         width=1280,
         height=860,
         min_size=(960, 640),
-        background_color="#020617"
+        background_color="#020617",
     )
     webview.start(debug=False)
     sys.exit(0)
@@ -1209,7 +1248,7 @@ if __name__ == "__main__":
     set_cli_overrides(
         standalone=standalone_flag,
         site_root=args.site_root,
-        config_file=args.config
+        config_file=args.config,
     )
 
     if is_standalone_mode() and not args.headless:
