@@ -427,11 +427,13 @@ class EnginePipeline:
 
         def on_intelli_step(stage: str, cur: int, tot: int):
             if stage == "stage1":
-                pct = 5 + int((cur / max(1, tot)) * 20)
-                progress_cb(pct, f"Arranging Harmonic Structure ({cur}/{tot} frames)...")
+                if cur % 10 == 0 or cur == tot:
+                    pct = 5 + int((cur / max(1, tot)) * 20)
+                    progress_cb(pct, f"Arranging Harmonic Structure ({cur}/{tot} frames)...")
             elif stage == "stage2":
-                pct = 25 + int((cur / max(1, tot)) * 20)
-                progress_cb(pct, f"Synthesizing Continuous Vector Field ({cur}/{tot} steps)...")
+                if cur % 25 == 0 or cur == tot:
+                    pct = 25 + int((cur / max(1, tot)) * 20)
+                    progress_cb(pct, f"Synthesizing Continuous Vector Field ({cur}/{tot} steps)...")
 
         music_eng = MusicEngine(device=self.device_str)
         try:
@@ -672,8 +674,10 @@ class ComputeQueue:
         self.worker_task: Optional[asyncio.Task] = None
         self.cleanup_task: Optional[asyncio.Task] = None
         self.active_job: Optional[SynthesisJob] = None
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
 
     def start(self):
+        self._loop = asyncio.get_running_loop()
         if self.worker_task is None or self.worker_task.done():
             self.worker_task = asyncio.create_task(self._worker_loop())
         if self.cleanup_task is None or self.cleanup_task.done():
@@ -686,7 +690,11 @@ class ComputeQueue:
 
     def notify_job(self, job_id: str):
         if job_id in self.events:
-            self.events[job_id].set()
+            ev = self.events[job_id]
+            if self._loop and self._loop.is_running():
+                self._loop.call_soon_threadsafe(ev.set)
+            else:
+                ev.set()
 
     def enqueue(self, user_slug: str, request_data: Dict[str, Any]) -> SynthesisJob:
         job = SynthesisJob(user_slug, request_data)

@@ -317,8 +317,8 @@ function getCurrentFormPayload() {
     bpm: cleanBpm,
     key: sanitizeStr("field-key", "F minor", 30),
     mood: sanitizeStr("field-mood", "Sensual, passionate, smooth, confident, driving.", 200),
-    vocals: sanitizeStr("field-vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions.", 300),
-    arrangement: sanitizeStr("field-arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords.", 300),
+    vocals: sanitizeStr("field-vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.", 300),
+    arrangement: sanitizeStr("field-arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.", 300),
     lyrics: compiledLyrics.slice(0, 4000),
     audio_duration: Math.min(300.0, Math.max(30.0, Number(cadence.durationSeconds.toFixed(2)))),
     blocks: JSON.parse(JSON.stringify(AppState.songBlocks))
@@ -389,8 +389,8 @@ async function ensureShowcaseTrack(slug, storage) {
         bpm: initialBp.bpm || 96,
         key: initialBp.key || "F minor",
         mood: initialBp.mood || "Sensual, passionate, smooth, confident, driving.",
-        vocals: initialBp.vocals || "Silky male tenor lead vocal, chest-to-falsetto transitions.",
-        arrangement: initialBp.arrangement || "Deep 808 sub-bass, hybrid snare, Fender Rhodes chords.",
+        vocals: initialBp.vocals || "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.",
+        arrangement: initialBp.arrangement || "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.",
         lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(initialBp.blocks) : "",
         stage1_profile: "Studio Master Acoustic Arrangement",
         stage2_profile: "Spatial Air & Harmonic Balancing",
@@ -1309,7 +1309,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
   const startFallbackPolling = () => {
     if (AppState.pollIntervalId) return;
     let lastEtag = null;
-    let currentInterval = 2500;
+    let currentInterval = 2000;
 
     const pollStep = async () => {
       try {
@@ -1326,7 +1326,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
         const data = await resp.json();
         await onJobUpdate(data);
 
-        if (data.status === "PROCESSING" && data.progress_pct > 75) {
+        if (data.status === "PROCESSING" && data.progress_pct > 70) {
           currentInterval = 1000;
         }
       } catch {}
@@ -1350,10 +1350,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId) {
       };
 
       es.onerror = () => {
-        if (es.readyState === EventSource.CLOSED) {
+        if (AppState.activeEventSource) {
+          AppState.activeEventSource.close();
           AppState.activeEventSource = null;
-          startFallbackPolling();
         }
+        startFallbackPolling();
       };
     } catch {
       startFallbackPolling();
