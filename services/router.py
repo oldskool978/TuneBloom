@@ -440,12 +440,13 @@ class EnginePipeline:
         def on_intelli_step(stage: str, cur: int, tot: int):
             if stage == "stage1":
                 if cur % 10 == 0 or cur == tot:
+                    emitted_sec = cur / 25.0
                     pct = 5 + int((cur / max(1, tot)) * 20)
-                    progress_cb(pct, f"Arranging Harmonic Structure ({cur}/{tot} frames)...")
+                    progress_cb(pct, f"Arranging Acoustic Composition ({emitted_sec:.1f}s composed)...")
             elif stage == "stage2":
                 if cur % 25 == 0 or cur == tot:
                     pct = 25 + int((cur / max(1, tot)) * 20)
-                    progress_cb(pct, f"Synthesizing Continuous Vector Field ({cur}/{tot} steps)...")
+                    progress_cb(pct, f"Synthesizing Vector Field ({cur}/{tot} steps)...")
 
         music_eng = MusicEngine(device=self.device_str)
         try:
