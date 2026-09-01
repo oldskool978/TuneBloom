@@ -365,78 +365,65 @@ body {
   z-index: 1;
 }
 
-.ambient-cloud {
+.theme-toast {
+  pointer-events: auto;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  box-shadow: var(--card-shadow), 0 10px 30px -5px rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(28px);
+  -webkit-backdrop-filter: blur(28px);
+  border-radius: 1.25rem;
+  padding: 0.875rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.875rem;
+  position: relative;
+  overflow: hidden;
+  animation: toastSlideIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.theme-toast.dismissing {
+  animation: toastSlideOut 0.25s cubic-bezier(0.4, 0, 1, 1) forwards;
+}
+
+.theme-toast-progress {
   position: absolute;
-  border-radius: 100px;
+  bottom: 0;
+  left: 0;
+  height: 2.5px;
+  background: var(--accent-color);
+  box-shadow: 0 0 10px var(--accent-color);
+  width: 100%;
+  transform-origin: left;
+  animation: toastProgress linear forwards;
 }
 
-.cloud-light {
-  background: rgba(255, 255, 255, 0.45);
-  filter: blur(8px);
+@keyframes toastSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(24px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
-.cloud-dark {
-  background: rgba(30, 41, 59, 0.65);
-  filter: blur(14px);
-  box-shadow: 0 0 35px rgba(2, 6, 23, 0.9);
+@keyframes toastSlideOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(16px) scale(0.94);
+  }
 }
 
-@keyframes moveClouds {
-  0% { transform: translateX(-300px); }
-  100% { transform: translateX(calc(100vw + 300px)); }
-}
-
-.ambient-raindrop {
-  position: absolute;
-  width: 1.5px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0), #38bdf8);
-  animation: fallRain linear infinite;
-}
-
-@keyframes fallRain {
-  0% { transform: translateY(-100px); opacity: 0; }
-  30% { opacity: 0.9; }
-  100% { transform: translateY(110vh); opacity: 0; }
-}
-
-.ambient-feather {
-  position: absolute;
-  background: rgba(255, 255, 255, 0.75);
-  border-radius: 0 100% 100% 100%;
-  animation: fallFeather linear infinite;
-}
-
-@keyframes fallFeather {
-  0% { transform: translateY(-40px) rotate(0deg); opacity: 0; }
-  20% { opacity: 0.9; }
-  100% { transform: translateY(110vh) translateX(90px) rotate(360deg); opacity: 0; }
-}
-
-.ambient-leaf {
-  position: absolute;
-  background: linear-gradient(135deg, #f59e0b, #c2410c);
-  border-radius: 0 100% 0 100%;
-  animation: fallLeaf linear forwards;
-}
-
-@keyframes fallLeaf {
-  0% { transform: translateY(-30px) rotate(0deg); opacity: 0; }
-  20% { opacity: 0.9; }
-  100% { transform: translateY(110vh) translateX(120px) rotate(540deg); opacity: 0; }
-}
-
-.ambient-ember {
-  position: absolute;
-  background: #fbbf24;
-  border-radius: 50%;
-  box-shadow: 0 0 6px #f59e0b;
-  animation: riseEmber linear forwards;
-}
-
-@keyframes riseEmber {
-  0% { transform: translateY(105vh) scale(1); opacity: 0; }
-  20% { opacity: 0.9; }
-  100% { transform: translateY(-10vh) scale(0.2); opacity: 0; }
+@keyframes toastProgress {
+  from { transform: scaleX(1); }
+  to { transform: scaleX(0); }
 }
 
 .easter-dove {

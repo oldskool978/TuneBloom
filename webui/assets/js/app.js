@@ -53,6 +53,7 @@ const AppModal = {
   show(title, message, iconClass = "fa-circle-info") {
     this.init();
     this.lastFocusedElement = document.activeElement;
+
     if (this.titleEl) this.titleEl.textContent = title;
     if (this.messageEl) this.messageEl.textContent = message;
     if (this.iconEl) this.iconEl.className = `fa-solid ${iconClass}`;
@@ -112,6 +113,7 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
+
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-ack-btn" class="px-6 py-2 rounded-xl theme-btn-primary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-lg">
@@ -131,6 +133,7 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
+
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-cancel-btn" class="px-4 py-2 rounded-xl theme-btn-secondary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md">
@@ -157,6 +160,7 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
+
       if (this.inputContainer) {
         this.inputContainer.classList.remove("hidden");
       }
@@ -173,6 +177,7 @@ const AppModal = {
           }
         };
       }
+
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-cancel-btn" class="px-4 py-2 rounded-xl theme-btn-secondary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md">
@@ -195,6 +200,7 @@ const AppModal = {
           };
         }
       }
+
       setTimeout(() => {
         if (this.inputEl) {
           this.inputEl.focus();
@@ -202,6 +208,82 @@ const AppModal = {
         }
       }, 50);
     });
+  }
+};
+
+const AppToast = {
+  container: null,
+  init() {
+    this.container = document.getElementById("toast-container");
+    if (!this.container) {
+      this.container = document.createElement("div");
+      this.container.id = "toast-container";
+      this.container.className = "fixed bottom-6 right-6 z-[1100] flex flex-col gap-3 pointer-events-none max-w-sm w-full px-4 sm:px-0";
+      document.body.appendChild(this.container);
+    }
+  },
+  show({ title, subtitle, coverUrl, onPlay, duration = 6000 }) {
+    this.init();
+    const toast = document.createElement("div");
+    toast.className = "theme-toast shadow-2xl cursor-pointer";
+    toast.innerHTML = `
+      <div class="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-black/40 border border-white/10 relative">
+        <img src="${coverUrl || resolveAssetUrl("public/jewelcases/default.jpg")}"
+             onerror="this.onerror=null; this.src='${resolveAssetUrl("public/jewelcases/default.jpg")}';"
+             alt="Cover" class="w-full h-full object-cover">
+      </div>
+      <div class="flex-1 min-w-0 pr-1">
+        <div class="flex items-center gap-1.5 mb-0.5">
+          <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+          <span class="text-[9px] font-mono font-bold uppercase tracking-wider text-emerald-300">Master Complete</span>
+        </div>
+        <div class="text-xs font-black text-white truncate leading-tight">${title || "Untitled Master"}</div>
+        <div class="text-[10px] text-white/70 font-mono truncate mt-0.5">${subtitle || "48.0 kHz Master Audio"}</div>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0">
+        ${onPlay ? `
+          <button type="button" class="toast-play-btn w-8 h-8 rounded-full theme-btn-primary flex items-center justify-center text-xs shadow-md hover:scale-105 active:scale-95 transition" title="Play Master">
+            <i class="fa-solid fa-play ml-0.5 text-[10px]"></i>
+          </button>
+        ` : ""}
+        <button type="button" class="toast-close-btn w-7 h-7 rounded-full bg-white/5 hover:bg-white/15 text-white/60 hover:text-white flex items-center justify-center text-[10px] transition" title="Dismiss">
+          <i class="fa-solid fa-xmark"></i>
+        </button>
+      </div>
+      <div class="theme-toast-progress" style="animation-duration: ${duration}ms;"></div>
+    `;
+
+    const playBtn = toast.querySelector(".toast-play-btn");
+    const closeBtn = toast.querySelector(".toast-close-btn");
+
+    const dismiss = () => {
+      if (toast.classList.contains("dismissing")) return;
+      toast.classList.add("dismissing");
+      setTimeout(() => toast.remove(), 250);
+    };
+
+    if (playBtn && onPlay) {
+      playBtn.onclick = (e) => {
+        e.stopPropagation();
+        onPlay();
+        dismiss();
+      };
+    }
+
+    if (closeBtn) {
+      closeBtn.onclick = (e) => {
+        e.stopPropagation();
+        dismiss();
+      };
+    }
+
+    toast.onclick = () => {
+      if (onPlay) onPlay();
+      dismiss();
+    };
+
+    this.container.appendChild(toast);
+    setTimeout(() => dismiss(), duration);
   }
 };
 
@@ -278,6 +360,7 @@ function computeCanonicalRecipe(title, data) {
   } else if (Array.isArray(data.blocks) && window.compileBlocksToLyrics) {
     lyricsStr = sanitize(window.compileBlocksToLyrics(data.blocks));
   }
+
   const canonical = {
     title: sanitize(title || data.title),
     genre: sanitize(data.genre),
@@ -404,7 +487,8 @@ async function ensureShowcaseTrack(slug, storage) {
         }
       },
       working_draft: {
-        ...JSON.parse(JSON.stringify(initialBp))
+        ...JSON.parse(JSON.stringify(initialBp)),
+        seed: 42
       }
     };
   } else {
@@ -422,6 +506,7 @@ async function ensureShowcaseTrack(slug, storage) {
   });
 
   const normalizedTracks = [defaultTrack, ...otherTracks];
+
   if (storage) {
     for (const track of normalizedTracks) {
       await storage.saveTrack(track);
@@ -476,6 +561,7 @@ async function handleAuthSubmit(event) {
   try {
     let authData = null;
     const router = window.RouterDiscovery;
+
     if (router && router.isOnline) {
       try {
         const loginResp = await fetch(`${router.activeBase}/auth/login`, {
@@ -693,6 +779,7 @@ function renderDiscography() {
   if (counter) counter.textContent = `${total} Track${total === 1 ? "" : "s"} In Vault`;
 
   const resolver = window.ClientJewelResolver;
+
   AppState.tracks.forEach((track) => {
     const isDefault = track.is_default || track.track_id.startsWith("default_");
     const isSelected = track.track_id === AppState.activeTrackId;
@@ -747,6 +834,7 @@ function renderDiscography() {
       <div class="text-[11px] font-black truncate text-white leading-tight">${track.working_draft?.title || track.title}</div>
       <div class="text-[9px] text-white/70 font-mono mt-0.5">${track.working_draft?.genre || track.recipe?.genre || "R&B"}</div>
     `;
+
     container.appendChild(item);
   });
 
@@ -765,11 +853,12 @@ function renderDiscography() {
   container.appendChild(addCard);
 }
 
-function selectTrackById(trackId) {
+function selectTrackById(trackId, autoMountPlayer = true) {
   if (syncTimeout) {
     clearTimeout(syncTimeout);
     syncTimeout = null;
   }
+
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
 
@@ -778,17 +867,19 @@ function selectTrackById(trackId) {
     localStorage.setItem(`tb_active_track_${AppState.user.slug}`, trackId);
   }
 
-  if (window.playerEngine) {
+  if (autoMountPlayer && window.playerEngine) {
     window.playerEngine.loadTrack(track);
   }
 
   const isDefault = Boolean(track.is_default || String(track.track_id).startsWith("default_"));
+
   if (track.working_draft) {
     loadDraftIntoForm(track.working_draft, isDefault);
   } else if (track.recipe) {
     const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
       ? track.recipe.blocks
       : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []);
+
     const draftFromRecipe = {
       title: track.title,
       genre: track.recipe.genre || "",
@@ -799,7 +890,8 @@ function selectTrackById(trackId) {
       vocals: track.recipe.vocals || "",
       arrangement: track.recipe.arrangement || "",
       lyrics: track.recipe.lyrics || "",
-      blocks: parsedBlocks
+      blocks: parsedBlocks,
+      seed: track.recipe.telemetry?.seed
     };
     track.working_draft = draftFromRecipe;
     loadDraftIntoForm(draftFromRecipe, isDefault);
@@ -860,6 +952,7 @@ function checkRecipeDirtyState() {
 
   const currentPayload = getCurrentFormPayload();
   const currentSerialized = computeCanonicalRecipe(currentPayload.title, currentPayload);
+
   const isCompleted = currentTrack.status === "COMPLETED" && Boolean(currentTrack.audio_url);
   const isPristine = isCompleted && AppState.activeTrackCleanRecipe !== null && currentSerialized === AppState.activeTrackCleanRecipe;
 
@@ -887,11 +980,15 @@ function syncActiveTrackDraftDebounced() {
     const track = AppState.tracks.find((t) => t.track_id === targetTrackId);
     if (track) {
       const payload = getCurrentFormPayload();
-      track.working_draft = payload;
+      track.working_draft = {
+        ...track.working_draft,
+        ...payload
+      };
       track.title = payload.title || track.title;
       track.updated_at = new Date().toISOString();
       const storage = window.clientStorage;
       if (storage) await storage.saveTrack(track);
+
       if (track.track_id === AppState.activeTrackId) {
         const titleEl = document.getElementById("player-track-title");
         if (titleEl) titleEl.textContent = track.title;
@@ -919,12 +1016,12 @@ async function handleAddNewTrackCardClick() {
   if (!enteredTitle) return;
 
   const trackId = `track_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const seed = Math.floor(Math.random() * 90000000);
+  const seed = Math.floor(Math.random() * 90000000) + 100000;
   const resolver = window.ClientJewelResolver;
   const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed, usedCovers) : "default.jpg";
-  const newOrderIndex = AppState.tracks.length;
 
+  const newOrderIndex = AppState.tracks.length;
   const clonedBlocks = Array.isArray(blueprint.blocks)
     ? JSON.parse(JSON.stringify(blueprint.blocks))
     : [];
@@ -950,12 +1047,14 @@ async function handleAddNewTrackCardClick() {
       ...JSON.parse(JSON.stringify(blueprint)),
       title: enteredTitle.slice(0, 80),
       lyrics: compiledLyrics,
-      blocks: clonedBlocks
+      blocks: clonedBlocks,
+      seed: seed
     }
   };
 
   const storage = window.clientStorage;
   if (storage) await storage.saveTrack(newDraftTrack);
+
   AppState.tracks.push(newDraftTrack);
   renderDiscography();
   selectTrackById(trackId);
@@ -988,6 +1087,7 @@ async function handleTrackDelete(trackId, e) {
 
   const storage = window.clientStorage;
   if (storage) await storage.deleteTrack(trackId);
+
   AppState.tracks = AppState.tracks.filter((t) => t.track_id !== trackId);
 
   if (AppState.activeTrackId === trackId) {
@@ -1073,6 +1173,12 @@ async function handleGenerateSubmit(e) {
   AppState.isDispatching = true;
   const isFork = Boolean(isCompleted);
   const originTrackId = currentTrack ? currentTrack.track_id : null;
+
+  const originSeed = currentTrack?.recipe?.telemetry?.seed ?? currentTrack?.working_draft?.seed;
+  const seed = (isFork && originSeed !== undefined && originSeed !== null)
+    ? Number(originSeed)
+    : (Math.floor(Math.random() * 90000000) + 100000);
+
   const btn = document.getElementById("gen-submit-btn");
   const hud = document.getElementById("queue-status-hud");
   const statusLabel = document.getElementById("queue-hud-status");
@@ -1083,7 +1189,6 @@ async function handleGenerateSubmit(e) {
   }
   if (hud) hud.classList.remove("hidden");
 
-  const seed = Math.floor(Math.random() * 90000000) + 100000;
   const resolver = window.ClientJewelResolver;
   const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
@@ -1105,18 +1210,23 @@ async function handleGenerateSubmit(e) {
       assigned_jewelcase: assignedCover,
       duration_seconds: formPayload.audio_duration,
       recipe: null,
-      working_draft: JSON.parse(JSON.stringify(formPayload))
+      working_draft: {
+        ...JSON.parse(JSON.stringify(formPayload)),
+        seed: seed
+      }
     };
     AppState.tracks.push(workingTrackTarget);
-    selectTrackById(stagedId);
+    renderDiscography();
   } else if (currentTrack) {
     currentTrack.title = formPayload.title;
     currentTrack.assigned_jewelcase = assignedCover;
     currentTrack.status = "PROCESSING";
-    currentTrack.working_draft = JSON.parse(JSON.stringify(formPayload));
-    selectTrackById(currentTrack.track_id);
+    currentTrack.working_draft = {
+      ...JSON.parse(JSON.stringify(formPayload)),
+      seed: seed
+    };
+    renderDiscography();
   }
-  renderDiscography();
 
   try {
     if (statusLabel) statusLabel.innerHTML = '<span class="w-2.5 h-2.5 rounded-full bg-sky-400 animate-pulse"></span>Securing Studio Challenge...';
@@ -1141,6 +1251,21 @@ async function handleGenerateSubmit(e) {
       seed: seed,
       assigned_jewelcase: assignedCover,
       blocks: formPayload.blocks,
+      temperature: 0.91,
+      top_p: 0.96,
+      top_k: 44,
+      ar_guidance_scale: 1.52,
+      scheduler_type: "heun",
+      num_inference_steps: 42,
+      guidance_scale: 1.78,
+      noise_topology: "blue_noise",
+      blue_noise_alpha: 0.75,
+      enable_pm_diffusion: true,
+      pm_iterations: 5,
+      pm_conductance: 0.15,
+      pm_lambda: 0.20,
+      apply_declick: true,
+      cpu_offload: false,
       pow: {
         challenge: challengeData.challenge,
         signature: challengeData.signature,
@@ -1177,32 +1302,31 @@ async function handleGenerateSubmit(e) {
 
     if (isFork && workingTrackTarget) {
       workingTrackTarget.track_id = jobData.job_id;
-      AppState.activeTrackId = jobData.job_id;
     } else if (currentTrack) {
       currentTrack.track_id = jobData.job_id;
-      AppState.activeTrackId = jobData.job_id;
     }
     renderDiscography();
 
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
-      compositionPayload: formPayload,
+      compositionPayload: { ...formPayload, seed },
       isFork,
       originTrackId,
       assignedCover
     }));
 
-    startTrackingJob(jobData.job_id, formPayload, isFork, originTrackId, assignedCover);
+    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, assignedCover);
   } catch (err) {
     if (isFork) {
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId);
-      if (originTrackId) selectTrackById(originTrackId);
+      renderDiscography();
     } else if (currentTrack) {
       currentTrack.status = "DRAFT";
       renderDiscography();
     }
     AppState.isDispatching = false;
     await AppModal.alert("Dispatch Error", `Synthesis submission failed:\n${err.message}`, "fa-triangle-exclamation");
+
     if (btn) {
       btn.disabled = false;
       btn.classList.remove("hidden");
@@ -1246,8 +1370,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         updateQuotaDisplay();
       }
     }
-
     AppState.isDispatching = false;
+
     const btnEl = document.getElementById("gen-submit-btn");
     const hudEl = document.getElementById("queue-status-hud");
     if (btnEl) {
@@ -1258,12 +1382,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
     if (isFork) {
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId);
-      if (originTrackId) selectTrackById(originTrackId);
     } else {
       const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
       if (active) active.status = "DRAFT";
-      renderDiscography();
     }
+    renderDiscography();
     checkRecipeDirtyState();
 
     await AppModal.alert(
@@ -1298,7 +1421,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       if (statusLabel) statusLabel.textContent = "Master Complete!";
       if (progressBar) progressBar.style.width = "100%";
 
-      const seed = data.telemetry?.seed || Math.floor(Math.random() * 90000000);
+      const seed = data.telemetry?.seed ?? compositionPayload.seed ?? Math.floor(Math.random() * 90000000);
       const realizedDuration = (data.telemetry && data.telemetry.duration_seconds)
         ? Number(data.telemetry.duration_seconds)
         : compositionPayload.audio_duration;
@@ -1357,7 +1480,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           vocals: compositionPayload.vocals,
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
-          blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : [])
+          blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
+          seed: seed
         }
       };
 
@@ -1384,7 +1508,31 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
       AppState.isDispatching = false;
       renderDiscography();
-      selectTrackById(targetTrackId);
+
+      const isCurrentlyPlaying = window.playerEngine && window.playerEngine.isPlaying;
+      const currentlyPlayingTrackId = window.playerEngine?.activeTrack?.track_id;
+
+      if (!isCurrentlyPlaying) {
+        selectTrackById(targetTrackId, true);
+      } else if (currentlyPlayingTrackId === targetTrackId) {
+        selectTrackById(targetTrackId, false);
+      }
+
+      const coverResolver = window.ClientJewelResolver;
+      const toastCoverUrl = coverResolver ? coverResolver.getCoverUrl(finalCover) : resolveAssetUrl("public/jewelcases/default.jpg");
+
+      AppToast.show({
+        title: completedTrack.title,
+        subtitle: `${completedTrack.recipe?.genre || "Studio Master"} • 48.0 kHz FL32`,
+        coverUrl: toastCoverUrl,
+        duration: 7000,
+        onPlay: () => {
+          selectTrackById(targetTrackId, true);
+          if (window.playerEngine) {
+            window.playerEngine.play();
+          }
+        }
+      });
 
       setTimeout(() => {
         const btnEl = document.getElementById("gen-submit-btn");
@@ -1392,7 +1540,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         if (btnEl) btnEl.classList.remove("hidden");
         if (hudEl) hudEl.classList.add("hidden");
         checkRecipeDirtyState();
-      }, 1200);
+      }, 1000);
     } else if (data.status === "FAILED") {
       if (AppState.activeEventSource) {
         AppState.activeEventSource.close();
@@ -1411,9 +1559,9 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           updateQuotaDisplay();
         }
       }
-
       AppState.isDispatching = false;
       await AppModal.alert("Synthesis Failed", data.error || "Audio mastering process interrupted.", "fa-circle-xmark");
+
       const btnEl = document.getElementById("gen-submit-btn");
       const hudEl = document.getElementById("queue-status-hud");
       if (btnEl) {
@@ -1441,12 +1589,10 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           return;
         }
         if (!resp.ok) return;
-
         const etag = resp.headers.get("ETag");
         if (etag) lastEtag = etag;
         const data = await resp.json();
         await onJobUpdate(data);
-
         if (data.status === "PROCESSING" && data.progress_pct > 70) {
           currentInterval = 1000;
         }
@@ -1462,14 +1608,12 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       const sseUrl = `${router.activeBase}/jobs/${jobId}/stream?token=${encodeURIComponent(token || "")}`;
       const es = new EventSource(sseUrl);
       AppState.activeEventSource = es;
-
       es.onmessage = async (e) => {
         try {
           const data = JSON.parse(e.data);
           await onJobUpdate(data);
         } catch {}
       };
-
       es.onerror = async () => {
         if (AppState.activeEventSource) {
           AppState.activeEventSource.close();
@@ -1487,6 +1631,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
 document.addEventListener("DOMContentLoaded", async () => {
   AppModal.init();
+  AppToast.init();
 
   if (window.RouterDiscovery) {
     await window.RouterDiscovery.resolve();
@@ -1554,7 +1699,6 @@ document.addEventListener("DOMContentLoaded", async () => {
                       user_slug: savedSlug,
                       order_index: existingIdx !== -1 ? AppState.tracks[existingIdx].order_index : (i + 1)
                     };
-
                     if (existingIdx === -1) {
                       await window.clientStorage.saveTrack(trackObj);
                       AppState.tracks.push(trackObj);
@@ -1637,6 +1781,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 
 window.AppState = AppState;
 window.AppModal = AppModal;
+window.AppToast = AppToast;
 window.sortTracks = sortTracks;
 window.computeCanonicalRecipe = computeCanonicalRecipe;
 window.ensureShowcaseTrack = ensureShowcaseTrack;

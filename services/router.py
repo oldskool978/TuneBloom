@@ -1,5 +1,8 @@
 import os
 import sys
+
+os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+
 import gc
 import uuid
 import time
@@ -22,6 +25,7 @@ import torch
 import numpy as np
 import soundfile as sf
 import uvicorn
+
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse, StreamingResponse
@@ -46,6 +50,7 @@ PATH_ANCHORS = [
     BACKEND_ROOT / "Boompus",
     BACKEND_ROOT / "OP3Transcode",
 ]
+
 for p in reversed(PATH_ANCHORS):
     p_str = str(p)
     if p.exists() and p_str not in sys.path:
@@ -248,6 +253,7 @@ def load_user_registry() -> Tuple[Dict[str, Any], Path]:
                         return data, resolved
             except Exception as e:
                 logging.getLogger("uvicorn.error").warning(f"Failed parsing user registry at {resolved}: {e}")
+
     fallback = {
         "administrator": {
             "display_name": "Administrator",
@@ -323,6 +329,7 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
             return False
     except Exception:
         return False
+
     attempt = f"{challenge}:{solution_nonce}".encode("utf-8")
     h = hashlib.sha256(attempt).hexdigest()
     if not h.startswith("0" * diff):
@@ -429,25 +436,25 @@ class EnginePipeline:
             arrangement=request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
             lyrics=raw_lyrics,
             raw_prompt=request_data.get("raw_prompt") or request_data.get("prompt"),
-            temperature=request_data.get("temperature", 0.91),
-            top_p=request_data.get("top_p", 0.96),
-            top_k=request_data.get("top_k", 44),
-            ar_guidance_scale=request_data.get("ar_guidance_scale", 1.52),
-            scheduler_type=request_data.get("scheduler_type", "heun"),
-            num_inference_steps=request_data.get("num_inference_steps", 42),
-            guidance_scale=request_data.get("guidance_scale", 1.78),
-            noise_topology=request_data.get("noise_topology", "blue_noise"),
-            blue_noise_alpha=request_data.get("blue_noise_alpha", 0.75),
-            enable_pm_diffusion=request_data.get("enable_pm_diffusion", True),
-            pm_iterations=request_data.get("pm_iterations", 5),
-            pm_conductance=request_data.get("pm_conductance", 0.15),
-            pm_lambda=request_data.get("pm_lambda", 0.20),
+            temperature=float(request_data.get("temperature", 0.91)),
+            top_p=float(request_data.get("top_p", 0.96)),
+            top_k=int(request_data.get("top_k", 44)),
+            ar_guidance_scale=float(request_data.get("ar_guidance_scale", 1.52)),
+            scheduler_type=str(request_data.get("scheduler_type", "heun")),
+            num_inference_steps=int(request_data.get("num_inference_steps", 42)),
+            guidance_scale=float(request_data.get("guidance_scale", 1.78)),
+            noise_topology=str(request_data.get("noise_topology", "blue_noise")),
+            blue_noise_alpha=float(request_data.get("blue_noise_alpha", 0.75)),
+            enable_pm_diffusion=bool(request_data.get("enable_pm_diffusion", True)),
+            pm_iterations=int(request_data.get("pm_iterations", 5)),
+            pm_conductance=float(request_data.get("pm_conductance", 0.15)),
+            pm_lambda=float(request_data.get("pm_lambda", 0.20)),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
             device=self.device_str,
-            apply_declick=request_data.get("apply_declick", True),
-            cpu_offload=request_data.get("cpu_offload", False),
+            apply_declick=bool(request_data.get("apply_declick", True)),
+            cpu_offload=bool(request_data.get("cpu_offload", False)),
             blocks=blocks,
         )
 
@@ -548,7 +555,6 @@ class EnginePipeline:
                     audio_tensor = host_tensor.to(self.device)
                 del host_tensor
                 del audio_48k
-
                 limited_tensor = limiter.process_full_prepass(audio_tensor)
                 final_audio_np = limited_tensor.detach().cpu().numpy().T
 
@@ -577,7 +583,6 @@ class EnginePipeline:
                 "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 3) if furgie_telem else None,
                 "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 2) if furgie_telem else None,
             }
-
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
                 "stage2_profile": "Spatial Air & Harmonic Balancing",
@@ -616,7 +621,8 @@ class EnginePipeline:
         job: SynthesisJob,
         progress_cb: Callable[[int, str], None],
     ) -> Tuple[Path, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
-        seed = job.request_data.get("seed") or int(np.random.randint(100000, 99999999))
+        raw_seed = job.request_data.get("seed")
+        seed = int(raw_seed) if (raw_seed is not None and str(raw_seed).strip() != "") else int(np.random.randint(100000, 99999999))
         target_duration = float(job.request_data.get("audio_duration", 300.0))
         output_opus_path = ARTIFACTS_DIR / f"{job.job_id}.opus"
 
@@ -625,6 +631,7 @@ class EnginePipeline:
             raw_stage1_path = tmp_dir / "stage1_raw.wav"
             furgie_stage2_path = tmp_dir / "stage2_48k.wav"
             stage3_wav_path = tmp_dir / "stage3_limited_48k.wav"
+
             try:
                 intelli_resp = self.run_stage1_composition(
                     request_data=job.request_data,
@@ -663,6 +670,7 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     **recipe_meta,
                 }
+
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
@@ -674,7 +682,9 @@ class EnginePipeline:
                     "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
+                    "seed": seed,
                 }
+
                 return output_opus_path, telemetry, full_recipe, working_draft
             finally:
                 if raw_stage1_path.exists():
@@ -737,11 +747,13 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
+
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
+
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -766,6 +778,7 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
+
             dead_jobs = [
                 jid
                 for jid, j in self.jobs.items()
@@ -799,6 +812,7 @@ class ComputeQueue:
                     job,
                     progress_hook,
                 )
+
                 job.output_file = output_file
                 job.telemetry = telemetry
                 job.recipe = recipe
@@ -816,6 +830,7 @@ class ComputeQueue:
 
                 seed = telemetry.get("seed", 42)
                 realized_duration = telemetry.get("duration_seconds", float(job.request_data.get("audio_duration", 300.0)))
+
                 covers = []
                 jewelcases_dir = get_jewelcases_root()
                 if jewelcases_dir.exists():
@@ -867,6 +882,7 @@ class ComputeQueue:
                     "working_draft": working_draft,
                     "telemetry": telemetry,
                 }
+
                 history_data.setdefault("tracks", []).insert(0, track_entry)
                 with open(history_file, "w", encoding="utf-8") as f:
                     json.dump(history_data, f, indent=2)
@@ -937,6 +953,7 @@ async def login(payload: AuthPayload):
     raw_input = payload.username.strip()
     input_slug = slugify(raw_input)
     users_map, _ = load_user_registry()
+
     matched_slug = None
     if input_slug in users_map:
         matched_slug = input_slug
@@ -1068,6 +1085,7 @@ async def synthesize(
                     )
             except Exception:
                 pass
+
         daily_quota = int(user_meta.get("daily_quota", 2))
         if tokens_used_today >= daily_quota:
             raise HTTPException(
@@ -1090,13 +1108,16 @@ async def get_job_status(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     verify_session_token(token)
+
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
+
     etag = f'W/"{job_id}-{info.get("status")}-{info.get("progress_pct")}-{info.get("users_ahead")}"'
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
+
     return JSONResponse(content=info, headers={"ETag": etag})
 
 
@@ -1120,15 +1141,19 @@ async def stream_job_status(
         while True:
             if await request.is_disconnected():
                 break
+
             current_status = compute_queue.get_status(job_id)
             if not current_status:
                 break
+
             state_str = json.dumps(current_status)
             if state_str != last_state_str:
                 last_state_str = state_str
                 yield f"data: {state_str}\n\n"
+
             if current_status.get("status") in ("COMPLETED", "FAILED"):
                 break
+
             try:
                 await asyncio.wait_for(event.wait(), timeout=1.0)
                 event.clear()
@@ -1151,6 +1176,7 @@ async def get_audio_stream_direct(job_id: str):
     job = compute_queue.jobs.get(job_id)
     if not job or job.status != "COMPLETED" or not job.output_file or not job.output_file.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master audio stream not ready.")
+
     return FileResponse(
         str(job.output_file),
         media_type="audio/ogg",
@@ -1167,16 +1193,19 @@ async def get_audio_stream_user(user_slug: str, filename: str):
     safe_slug = slugify(user_slug)
     safe_name = Path(filename).name
     target_file = STORAGE_ROOT / safe_slug / "tracks" / safe_name
+
     headers = {
         "Cross-Origin-Resource-Policy": "cross-origin",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
     }
+
     if not target_file.exists() or not target_file.is_file():
         default_file = resolve_site_root() / "public" / "default.opus"
         if default_file.exists():
             return FileResponse(str(default_file), media_type="audio/ogg", headers=headers)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
+
     return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
 
 
@@ -1190,6 +1219,7 @@ ROUTE_PREFIXES = [
     "/tunebloom/api",
     "/tunebloom/api/v1",
 ]
+
 for prefix in ROUTE_PREFIXES:
     app.include_router(api_router, prefix=prefix)
 
@@ -1227,9 +1257,11 @@ def mount_static_and_spa():
                 or "api/" in path_lower
             ):
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
+
             cleaned_path = full_path
             if cleaned_path.lower().startswith("tunebloom/"):
                 cleaned_path = cleaned_path[len("tunebloom/") :]
+
             current_site = resolve_site_root()
             try:
                 target = (current_site / cleaned_path).resolve()
@@ -1275,7 +1307,6 @@ def launch_standalone(host: str, port: int):
     server_thread = threading.Thread(target=run_server, args=(host, port), daemon=True)
     server_thread.start()
     time.sleep(1.0)
-
     window = webview.create_window(
         title="TuneBloom - Studio Master Audio Creation",
         url=f"http://{host}:{port}/",
