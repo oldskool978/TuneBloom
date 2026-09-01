@@ -248,7 +248,6 @@ def load_user_registry() -> Tuple[Dict[str, Any], Path]:
                         return data, resolved
             except Exception as e:
                 logging.getLogger("uvicorn.error").warning(f"Failed parsing user registry at {resolved}: {e}")
-
     fallback = {
         "administrator": {
             "display_name": "Administrator",
@@ -310,15 +309,12 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
     global _REPLAY_CACHE
     now = time.time()
     _REPLAY_CACHE = {k: v for k, v in _REPLAY_CACHE.items() if now - v < POW_EXPIRATION_SECONDS}
-
     cache_key = f"{challenge}:{solution_nonce}"
     if cache_key in _REPLAY_CACHE:
         return False
-
     expected_sig = hmac.new(POW_SECRET.encode("utf-8"), challenge.encode("utf-8"), hashlib.sha256).hexdigest()
     if not hmac.compare_digest(signature, expected_sig):
         return False
-
     try:
         ts_str, _, diff_str = challenge.split(":")
         ts = int(ts_str)
@@ -327,12 +323,10 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
             return False
     except Exception:
         return False
-
     attempt = f"{challenge}:{solution_nonce}".encode("utf-8")
     h = hashlib.sha256(attempt).hexdigest()
     if not h.startswith("0" * diff):
         return False
-
     _REPLAY_CACHE[cache_key] = now
     return True
 
@@ -354,15 +348,30 @@ class SynthesisPayload(BaseModel):
     bpm: int = Field(default=96, ge=30, le=300)
     key: str = Field(default="F minor", max_length=30)
     mood: str = Field(default="Sensual, passionate, smooth, confident, driving.", max_length=200)
-    vocals: str = Field(default="Silky male tenor lead vocal, dynamic chest-to-falsetto transitions.", max_length=300)
-    arrangement: str = Field(default="Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords.", max_length=300)
+    vocals: str = Field(default="Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.", max_length=300)
+    arrangement: str = Field(default="Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.", max_length=300)
     lyrics: str = Field(default="", max_length=4000)
     raw_prompt: Optional[str] = Field(default=None, max_length=5000)
     prompt: Optional[str] = Field(default=None, max_length=5000)
-    audio_duration: float = Field(default=240.0, ge=30.0, le=300.0)
+    audio_duration: float = Field(default=300.0, ge=30.0, le=600.0)
     seed: Optional[int] = Field(default=None, ge=0)
     assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    temperature: Optional[float] = Field(default=0.91, ge=0.01, le=3.0)
+    top_p: Optional[float] = Field(default=0.96, ge=0.01, le=1.0)
+    top_k: Optional[int] = Field(default=44, ge=1, le=500)
+    ar_guidance_scale: Optional[float] = Field(default=1.52, ge=0.0, le=10.0)
+    scheduler_type: str = Field(default="heun")
+    num_inference_steps: Optional[int] = Field(default=42, ge=1, le=200)
+    guidance_scale: Optional[float] = Field(default=1.78, ge=0.0, le=20.0)
+    noise_topology: str = Field(default="blue_noise")
+    blue_noise_alpha: float = Field(default=0.75, ge=0.0, le=2.0)
+    enable_pm_diffusion: bool = Field(default=True)
+    pm_iterations: int = Field(default=5, ge=1, le=30)
+    pm_conductance: float = Field(default=0.15, ge=0.01, le=5.0)
+    pm_lambda: float = Field(default=0.20, ge=0.01, le=0.25)
+    apply_declick: bool = Field(default=True)
+    cpu_offload: bool = Field(default=False)
     pow: PowSubmission
 
 
@@ -407,46 +416,49 @@ class EnginePipeline:
         from Intelligen.schema import GenerationRequest
         from Intelligen.engine import MusicEngine
 
+        raw_lyrics = request_data.get("lyrics", "")
+        blocks = request_data.get("blocks", [])
+
         gen_req = GenerationRequest(
             genre=request_data.get("genre", "Contemporary R&B"),
             subgenre=request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
             bpm=int(request_data.get("bpm", 96)),
             key=request_data.get("key", "F minor"),
             mood=request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-            vocals=request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions."),
-            arrangement=request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
-            lyrics=request_data.get("lyrics", ""),
+            vocals=request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
+            arrangement=request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
+            lyrics=raw_lyrics,
             raw_prompt=request_data.get("raw_prompt") or request_data.get("prompt"),
-            temperature=0.94,
-            top_p=0.90,
-            top_k=43,
-            scheduler_type="heun",
-            num_inference_steps=42,
-            guidance_scale=1.78,
-            noise_topology="blue_noise",
-            blue_noise_alpha=0.75,
-            enable_pm_diffusion=True,
-            pm_iterations=5,
-            pm_conductance=0.15,
-            pm_lambda=0.20,
+            temperature=request_data.get("temperature", 0.91),
+            top_p=request_data.get("top_p", 0.96),
+            top_k=request_data.get("top_k", 44),
+            ar_guidance_scale=request_data.get("ar_guidance_scale", 1.52),
+            scheduler_type=request_data.get("scheduler_type", "heun"),
+            num_inference_steps=request_data.get("num_inference_steps", 42),
+            guidance_scale=request_data.get("guidance_scale", 1.78),
+            noise_topology=request_data.get("noise_topology", "blue_noise"),
+            blue_noise_alpha=request_data.get("blue_noise_alpha", 0.75),
+            enable_pm_diffusion=request_data.get("enable_pm_diffusion", True),
+            pm_iterations=request_data.get("pm_iterations", 5),
+            pm_conductance=request_data.get("pm_conductance", 0.15),
+            pm_lambda=request_data.get("pm_lambda", 0.20),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
             device=self.device_str,
-            apply_declick=True,
-            cpu_offload=False,
+            apply_declick=request_data.get("apply_declick", True),
+            cpu_offload=request_data.get("cpu_offload", False),
+            blocks=blocks,
         )
 
         def on_intelli_step(stage: str, cur: int, tot: int):
             if stage == "stage1":
-                if cur % 10 == 0 or cur == tot:
-                    emitted_sec = cur / 25.0
-                    pct = 5 + int((cur / max(1, tot)) * 20)
-                    progress_cb(pct, f"Arranging Acoustic Composition ({emitted_sec:.1f}s composed)...")
+                emitted_sec = cur / 25.0
+                pct = 5 + int((cur / max(1, tot)) * 20)
+                progress_cb(pct, f"Arranging Acoustic Composition ({emitted_sec:.1f}s composed)...")
             elif stage == "stage2":
-                if cur % 25 == 0 or cur == tot:
-                    pct = 25 + int((cur / max(1, tot)) * 20)
-                    progress_cb(pct, f"Synthesizing Vector Field ({cur}/{tot} steps)...")
+                pct = 25 + int((cur / max(1, tot)) * 20)
+                progress_cb(pct, f"Synthesizing Vector Field ({cur}/{tot} steps)...")
 
         music_eng = MusicEngine(device=self.device_str)
         try:
@@ -487,7 +499,7 @@ class EnginePipeline:
 
         def furgie_progress(tile_cur: int, tile_tot: int) -> None:
             pct = 45 + int((tile_cur / max(1, tile_tot)) * 25)
-            progress_cb(pct, f"Refining Acoustic Space & High-Frequency Detail ({tile_cur}/{tile_tot} tiles)...")
+            progress_cb(pct, f"Refining Acoustic Space ({tile_cur}/{tile_tot} tiles)...")
 
         try:
             with torch.inference_mode():
@@ -520,6 +532,7 @@ class EnginePipeline:
         audio_tensor = None
         limited_tensor = None
         final_audio_np = None
+
         try:
             audio_48k, _ = sf.read(str(stage2_path), dtype="float32")
             if audio_48k.ndim == 1:
@@ -563,13 +576,12 @@ class EnginePipeline:
                 "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", True) if intelli_resp else None,
                 "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 3) if furgie_telem else None,
                 "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 2) if furgie_telem else None,
-                "crossover_step_db": getattr(furgie_telem, "crossover_magnitude_step_db", None) if furgie_telem else None,
-                "spectral_tilt_slope": getattr(furgie_telem, "spectral_tilt_slope", None) if furgie_telem else None,
             }
+
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
-                "stage2_profile": "Spatial Air & Harmonic Balancing (24kHz Anchor)",
-                "stage3_profile": "Dynamic Envelope Optimization (CELT Psychoacoustic)",
+                "stage2_profile": "Spatial Air & Harmonic Balancing",
+                "stage3_profile": "Dynamic Envelope Optimization",
                 "stage4_profile": "Boompus Standalone Bitstream Delivery",
             }
             return master_telemetry, master_recipe
@@ -605,7 +617,7 @@ class EnginePipeline:
         progress_cb: Callable[[int, str], None],
     ) -> Tuple[Path, Dict[str, Any], Dict[str, Any], Dict[str, Any]]:
         seed = job.request_data.get("seed") or int(np.random.randint(100000, 99999999))
-        target_duration = float(job.request_data.get("audio_duration", 240.0))
+        target_duration = float(job.request_data.get("audio_duration", 300.0))
         output_opus_path = ARTIFACTS_DIR / f"{job.job_id}.opus"
 
         with tempfile.TemporaryDirectory() as tmp_dir_str:
@@ -639,14 +651,15 @@ class EnginePipeline:
                     output_opus_path=output_opus_path,
                     progress_cb=progress_cb,
                 )
+
                 full_recipe = {
                     "genre": job.request_data.get("genre", "Contemporary R&B"),
                     "subgenre": job.request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
                     "bpm": int(job.request_data.get("bpm", 96)),
                     "key": job.request_data.get("key", "F minor"),
                     "mood": job.request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions."),
-                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
+                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
+                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
                     "lyrics": job.request_data.get("lyrics", ""),
                     **recipe_meta,
                 }
@@ -657,8 +670,8 @@ class EnginePipeline:
                     "bpm": int(job.request_data.get("bpm", 96)),
                     "key": job.request_data.get("key", "F minor"),
                     "mood": job.request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, chest-to-falsetto transitions."),
-                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, hybrid snare on 2/4, Fender Rhodes chords."),
+                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
+                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
                 }
@@ -724,13 +737,11 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
-
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
-
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -755,7 +766,6 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
-
             dead_jobs = [
                 jid
                 for jid, j in self.jobs.items()
@@ -805,6 +815,7 @@ class ComputeQueue:
                     stored_file.write_bytes(output_file.read_bytes())
 
                 seed = telemetry.get("seed", 42)
+                realized_duration = telemetry.get("duration_seconds", float(job.request_data.get("audio_duration", 300.0)))
                 covers = []
                 jewelcases_dir = get_jewelcases_root()
                 if jewelcases_dir.exists():
@@ -850,7 +861,7 @@ class ComputeQueue:
                     "title": job.request_data.get("title", "Untitled Master"),
                     "artist": "TuneBloom Master",
                     "audio_url": f"api/v1/audio/stream/{job.user_slug}/{job.job_id}_master.opus",
-                    "duration_seconds": telemetry.get("duration_seconds", 240.0),
+                    "duration_seconds": realized_duration,
                     "assigned_jewelcase": assigned_cover,
                     "recipe": recipe,
                     "working_draft": working_draft,
@@ -879,10 +890,10 @@ async def lifespan(app: FastAPI):
     boompus_bin = resolve_boompus_binary()
     print("=" * 76)
     print("  TUNEBLOOM UNIFIED AUDIO ENGINE // SERVICE ROUTER ACTIVE")
-    print(f"  Mode           : {'STANDALONE DESKTOP' if is_standalone_mode() else 'HEADLESS / PROXY DAEMON'}")
-    print(f"  Site Root      : {resolve_site_root()}")
-    print(f"  User Registry  : {src}")
-    print(f"  Boompus Binary : {boompus_bin if boompus_bin else 'Built-in Audio Fallback'}")
+    print(f"  Mode            : {'STANDALONE DESKTOP' if is_standalone_mode() else 'HEADLESS / PROXY DAEMON'}")
+    print(f"  Site Root       : {resolve_site_root()}")
+    print(f"  User Registry   : {src}")
+    print(f"  Boompus Binary  : {boompus_bin if boompus_bin else 'Built-in Audio Fallback'}")
     print(f"  Accounts ({len(users)}) : {', '.join(users.keys())}")
     print("=" * 76)
     yield
@@ -926,7 +937,6 @@ async def login(payload: AuthPayload):
     raw_input = payload.username.strip()
     input_slug = slugify(raw_input)
     users_map, _ = load_user_registry()
-
     matched_slug = None
     if input_slug in users_map:
         matched_slug = input_slug
@@ -1058,7 +1068,6 @@ async def synthesize(
                     )
             except Exception:
                 pass
-
         daily_quota = int(user_meta.get("daily_quota", 2))
         if tokens_used_today >= daily_quota:
             raise HTTPException(
@@ -1081,16 +1090,13 @@ async def get_job_status(
 ):
     token = authorization.replace("Bearer ", "").strip() if authorization else None
     verify_session_token(token)
-
     info = compute_queue.get_status(job_id)
     if not info:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master job record not found.")
-
     etag = f'W/"{job_id}-{info.get("status")}-{info.get("progress_pct")}-{info.get("users_ahead")}"'
     if_none_match = request.headers.get("if-none-match")
     if if_none_match and if_none_match == etag:
         return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers={"ETag": etag})
-
     return JSONResponse(content=info, headers={"ETag": etag})
 
 
@@ -1221,11 +1227,9 @@ def mount_static_and_spa():
                 or "api/" in path_lower
             ):
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
-
             cleaned_path = full_path
             if cleaned_path.lower().startswith("tunebloom/"):
                 cleaned_path = cleaned_path[len("tunebloom/") :]
-
             current_site = resolve_site_root()
             try:
                 target = (current_site / cleaned_path).resolve()
