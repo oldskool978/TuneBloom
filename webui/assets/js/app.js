@@ -317,7 +317,7 @@ function getCurrentFormPayload() {
     vocals: sanitizeStr("field-vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.", 300),
     arrangement: sanitizeStr("field-arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.", 300),
     lyrics: compiledLyrics.slice(0, 4000),
-    audio_duration: Math.min(300.0, Math.max(30.0, Number(cadence.durationSeconds.toFixed(2)))),
+    audio_duration: Math.min(600.0, Math.max(30.0, Number(cadence.durationSeconds.toFixed(2)))),
     blocks: JSON.parse(JSON.stringify(AppState.songBlocks))
   };
 }
@@ -1299,6 +1299,10 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       if (progressBar) progressBar.style.width = "100%";
 
       const seed = data.telemetry?.seed || Math.floor(Math.random() * 90000000);
+      const realizedDuration = (data.telemetry && data.telemetry.duration_seconds)
+        ? Number(data.telemetry.duration_seconds)
+        : compositionPayload.audio_duration;
+
       const targetTrackId = jobId;
       const finalCover = assignedCover || (window.ClientJewelResolver ? await window.ClientJewelResolver.resolve(AppState.user.slug, jobId, seed, AppState.tracks.map(t => t.assigned_jewelcase)) : "default.jpg");
       const audioUrl = `${router.activeBase}/audio/stream/${AppState.user.slug}/${jobId}_master.opus`;
@@ -1316,7 +1320,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         title: compositionPayload.title,
         artist: `${AppState.user.display_name}`,
         audio_url: audioUrl,
-        duration_seconds: compositionPayload.audio_duration,
+        duration_seconds: realizedDuration,
         assigned_jewelcase: finalCover,
         recipe: {
           genre: compositionPayload.genre,
@@ -1327,7 +1331,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           vocals: compositionPayload.vocals,
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
-          audio_duration: compositionPayload.audio_duration,
+          audio_duration: realizedDuration,
           blocks: compositionPayload.blocks,
           stage1_profile: "Studio Master Acoustic Arrangement",
           stage2_profile: "Spatial Air & Harmonic Balancing",
@@ -1335,7 +1339,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           stage4_profile: "Ultra-Fidelity Master Stream Delivery",
           telemetry: data.telemetry || {
             seed: seed,
-            duration_seconds: compositionPayload.audio_duration,
+            duration_seconds: realizedDuration,
             sample_rate: 48000,
             true_peak_dbtp: -0.30,
             integrated_loudness_db: -14.15,

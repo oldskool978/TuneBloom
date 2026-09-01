@@ -54,12 +54,13 @@ function compileBlocksToLyrics(blocks = (window.AppState ? window.AppState.songB
   if (!Array.isArray(blocks)) return "";
   return blocks
     .map((b) => {
-      const canonicalTag = mapToCanonicalTag(b.label || b.type || "verse");
+      const rawLabel = sanitizeTagString(b.label || b.type || "verse");
       const cleanText = (b.text || "").replace(/\r\n/g, "\n").trim();
-      if (!cleanText && (canonicalTag === "solo" || canonicalTag === "instrumental" || canonicalTag === "intro" || canonicalTag === "outro")) {
-        return `[${canonicalTag}]`;
+      const lowerLabel = rawLabel.toLowerCase();
+      if (!cleanText && (lowerLabel.includes("solo") || lowerLabel.includes("instrumental") || lowerLabel.includes("intro") || lowerLabel.includes("outro"))) {
+        return `[${lowerLabel}]`;
       }
-      return `[${canonicalTag}]\n${cleanText}`;
+      return `[${lowerLabel}]\n${cleanText}`;
     })
     .filter((str) => str.trim().length > 0)
     .join("\n\n")
