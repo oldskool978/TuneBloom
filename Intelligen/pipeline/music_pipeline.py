@@ -48,7 +48,7 @@ def sample_top_k(
     stream_id: int = 0,
 ) -> torch.Tensor:
     values = torch.nan_to_num(logits.to(torch.float32), nan=-1e9, posinf=1e9, neginf=-1e9)
-    if top_k > 0 and top_k < values.shape[-1]:
+    if 0 < top_k < values.shape[-1]:
         threshold = torch.topk(values, top_k, dim=-1).values[..., -1, None]
         values = values.masked_fill(values < threshold, -float("inf"))
 
@@ -90,42 +90,53 @@ def generate_depth_codes(
     cfg_scale: float,
     temperature: float,
     generator: Optional[torch.Generator],
-    top_k: int = 50,
+    top_k_layers: List[int],
     rvq_seed: Optional[int] = None,
     frame_index: int = 0,
 ) -> Tuple[torch.Tensor, torch.Tensor]:
     num_codebooks = rvq_depth_decoder.num_codebooks
-    sequence = [rvq_depth_decoder.projection(last_hidden).unsqueeze(1)]
+    hidden_size = rvq_depth_decoder.hidden_size
+    device = last_hidden.device
+    dtype = last_hidden.dtype
+
+    sequence_arena = torch.empty((2, num_codebooks, hidden_size), dtype=dtype, device=device)
+    sequence_arena[:, 0] = rvq_depth_decoder.projection(last_hidden)
+
     code_embed = language_model.model.embed_tokens(semantic_code + _AUDIO_CODE_OFFSET)
-    sequence.append(rvq_depth_decoder.projection(code_embed).unsqueeze(1))
-    codes = [semantic_code]
-    hidden_parts = []
+    sequence_arena[:, 1] = rvq_depth_decoder.projection(code_embed)
+
+    codes_arena = torch.empty((2, num_codebooks), dtype=semantic_code.dtype, device=device)
+    codes_arena[:, 0] = semantic_code
+    hidden_parts_arena = torch.empty((1, (num_codebooks - 1) * hidden_size), dtype=dtype, device=device)
 
     for index in range(1, num_codebooks):
-        hidden = rvq_depth_decoder(torch.cat(sequence, dim=1))[:, -1]
-        hidden_parts.append(hidden[:1])
+        curr_len = index + 1
+        hidden = rvq_depth_decoder(sequence_arena[:, :curr_len])[:, -1]
+        hidden_parts_arena[:, (index - 1) * hidden_size : index * hidden_size] = hidden[:1]
+
         logits = rvq_depth_decoder.audio_heads[index - 1](hidden)
         conditional, unconditional = logits[:1].to(torch.float32), logits[1:2].to(torch.float32)
         guided = unconditional + (conditional - unconditional) * cfg_scale
 
+        layer_k = top_k_layers[index] if index < len(top_k_layers) else 44
         code_stream_id = (0x02 << 32) | (frame_index << 8) | index
         code = sample_top_k(
             guided,
-            top_k=top_k,
+            top_k=layer_k,
             temperature=temperature,
             generator=generator,
             seed=rvq_seed,
             stream_id=code_stream_id,
         ).repeat(2)
-        codes.append(code)
+        codes_arena[:, index] = code
 
         if index < num_codebooks - 1:
             embed = rvq_depth_decoder.audio_embeddings(
                 code + (index - 1) * rvq_depth_decoder.audio_vocab_size
             )
-            sequence.append(rvq_depth_decoder.projection(embed).unsqueeze(1))
+            sequence_arena[:, index + 1] = rvq_depth_decoder.projection(embed)
 
-    return torch.stack(codes, dim=1), torch.cat(hidden_parts, dim=-1)
+    return codes_arena, hidden_parts_arena
 
 
 class MiniMaxMusic3Pipeline:
@@ -158,12 +169,12 @@ class MiniMaxMusic3Pipeline:
         self,
         text_ids: torch.Tensor,
         audio_duration: float,
-        temperature: float = 0.91,
+        temperature: float = 0.9100,
         generator: Optional[torch.Generator] = None,
         seed: Optional[int] = None,
-        cfg_scale: float = 1.52,
+        cfg_scale: float = 1.5200,
         cfg_top_k: int = 44,
-        sampling_top_k: int = 44,
+        top_k_layers: Optional[List[int]] = None,
         show_progress: bool = True,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> torch.Tensor:
@@ -171,6 +182,7 @@ class MiniMaxMusic3Pipeline:
         if max_frames <= 0:
             raise ValueError(f"`audio_duration` {audio_duration} is shorter than one frame.")
 
+        resolved_k_layers = top_k_layers if (top_k_layers and len(top_k_layers) == 8) else [44] * 8
         lm_seed, rvq_seed, _ = derive_stage_keys(seed) if seed is not None else (None, None, None)
 
         text_embeds = self.language_model.model.embed_tokens(text_ids)
@@ -210,7 +222,7 @@ class MiniMaxMusic3Pipeline:
                 lm_stream_id = (0x01 << 32) | frame_index
                 sampled = sample_top_k(
                     guided,
-                    top_k=sampling_top_k,
+                    top_k=resolved_k_layers[0],
                     temperature=temperature,
                     generator=generator,
                     seed=lm_seed,
@@ -229,7 +241,7 @@ class MiniMaxMusic3Pipeline:
                     cfg_scale=cfg_scale,
                     temperature=temperature,
                     generator=generator,
-                    top_k=sampling_top_k,
+                    top_k_layers=resolved_k_layers,
                     rvq_seed=rvq_seed,
                     frame_index=frame_index,
                 )
@@ -268,7 +280,7 @@ class MiniMaxMusic3Pipeline:
         frame_hiddens: torch.Tensor,
         scheduler: Union[FlowMatchEulerDiscreteScheduler, FlowMatchHeunDiscreteScheduler],
         num_inference_steps: int = 42,
-        guidance_scale: float = 1.78,
+        guidance_scale: float = 1.7800,
         generator: Optional[torch.Generator] = None,
         seed: Optional[int] = None,
         latent_shaping_fn: Optional[Callable[[torch.Tensor], torch.Tensor]] = None,
@@ -338,6 +350,14 @@ class MiniMaxMusic3Pipeline:
                 timesteps = scheduler.timesteps
                 uncond_condition = torch.zeros_like(condition)
 
+                batch_latents = torch.empty(
+                    (2, self.num_channels_latents, condition.shape[1]),
+                    device=exec_device,
+                    dtype=condition.dtype,
+                )
+                batch_cond = torch.cat([condition, uncond_condition], dim=0)
+                t_expanded = torch.empty(2, device=exec_device, dtype=condition.dtype)
+
                 for t in timesteps:
                     if overlap > 0:
                         time_value = t.to(latents.dtype)
@@ -345,18 +365,18 @@ class MiniMaxMusic3Pipeline:
                             time_value * previous_latent[..., :overlap]
                         )
 
-                    t_expanded = t.expand(latents.shape[0]).to(latents.dtype)
-                    batch_latents = torch.cat([latents, latents], dim=0)
-                    batch_timesteps = torch.cat([t_expanded, t_expanded], dim=0)
-                    batch_cond = torch.cat([condition, uncond_condition], dim=0)
+                    t_expanded.fill_(t)
+                    batch_latents[0] = latents[0]
+                    batch_latents[1] = latents[0]
 
                     batch_pred = self.transformer(
                         hidden_states=batch_latents,
-                        timestep=batch_timesteps,
+                        timestep=t_expanded,
                         encoder_hidden_states=batch_cond,
                     )
 
-                    noise_pred_cond, noise_pred_uncond = batch_pred.chunk(2, dim=0)
+                    noise_pred_cond = batch_pred[0:1]
+                    noise_pred_uncond = batch_pred[1:2]
                     velocity = noise_pred_uncond + guidance_scale * (noise_pred_cond - noise_pred_uncond)
                     latents = scheduler.step(velocity, t, latents)
 

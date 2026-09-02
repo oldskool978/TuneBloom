@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional, Tuple, Callable, List
+from typing import Dict, Any, Optional, Tuple, Callable, List, Union
 
 import torch
 import numpy as np
@@ -30,7 +30,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from starlette.middleware.base import BaseHTTPMiddleware
 
 mimetypes.add_type("application/wasm", ".wasm")
@@ -350,36 +350,113 @@ class AuthPayload(BaseModel):
 
 class SynthesisPayload(BaseModel):
     title: str = Field(default="Untitled Master", max_length=80)
-    genre: str = Field(default="Contemporary R&B", max_length=60)
-    subgenre: str = Field(default="2000s Pop R&B / Slow Jam Bounce", max_length=60)
-    bpm: int = Field(default=96, ge=30, le=300)
-    key: str = Field(default="F minor", max_length=30)
-    mood: str = Field(default="Sensual, passionate, smooth, confident, driving.", max_length=200)
-    vocals: str = Field(default="Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.", max_length=300)
-    arrangement: str = Field(default="Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.", max_length=300)
+    genre: str = Field(default="", max_length=60)
+    subgenre: str = Field(default="", max_length=60)
+    bpm: int = Field(default=0, ge=0, le=300)
+    key: str = Field(default="", max_length=30)
+    mood: str = Field(default="", max_length=200)
+    vocals: str = Field(default="", max_length=300)
+    arrangement: str = Field(default="", max_length=300)
     lyrics: str = Field(default="", max_length=4000)
     raw_prompt: Optional[str] = Field(default=None, max_length=5000)
     prompt: Optional[str] = Field(default=None, max_length=5000)
-    audio_duration: float = Field(default=300.0, ge=30.0, le=600.0)
+    audio_duration: float = Field(default=300.0, ge=1.0, le=600.0)
     seed: Optional[int] = Field(default=None, ge=0)
     assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
-    temperature: Optional[float] = Field(default=0.91, ge=0.01, le=3.0)
-    top_p: Optional[float] = Field(default=0.96, ge=0.01, le=1.0)
+    temperature: Optional[float] = Field(default=0.9100, ge=0.0001, le=3.0)
+    top_p: Optional[float] = Field(default=0.9600, ge=0.0001, le=1.0)
     top_k: Optional[int] = Field(default=44, ge=1, le=500)
-    ar_guidance_scale: Optional[float] = Field(default=1.52, ge=0.0, le=10.0)
+    top_k_layers: Optional[List[int]] = Field(
+        default_factory=lambda: [44, 44, 44, 44, 44, 44, 44, 44]
+    )
+    ar_guidance_scale: Optional[float] = Field(default=1.5200, ge=0.0, le=10.0)
     scheduler_type: str = Field(default="heun")
     num_inference_steps: Optional[int] = Field(default=42, ge=1, le=200)
-    guidance_scale: Optional[float] = Field(default=1.78, ge=0.0, le=20.0)
+    guidance_scale: Optional[float] = Field(default=1.7800, ge=0.0, le=20.0)
     noise_topology: str = Field(default="blue_noise")
-    blue_noise_alpha: float = Field(default=0.75, ge=0.0, le=2.0)
+    blue_noise_alpha: float = Field(default=0.7500, ge=0.0, le=2.0)
     enable_pm_diffusion: bool = Field(default=True)
     pm_iterations: int = Field(default=5, ge=1, le=30)
-    pm_conductance: float = Field(default=0.15, ge=0.01, le=5.0)
-    pm_lambda: float = Field(default=0.20, ge=0.01, le=0.25)
+    pm_conductance: float = Field(default=0.1500, ge=0.0001, le=5.0)
+    pm_lambda: float = Field(default=0.2000, ge=0.0001, le=0.25)
     apply_declick: bool = Field(default=True)
     cpu_offload: bool = Field(default=False)
     pow: PowSubmission
+
+    @field_validator("bpm", mode="before")
+    @classmethod
+    def coerce_bpm(cls, v: Any) -> int:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return 0
+        try:
+            val = int(v)
+            return max(0, min(300, val))
+        except (ValueError, TypeError):
+            return 0
+
+    @field_validator("seed", mode="before")
+    @classmethod
+    def coerce_seed(cls, v: Any) -> Optional[int]:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return int(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator(
+        "temperature",
+        "top_p",
+        "ar_guidance_scale",
+        "guidance_scale",
+        "blue_noise_alpha",
+        "pm_conductance",
+        "pm_lambda",
+        "audio_duration",
+        mode="before",
+    )
+    @classmethod
+    def coerce_floats(cls, v: Any) -> Any:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return float(v)
+        except (ValueError, TypeError):
+            return v
+
+    @field_validator("top_k_layers", mode="before")
+    @classmethod
+    def coerce_top_k_layers(cls, v: Any) -> List[int]:
+        if v is None:
+            return [44] * 8
+        if isinstance(v, str):
+            parts = [p.strip() for p in v.split(",") if p.strip()]
+            try:
+                parsed = [max(1, min(500, int(p))) for p in parts]
+                if len(parsed) == 8:
+                    return parsed
+                elif len(parsed) == 1:
+                    return parsed * 8
+            except (ValueError, TypeError):
+                pass
+            return [44] * 8
+        if isinstance(v, (int, float)):
+            k_val = max(1, min(500, int(v)))
+            return [k_val] * 8
+        if isinstance(v, (list, tuple)):
+            if len(v) == 8:
+                try:
+                    return [max(1, min(500, int(x))) for x in v]
+                except (ValueError, TypeError):
+                    return [44] * 8
+            elif len(v) == 1:
+                try:
+                    k_val = max(1, min(500, int(v[0])))
+                    return [k_val] * 8
+                except (ValueError, TypeError):
+                    return [44] * 8
+        return [44] * 8
 
 
 class SynthesisJob:
@@ -426,29 +503,38 @@ class EnginePipeline:
         raw_lyrics = request_data.get("lyrics", "")
         blocks = request_data.get("blocks", [])
 
+        raw_k_layers = request_data.get("top_k_layers")
+        if raw_k_layers and len(raw_k_layers) == 8:
+            k_layers = [int(k) for k in raw_k_layers]
+        else:
+            base_k = int(request_data.get("top_k", 44))
+            k_layers = [base_k] * 8
+
         gen_req = GenerationRequest(
-            genre=request_data.get("genre", "Contemporary R&B"),
-            subgenre=request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
-            bpm=int(request_data.get("bpm", 96)),
-            key=request_data.get("key", "F minor"),
-            mood=request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-            vocals=request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
-            arrangement=request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
+            genre=request_data.get("genre", ""),
+            subgenre=request_data.get("subgenre", ""),
+            bpm=int(request_data.get("bpm", 0)),
+            key=request_data.get("key", ""),
+            mood=request_data.get("mood", ""),
+            vocals=request_data.get("vocals", ""),
+            arrangement=request_data.get("arrangement", ""),
             lyrics=raw_lyrics,
-            raw_prompt=request_data.get("raw_prompt") or request_data.get("prompt"),
-            temperature=float(request_data.get("temperature", 0.91)),
-            top_p=float(request_data.get("top_p", 0.96)),
+            raw_prompt=request_data.get("raw_prompt"),
+            prompt=request_data.get("prompt"),
+            temperature=float(request_data.get("temperature", 0.9100)),
+            top_p=float(request_data.get("top_p", 0.9600)),
             top_k=int(request_data.get("top_k", 44)),
-            ar_guidance_scale=float(request_data.get("ar_guidance_scale", 1.52)),
+            top_k_layers=k_layers,
+            ar_guidance_scale=float(request_data.get("ar_guidance_scale", 1.5200)),
             scheduler_type=str(request_data.get("scheduler_type", "heun")),
             num_inference_steps=int(request_data.get("num_inference_steps", 42)),
-            guidance_scale=float(request_data.get("guidance_scale", 1.78)),
+            guidance_scale=float(request_data.get("guidance_scale", 1.7800)),
             noise_topology=str(request_data.get("noise_topology", "blue_noise")),
-            blue_noise_alpha=float(request_data.get("blue_noise_alpha", 0.75)),
+            blue_noise_alpha=float(request_data.get("blue_noise_alpha", 0.7500)),
             enable_pm_diffusion=bool(request_data.get("enable_pm_diffusion", True)),
             pm_iterations=int(request_data.get("pm_iterations", 5)),
-            pm_conductance=float(request_data.get("pm_conductance", 0.15)),
-            pm_lambda=float(request_data.get("pm_lambda", 0.20)),
+            pm_conductance=float(request_data.get("pm_conductance", 0.1500)),
+            pm_lambda=float(request_data.get("pm_lambda", 0.2000)),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
@@ -569,19 +655,20 @@ class EnginePipeline:
 
             master_telemetry = {
                 "seed": seed,
-                "duration_seconds": round(actual_duration, 2),
+                "duration_seconds": round(actual_duration, 4),
                 "sample_rate": 48000,
-                "true_peak_dbtp": round(peak_dbfs, 2),
-                "integrated_loudness_db": round(rms_dbfs, 2),
-                "dynamic_punch_db": round(crest_factor, 2),
+                "true_peak_dbtp": round(peak_dbfs, 4),
+                "integrated_loudness_db": round(rms_dbfs, 4),
+                "dynamic_punch_db": round(crest_factor, 4),
                 "master_format": "48.0 kHz Master Audio Bitstream",
-                "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 3) if intelli_resp else None,
-                "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 2) if intelli_resp else None,
+                "top_k_vector_used": getattr(intelli_resp, "top_k_vector_used", [44] * 8) if intelli_resp else [44] * 8,
+                "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
+                "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
                 "stage1_scheduler": getattr(intelli_resp, "scheduler_used", "heun") if intelli_resp else None,
                 "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", "blue_noise") if intelli_resp else None,
                 "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", True) if intelli_resp else None,
-                "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 3) if furgie_telem else None,
-                "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 2) if furgie_telem else None,
+                "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 4) if furgie_telem else None,
+                "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 3) if furgie_telem else None,
             }
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
@@ -660,29 +747,30 @@ class EnginePipeline:
                 )
 
                 full_recipe = {
-                    "genre": job.request_data.get("genre", "Contemporary R&B"),
-                    "subgenre": job.request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
-                    "bpm": int(job.request_data.get("bpm", 96)),
-                    "key": job.request_data.get("key", "F minor"),
-                    "mood": job.request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
-                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
+                    "genre": job.request_data.get("genre", ""),
+                    "subgenre": job.request_data.get("subgenre", ""),
+                    "bpm": int(job.request_data.get("bpm", 0)),
+                    "key": job.request_data.get("key", ""),
+                    "mood": job.request_data.get("mood", ""),
+                    "vocals": job.request_data.get("vocals", ""),
+                    "arrangement": job.request_data.get("arrangement", ""),
                     "lyrics": job.request_data.get("lyrics", ""),
                     **recipe_meta,
                 }
 
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
-                    "genre": job.request_data.get("genre", "Contemporary R&B"),
-                    "subgenre": job.request_data.get("subgenre", "2000s Pop R&B / Slow Jam Bounce"),
-                    "bpm": int(job.request_data.get("bpm", 96)),
-                    "key": job.request_data.get("key", "F minor"),
-                    "mood": job.request_data.get("mood", "Sensual, passionate, smooth, confident, driving."),
-                    "vocals": job.request_data.get("vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies."),
-                    "arrangement": job.request_data.get("arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords."),
+                    "genre": job.request_data.get("genre", ""),
+                    "subgenre": job.request_data.get("subgenre", ""),
+                    "bpm": int(job.request_data.get("bpm", 0)),
+                    "key": job.request_data.get("key", ""),
+                    "mood": job.request_data.get("mood", ""),
+                    "vocals": job.request_data.get("vocals", ""),
+                    "arrangement": job.request_data.get("arrangement", ""),
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
                     "seed": seed,
+                    "top_k_layers": getattr(intelli_resp, "top_k_vector_used", [44] * 8) if intelli_resp else [44] * 8,
                 }
 
                 return output_opus_path, telemetry, full_recipe, working_draft
