@@ -720,12 +720,12 @@ async function handleAuthSubmit(event) {
     const pendingJobJson = localStorage.getItem(`tb_active_job_${slug}`);
     if (pendingJobJson) {
       try {
-        const { jobId, compositionPayload, isFork, originTrackId, assignedCover } = JSON.parse(pendingJobJson);
+        const { jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId } = JSON.parse(pendingJobJson);
         const btnEl = document.getElementById("gen-submit-btn");
         const hudEl = document.getElementById("queue-status-hud");
         if (btnEl) btnEl.classList.add("hidden");
         if (hudEl) hudEl.classList.remove("hidden");
-        startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover);
+        startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId);
       } catch {
         localStorage.removeItem(`tb_active_job_${slug}`);
       }
@@ -1215,7 +1215,7 @@ async function handleGenerateSubmit(e) {
   if (hud) hud.classList.remove("hidden");
 
   const resolver = window.ClientJewelResolver;
-  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
+  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase).filter(Boolean);
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
 
@@ -1245,16 +1245,33 @@ async function handleGenerateSubmit(e) {
       }
     };
     AppState.tracks.push(workingTrackTarget);
+    AppState.activeTrackId = stagedId;
+    if (AppState.user) {
+      localStorage.setItem(`tb_active_track_${AppState.user.slug}`, stagedId);
+    }
+    if (window.playerEngine) {
+      window.playerEngine.loadTrack(workingTrackTarget, false);
+    }
     renderDiscography();
+    const carousel = document.getElementById("discography-carousel");
+    if (carousel) {
+      carousel.scrollTo({ left: carousel.scrollWidth, behavior: "smooth" });
+    }
   } else if (currentTrack) {
     currentTrack.title = formPayload.title;
-    currentTrack.assigned_jewelcase = assignedCover;
+    currentTrack.assigned_jewelcase = currentTrack.assigned_jewelcase && currentTrack.assigned_jewelcase !== "default.jpg"
+      ? currentTrack.assigned_jewelcase
+      : assignedCover;
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
       ...activeEngineDefaults,
       ...JSON.parse(JSON.stringify(formPayload)),
       seed: seed
     };
+    AppState.activeTrackId = currentTrack.track_id;
+    if (window.playerEngine) {
+      window.playerEngine.loadTrack(currentTrack, false);
+    }
     renderDiscography();
   }
 
@@ -1279,7 +1296,7 @@ async function handleGenerateSubmit(e) {
       lyrics: formPayload.lyrics,
       audio_duration: formPayload.audio_duration,
       seed: seed,
-      assigned_jewelcase: assignedCover,
+      assigned_jewelcase: isFork ? assignedCover : (currentTrack?.assigned_jewelcase || assignedCover),
       blocks: formPayload.blocks,
       temperature: draft.temperature ?? activeEngineDefaults.temperature,
       top_p: draft.top_p ?? activeEngineDefaults.top_p,
@@ -1333,23 +1350,38 @@ async function handleGenerateSubmit(e) {
 
     if (isFork && workingTrackTarget) {
       workingTrackTarget.track_id = jobData.job_id;
+      AppState.activeTrackId = jobData.job_id;
+      if (AppState.user) {
+        localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
+      }
     } else if (currentTrack) {
       currentTrack.track_id = jobData.job_id;
+      AppState.activeTrackId = jobData.job_id;
+      if (AppState.user) {
+        localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
+      }
     }
     renderDiscography();
+
+    const dispatchCover = isFork ? assignedCover : (currentTrack?.assigned_jewelcase || assignedCover);
 
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
       compositionPayload: { ...formPayload, seed, ...payload },
       isFork,
       originTrackId,
-      assignedCover
+      stagedId: isFork ? stagedId : null,
+      assignedCover: dispatchCover
     }));
 
-    startTrackingJob(jobData.job_id, { ...formPayload, seed, ...payload }, isFork, originTrackId, assignedCover);
+    startTrackingJob(jobData.job_id, { ...formPayload, seed, ...payload }, isFork, originTrackId, dispatchCover, stagedId);
   } catch (err) {
     if (isFork) {
-      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId);
+      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId && t.track_id !== workingTrackTarget?.track_id);
+      AppState.activeTrackId = originTrackId;
+      if (originTrackId) {
+        selectTrackById(originTrackId, true);
+      }
       renderDiscography();
     } else if (currentTrack) {
       currentTrack.status = "DRAFT";
@@ -1367,7 +1399,7 @@ async function handleGenerateSubmit(e) {
   }
 }
 
-function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover) {
+function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId = null) {
   if (AppState.activeEventSource) {
     AppState.activeEventSource.close();
     AppState.activeEventSource = null;
@@ -1412,7 +1444,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
     if (hudEl) hudEl.classList.add("hidden");
 
     if (isFork) {
-      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId);
+      AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
+      AppState.activeTrackId = originTrackId;
+      if (originTrackId) {
+        selectTrackById(originTrackId, true);
+      }
     } else {
       const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
       if (active) active.status = "DRAFT";
@@ -1461,12 +1497,23 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       const finalCover = assignedCover || (window.ClientJewelResolver ? await window.ClientJewelResolver.resolve(AppState.user.slug, jobId, seed, AppState.tracks.map(t => t.assigned_jewelcase)) : "default.jpg");
       const audioUrl = `${router.activeBase}/audio/stream/${AppState.user.slug}/${jobId}_master.opus`;
 
+      let orderIndex = AppState.tracks.length;
+      if (isFork) {
+        const existingFork = AppState.tracks.find((t) => t.track_id === targetTrackId || (stagedId && t.track_id === stagedId));
+        if (existingFork && typeof existingFork.order_index === "number") {
+          orderIndex = existingFork.order_index;
+        }
+      } else {
+        const existingTrack = AppState.tracks.find((t) => t.track_id === originTrackId || t.track_id === targetTrackId);
+        if (existingTrack && typeof existingTrack.order_index === "number") {
+          orderIndex = existingTrack.order_index;
+        }
+      }
+
       const completedTrack = {
         track_id: targetTrackId,
         user_slug: AppState.user.slug,
-        order_index: isFork
-          ? AppState.tracks.length
-          : (AppState.tracks.find((t) => t.track_id === originTrackId || t.track_id === targetTrackId)?.order_index ?? AppState.tracks.length),
+        order_index: orderIndex,
         is_default: false,
         status: "COMPLETED",
         created_at: new Date().toISOString(),
@@ -1544,7 +1591,13 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           .catch(() => {});
       }
 
-      const existingIdx = AppState.tracks.findIndex((t) => t.track_id === originTrackId || t.track_id === targetTrackId);
+      let existingIdx = -1;
+      if (isFork) {
+        existingIdx = AppState.tracks.findIndex((t) => t.track_id === targetTrackId || (stagedId && t.track_id === stagedId));
+      } else {
+        existingIdx = AppState.tracks.findIndex((t) => t.track_id === targetTrackId || (originTrackId && t.track_id === originTrackId));
+      }
+
       if (existingIdx !== -1) {
         AppState.tracks[existingIdx] = completedTrack;
       } else {
@@ -1559,7 +1612,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
       if (!isCurrentlyPlaying) {
         selectTrackById(targetTrackId, true);
-      } else if (currentlyPlayingTrackId === targetTrackId) {
+      } else if (currentlyPlayingTrackId === targetTrackId || currentlyPlayingTrackId === stagedId) {
         selectTrackById(targetTrackId, false);
       }
 
@@ -1781,12 +1834,12 @@ document.addEventListener("DOMContentLoaded", async () => {
         const pendingJobJson = localStorage.getItem(`tb_active_job_${savedSlug}`);
         if (pendingJobJson) {
           try {
-            const { jobId, compositionPayload, isFork, originTrackId, assignedCover } = JSON.parse(pendingJobJson);
+            const { jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId } = JSON.parse(pendingJobJson);
             const btnEl = document.getElementById("gen-submit-btn");
             const hudEl = document.getElementById("queue-status-hud");
             if (btnEl) btnEl.classList.add("hidden");
             if (hudEl) hudEl.classList.remove("hidden");
-            startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover);
+            startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId);
           } catch {
             localStorage.removeItem(`tb_active_job_${savedSlug}`);
           }
