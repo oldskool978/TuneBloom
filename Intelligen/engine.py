@@ -419,8 +419,9 @@ class MusicEngine:
                 progress_callback("stage1", cur, tot)
 
         ar_cfg = float(request.ar_guidance_scale if request.ar_guidance_scale is not None else 1.5200)
-        effective_temp = float(request.temperature if request.temperature is not None else 0.9100)
+        effective_temp = float(request.temperature if request.temperature is not None else 0.9192)
         resolved_k_vector = request.resolve_top_k_layers()
+        resolved_cfg_top_k = int(request.top_k if request.top_k is not None else resolved_k_vector[0])
 
         frame_hiddens = self.pipeline.generate_stage1_autoregressive(
             text_ids=text_ids,
@@ -429,7 +430,7 @@ class MusicEngine:
             generator=generator,
             seed=explicit_seed,
             cfg_scale=ar_cfg,
-            cfg_top_k=int(request.top_k if request.top_k is not None else 44),
+            cfg_top_k=resolved_cfg_top_k,
             top_k_layers=resolved_k_vector,
             show_progress=(progress_callback is None),
             progress_callback=ar_prog if progress_callback is not None else None,

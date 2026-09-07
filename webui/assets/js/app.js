@@ -1,3 +1,22 @@
+const DEFAULT_ENGINE_SETTINGS = {
+  temperature: 0.9192,
+  top_p: 0.9600,
+  top_k: 44,
+  top_k_layers: [44, 44, 43, 42, 39, 38, 38, 39],
+  ar_guidance_scale: 1.5200,
+  scheduler_type: "heun",
+  num_inference_steps: 42,
+  guidance_scale: 1.7800,
+  noise_topology: "blue_noise",
+  blue_noise_alpha: 0.7500,
+  enable_pm_diffusion: true,
+  pm_iterations: 5,
+  pm_conductance: 0.1500,
+  pm_lambda: 0.2000,
+  apply_declick: true,
+  cpu_offload: false
+};
+
 const AppModal = {
   backdrop: null,
   box: null,
@@ -483,12 +502,14 @@ async function ensureShowcaseTrack(slug, storage) {
           true_peak_dbtp: -0.30,
           integrated_loudness_db: -14.15,
           dynamic_punch_db: 13.85,
-          master_format: "48.0 kHz Master Audio Bitstream"
+          master_format: "48.0 kHz Master Audio Bitstream",
+          top_k_vector_used: [44, 44, 43, 42, 39, 38, 38, 39]
         }
       },
       working_draft: {
         ...JSON.parse(JSON.stringify(initialBp)),
-        seed: 42
+        seed: 42,
+        ...DEFAULT_ENGINE_SETTINGS
       }
     };
   } else {
@@ -891,12 +912,14 @@ function selectTrackById(trackId, autoMountPlayer = true) {
       arrangement: track.recipe.arrangement || "",
       lyrics: track.recipe.lyrics || "",
       blocks: parsedBlocks,
-      seed: track.recipe.telemetry?.seed
+      seed: track.recipe.telemetry?.seed,
+      top_k_layers: track.recipe.telemetry?.top_k_vector_used || [44, 44, 43, 42, 39, 38, 38, 39],
+      ...DEFAULT_ENGINE_SETTINGS
     };
     track.working_draft = draftFromRecipe;
     loadDraftIntoForm(draftFromRecipe, isDefault);
   } else {
-    loadDraftIntoForm({ title: track.title }, isDefault);
+    loadDraftIntoForm({ title: track.title, ...DEFAULT_ENGINE_SETTINGS }, isDefault);
   }
 
   if (track.status === "COMPLETED" && Boolean(track.audio_url)) {
@@ -981,6 +1004,7 @@ function syncActiveTrackDraftDebounced() {
     if (track) {
       const payload = getCurrentFormPayload();
       track.working_draft = {
+        ...DEFAULT_ENGINE_SETTINGS,
         ...track.working_draft,
         ...payload
       };
@@ -1044,6 +1068,7 @@ async function handleAddNewTrackCardClick() {
     duration_seconds: 240.0,
     recipe: null,
     working_draft: {
+      ...DEFAULT_ENGINE_SETTINGS,
       ...JSON.parse(JSON.stringify(blueprint)),
       title: enteredTitle.slice(0, 80),
       lyrics: compiledLyrics,
@@ -1194,6 +1219,9 @@ async function handleGenerateSubmit(e) {
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
 
+  const draft = currentTrack?.working_draft || {};
+  const activeEngineDefaults = Object.assign({}, DEFAULT_ENGINE_SETTINGS, window.RouterDiscovery?.engineDefaults || {});
+
   let workingTrackTarget = null;
   if (isFork) {
     workingTrackTarget = {
@@ -1211,6 +1239,7 @@ async function handleGenerateSubmit(e) {
       duration_seconds: formPayload.audio_duration,
       recipe: null,
       working_draft: {
+        ...activeEngineDefaults,
         ...JSON.parse(JSON.stringify(formPayload)),
         seed: seed
       }
@@ -1222,6 +1251,7 @@ async function handleGenerateSubmit(e) {
     currentTrack.assigned_jewelcase = assignedCover;
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
+      ...activeEngineDefaults,
       ...JSON.parse(JSON.stringify(formPayload)),
       seed: seed
     };
@@ -1251,21 +1281,22 @@ async function handleGenerateSubmit(e) {
       seed: seed,
       assigned_jewelcase: assignedCover,
       blocks: formPayload.blocks,
-      temperature: 0.91,
-      top_p: 0.96,
-      top_k: 44,
-      ar_guidance_scale: 1.52,
-      scheduler_type: "heun",
-      num_inference_steps: 42,
-      guidance_scale: 1.78,
-      noise_topology: "blue_noise",
-      blue_noise_alpha: 0.75,
-      enable_pm_diffusion: true,
-      pm_iterations: 5,
-      pm_conductance: 0.15,
-      pm_lambda: 0.20,
-      apply_declick: true,
-      cpu_offload: false,
+      temperature: draft.temperature ?? activeEngineDefaults.temperature,
+      top_p: draft.top_p ?? activeEngineDefaults.top_p,
+      top_k: draft.top_k ?? (draft.top_k_layers ? draft.top_k_layers[0] : activeEngineDefaults.top_k),
+      top_k_layers: draft.top_k_layers ?? activeEngineDefaults.top_k_layers,
+      ar_guidance_scale: draft.ar_guidance_scale ?? activeEngineDefaults.ar_guidance_scale,
+      scheduler_type: draft.scheduler_type ?? activeEngineDefaults.scheduler_type,
+      num_inference_steps: draft.num_inference_steps ?? activeEngineDefaults.num_inference_steps,
+      guidance_scale: draft.guidance_scale ?? activeEngineDefaults.guidance_scale,
+      noise_topology: draft.noise_topology ?? activeEngineDefaults.noise_topology,
+      blue_noise_alpha: draft.blue_noise_alpha ?? activeEngineDefaults.blue_noise_alpha,
+      enable_pm_diffusion: draft.enable_pm_diffusion ?? activeEngineDefaults.enable_pm_diffusion,
+      pm_iterations: draft.pm_iterations ?? activeEngineDefaults.pm_iterations,
+      pm_conductance: draft.pm_conductance ?? activeEngineDefaults.pm_conductance,
+      pm_lambda: draft.pm_lambda ?? activeEngineDefaults.pm_lambda,
+      apply_declick: draft.apply_declick ?? activeEngineDefaults.apply_declick,
+      cpu_offload: draft.cpu_offload ?? activeEngineDefaults.cpu_offload,
       pow: {
         challenge: challengeData.challenge,
         signature: challengeData.signature,
@@ -1309,13 +1340,13 @@ async function handleGenerateSubmit(e) {
 
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
-      compositionPayload: { ...formPayload, seed },
+      compositionPayload: { ...formPayload, seed, ...payload },
       isFork,
       originTrackId,
       assignedCover
     }));
 
-    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, assignedCover);
+    startTrackingJob(jobData.job_id, { ...formPayload, seed, ...payload }, isFork, originTrackId, assignedCover);
   } catch (err) {
     if (isFork) {
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId);
@@ -1467,10 +1498,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             true_peak_dbtp: -0.30,
             integrated_loudness_db: -14.15,
             dynamic_punch_db: 13.85,
-            master_format: "48.0 kHz Master Audio Bitstream"
+            master_format: "48.0 kHz Master Audio Bitstream",
+            top_k_vector_used: compositionPayload.top_k_layers || [44, 44, 43, 42, 39, 38, 38, 39]
           }
         },
-        working_draft: {
+        working_draft: data.working_draft || {
           title: compositionPayload.title,
           genre: compositionPayload.genre,
           subgenre: compositionPayload.subgenre,
@@ -1481,7 +1513,20 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
           blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
-          seed: seed
+          seed: seed,
+          top_k_layers: compositionPayload.top_k_layers || [44, 44, 43, 42, 39, 38, 38, 39],
+          temperature: compositionPayload.temperature ?? 0.9192,
+          ar_guidance_scale: compositionPayload.ar_guidance_scale ?? 1.5200,
+          top_p: compositionPayload.top_p ?? 0.9600,
+          scheduler_type: compositionPayload.scheduler_type ?? "heun",
+          num_inference_steps: compositionPayload.num_inference_steps ?? 42,
+          guidance_scale: compositionPayload.guidance_scale ?? 1.7800,
+          noise_topology: compositionPayload.noise_topology ?? "blue_noise",
+          blue_noise_alpha: compositionPayload.blue_noise_alpha ?? 0.7500,
+          enable_pm_diffusion: compositionPayload.enable_pm_diffusion ?? true,
+          pm_iterations: compositionPayload.pm_iterations ?? 5,
+          pm_conductance: compositionPayload.pm_conductance ?? 0.1500,
+          pm_lambda: compositionPayload.pm_lambda ?? 0.2000
         }
       };
 
@@ -1635,6 +1680,17 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   if (window.RouterDiscovery) {
     await window.RouterDiscovery.resolve();
+    if (window.RouterDiscovery.isOnline) {
+      try {
+        const hRes = await fetch(`${window.RouterDiscovery.activeBase}/health`);
+        if (hRes.ok) {
+          const hData = await hRes.json();
+          if (hData.baseline_parameters) {
+            window.RouterDiscovery.engineDefaults = hData.baseline_parameters;
+          }
+        }
+      } catch {}
+    }
   }
 
   const savedSlug = localStorage.getItem("tb_active_user_slug");
@@ -1782,6 +1838,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 window.AppState = AppState;
 window.AppModal = AppModal;
 window.AppToast = AppToast;
+window.DEFAULT_ENGINE_SETTINGS = DEFAULT_ENGINE_SETTINGS;
 window.sortTracks = sortTracks;
 window.computeCanonicalRecipe = computeCanonicalRecipe;
 window.ensureShowcaseTrack = ensureShowcaseTrack;

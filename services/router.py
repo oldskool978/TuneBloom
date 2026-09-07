@@ -79,6 +79,14 @@ try:
 except Exception:
     pass
 
+from Intelligen.schema import (
+    GenerationRequest,
+    get_active_engine_defaults,
+    has_custom_default_preset,
+    parse_k_vector,
+    BASELINE_ENGINE_DEFAULTS,
+)
+
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
 STORAGE_ROOT = BACKEND_ROOT / "storage" / "users"
 CONFIG_DIR = BACKEND_ROOT / "config"
@@ -364,11 +372,11 @@ class SynthesisPayload(BaseModel):
     seed: Optional[int] = Field(default=None, ge=0)
     assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
-    temperature: Optional[float] = Field(default=0.9100, ge=0.0001, le=3.0)
+    temperature: Optional[float] = Field(default=0.9192, ge=0.0001, le=3.0)
     top_p: Optional[float] = Field(default=0.9600, ge=0.0001, le=1.0)
     top_k: Optional[int] = Field(default=44, ge=1, le=500)
     top_k_layers: Optional[List[int]] = Field(
-        default_factory=lambda: [44, 44, 44, 44, 44, 44, 44, 44]
+        default_factory=lambda: [44, 44, 43, 42, 39, 38, 38, 39]
     )
     ar_guidance_scale: Optional[float] = Field(default=1.5200, ge=0.0, le=10.0)
     scheduler_type: str = Field(default="heun")
@@ -428,35 +436,13 @@ class SynthesisPayload(BaseModel):
     @field_validator("top_k_layers", mode="before")
     @classmethod
     def coerce_top_k_layers(cls, v: Any) -> List[int]:
+        defaults = get_active_engine_defaults()
         if v is None:
-            return [44] * 8
-        if isinstance(v, str):
-            parts = [p.strip() for p in v.split(",") if p.strip()]
-            try:
-                parsed = [max(1, min(500, int(p))) for p in parts]
-                if len(parsed) == 8:
-                    return parsed
-                elif len(parsed) == 1:
-                    return parsed * 8
-            except (ValueError, TypeError):
-                pass
-            return [44] * 8
-        if isinstance(v, (int, float)):
-            k_val = max(1, min(500, int(v)))
-            return [k_val] * 8
-        if isinstance(v, (list, tuple)):
-            if len(v) == 8:
-                try:
-                    return [max(1, min(500, int(x))) for x in v]
-                except (ValueError, TypeError):
-                    return [44] * 8
-            elif len(v) == 1:
-                try:
-                    k_val = max(1, min(500, int(v[0])))
-                    return [k_val] * 8
-                except (ValueError, TypeError):
-                    return [44] * 8
-        return [44] * 8
+            return list(defaults["top_k_layers"])
+        parsed = parse_k_vector(v)
+        if parsed:
+            return parsed
+        return list(defaults["top_k_layers"])
 
 
 class SynthesisJob:
@@ -495,20 +481,48 @@ class EnginePipeline:
         seed: int,
         out_path: Path,
         progress_cb: Callable[[int, str], None],
-    ) -> Any:
+    ) -> Tuple[Any, GenerationRequest]:
         progress_cb(5, "Arranging Harmonic Structure & Instrumentation...")
         from Intelligen.schema import GenerationRequest
         from Intelligen.engine import MusicEngine
 
         raw_lyrics = request_data.get("lyrics", "")
         blocks = request_data.get("blocks", [])
+        active_defaults = get_active_engine_defaults()
+
+        def pick_param(key: str, legacy_fallback: Any = None):
+            val = request_data.get(key)
+            baseline_val = BASELINE_ENGINE_DEFAULTS.get(key)
+            active_val = active_defaults.get(key, baseline_val)
+
+            if val is None:
+                return active_val
+            if legacy_fallback is not None:
+                if isinstance(legacy_fallback, (int, float)) and isinstance(val, (int, float)):
+                    if abs(float(val) - float(legacy_fallback)) < 1e-4:
+                        return active_val
+                elif val == legacy_fallback:
+                    return active_val
+            if baseline_val is not None:
+                if isinstance(baseline_val, (int, float)) and isinstance(val, (int, float)):
+                    if abs(float(val) - float(baseline_val)) < 1e-4:
+                        return active_val
+                elif val == baseline_val:
+                    return active_val
+            return val
 
         raw_k_layers = request_data.get("top_k_layers")
-        if raw_k_layers and len(raw_k_layers) == 8:
-            k_layers = [int(k) for k in raw_k_layers]
+        baseline_k = BASELINE_ENGINE_DEFAULTS["top_k_layers"]
+        active_k = list(active_defaults["top_k_layers"])
+
+        if raw_k_layers is None or raw_k_layers == [44] * 8 or raw_k_layers == baseline_k:
+            resolved_k_layers = active_k
+        elif isinstance(raw_k_layers, list) and len(raw_k_layers) == 8:
+            resolved_k_layers = [int(k) for k in raw_k_layers]
         else:
-            base_k = int(request_data.get("top_k", 44))
-            k_layers = [base_k] * 8
+            resolved_k_layers = active_k
+
+        resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
 
         gen_req = GenerationRequest(
             genre=request_data.get("genre", ""),
@@ -521,26 +535,26 @@ class EnginePipeline:
             lyrics=raw_lyrics,
             raw_prompt=request_data.get("raw_prompt"),
             prompt=request_data.get("prompt"),
-            temperature=float(request_data.get("temperature", 0.9100)),
-            top_p=float(request_data.get("top_p", 0.9600)),
-            top_k=int(request_data.get("top_k", 44)),
-            top_k_layers=k_layers,
-            ar_guidance_scale=float(request_data.get("ar_guidance_scale", 1.5200)),
-            scheduler_type=str(request_data.get("scheduler_type", "heun")),
-            num_inference_steps=int(request_data.get("num_inference_steps", 42)),
-            guidance_scale=float(request_data.get("guidance_scale", 1.7800)),
-            noise_topology=str(request_data.get("noise_topology", "blue_noise")),
-            blue_noise_alpha=float(request_data.get("blue_noise_alpha", 0.7500)),
-            enable_pm_diffusion=bool(request_data.get("enable_pm_diffusion", True)),
-            pm_iterations=int(request_data.get("pm_iterations", 5)),
-            pm_conductance=float(request_data.get("pm_conductance", 0.1500)),
-            pm_lambda=float(request_data.get("pm_lambda", 0.2000)),
+            temperature=float(pick_param("temperature", 0.9100)),
+            top_p=float(pick_param("top_p", 0.9600)),
+            top_k=int(resolved_top_k),
+            top_k_layers=resolved_k_layers,
+            ar_guidance_scale=float(pick_param("ar_guidance_scale", 1.5200)),
+            scheduler_type=str(pick_param("scheduler_type", "heun")),
+            num_inference_steps=int(pick_param("num_inference_steps", 42)),
+            guidance_scale=float(pick_param("guidance_scale", 1.7800)),
+            noise_topology=str(pick_param("noise_topology", "blue_noise")),
+            blue_noise_alpha=float(pick_param("blue_noise_alpha", 0.7500)),
+            enable_pm_diffusion=bool(pick_param("enable_pm_diffusion", True)),
+            pm_iterations=int(pick_param("pm_iterations", 5)),
+            pm_conductance=float(pick_param("pm_conductance", 0.1500)),
+            pm_lambda=float(pick_param("pm_lambda", 0.2000)),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
             device=self.device_str,
-            apply_declick=bool(request_data.get("apply_declick", True)),
-            cpu_offload=bool(request_data.get("cpu_offload", False)),
+            apply_declick=bool(pick_param("apply_declick", True)),
+            cpu_offload=bool(pick_param("cpu_offload", False)),
             blocks=blocks,
         )
 
@@ -557,7 +571,7 @@ class EnginePipeline:
         try:
             with torch.inference_mode():
                 resp = music_eng.synthesize(gen_req, progress_callback=on_intelli_step)
-                return resp
+                return resp, gen_req
         finally:
             del music_eng
             self._flush_hardware_memory()
@@ -607,6 +621,7 @@ class EnginePipeline:
         stage3_wav_path: Path,
         seed: int,
         intelli_resp: Any,
+        gen_req: GenerationRequest,
         furgie_telem: Any,
         progress_cb: Callable[[int, str], None],
     ) -> Tuple[Dict[str, Any], Dict[str, Any]]:
@@ -661,12 +676,21 @@ class EnginePipeline:
                 "integrated_loudness_db": round(rms_dbfs, 4),
                 "dynamic_punch_db": round(crest_factor, 4),
                 "master_format": "48.0 kHz Master Audio Bitstream",
-                "top_k_vector_used": getattr(intelli_resp, "top_k_vector_used", [44] * 8) if intelli_resp else [44] * 8,
+                "top_k_vector_used": gen_req.top_k_layers,
+                "stage1_temperature": gen_req.temperature,
+                "stage1_ar_cfg": gen_req.ar_guidance_scale,
+                "stage1_top_p": gen_req.top_p,
+                "stage1_scheduler": getattr(intelli_resp, "scheduler_used", gen_req.scheduler_type) if intelli_resp else gen_req.scheduler_type,
+                "stage1_inference_steps": gen_req.num_inference_steps,
+                "stage1_guidance_scale": gen_req.guidance_scale,
+                "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", gen_req.noise_topology) if intelli_resp else gen_req.noise_topology,
+                "stage1_blue_noise_alpha": gen_req.blue_noise_alpha,
+                "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", gen_req.enable_pm_diffusion) if intelli_resp else gen_req.enable_pm_diffusion,
+                "stage1_pm_iterations": gen_req.pm_iterations,
+                "stage1_pm_conductance": gen_req.pm_conductance,
+                "stage1_pm_lambda": gen_req.pm_lambda,
                 "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
                 "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
-                "stage1_scheduler": getattr(intelli_resp, "scheduler_used", "heun") if intelli_resp else None,
-                "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", "blue_noise") if intelli_resp else None,
-                "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", True) if intelli_resp else None,
                 "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 4) if furgie_telem else None,
                 "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 3) if furgie_telem else None,
             }
@@ -720,7 +744,7 @@ class EnginePipeline:
             stage3_wav_path = tmp_dir / "stage3_limited_48k.wav"
 
             try:
-                intelli_resp = self.run_stage1_composition(
+                intelli_resp, gen_req = self.run_stage1_composition(
                     request_data=job.request_data,
                     target_duration=target_duration,
                     seed=seed,
@@ -737,6 +761,7 @@ class EnginePipeline:
                     stage3_wav_path=stage3_wav_path,
                     seed=seed,
                     intelli_resp=intelli_resp,
+                    gen_req=gen_req,
                     furgie_telem=furgie_telem,
                     progress_cb=progress_cb,
                 )
@@ -770,7 +795,19 @@ class EnginePipeline:
                     "lyrics": job.request_data.get("lyrics", ""),
                     "blocks": job.request_data.get("blocks", []),
                     "seed": seed,
-                    "top_k_layers": getattr(intelli_resp, "top_k_vector_used", [44] * 8) if intelli_resp else [44] * 8,
+                    "top_k_layers": gen_req.top_k_layers,
+                    "temperature": gen_req.temperature,
+                    "ar_guidance_scale": gen_req.ar_guidance_scale,
+                    "top_p": gen_req.top_p,
+                    "scheduler_type": gen_req.scheduler_type,
+                    "num_inference_steps": gen_req.num_inference_steps,
+                    "guidance_scale": gen_req.guidance_scale,
+                    "noise_topology": gen_req.noise_topology,
+                    "blue_noise_alpha": gen_req.blue_noise_alpha,
+                    "enable_pm_diffusion": gen_req.enable_pm_diffusion,
+                    "pm_iterations": gen_req.pm_iterations,
+                    "pm_conductance": gen_req.pm_conductance,
+                    "pm_lambda": gen_req.pm_lambda,
                 }
 
                 return output_opus_path, telemetry, full_recipe, working_draft
@@ -998,6 +1035,7 @@ async def lifespan(app: FastAPI):
     print(f"  Site Root       : {resolve_site_root()}")
     print(f"  User Registry   : {src}")
     print(f"  Boompus Binary  : {boompus_bin if boompus_bin else 'Built-in Audio Fallback'}")
+    print(f"  Engine Preset   : {'Active default.json Override' if has_custom_default_preset() else 'Optimal Baseline System Defaults'}")
     print(f"  Accounts ({len(users)}) : {', '.join(users.keys())}")
     print("=" * 76)
     yield
@@ -1135,11 +1173,14 @@ async def get_themes():
 
 @api_router.get("/health")
 async def health():
+    defaults = get_active_engine_defaults()
     return {
         "status": "online",
         "engine_device": compute_queue.pipeline.device_str,
         "active_job": compute_queue.active_job.job_id if compute_queue.active_job else None,
         "queue_depth": compute_queue.queue.qsize(),
+        "engine_preset_active": has_custom_default_preset(),
+        "baseline_parameters": dict(defaults),
     }
 
 

@@ -1,7 +1,11 @@
+from __future__ import annotations
+
 import os
 import sys
+import json
 import warnings
 from pathlib import Path
+from typing import Optional, List, Dict, Any
 
 ROOT_DIR = Path(__file__).resolve().parent
 if str(ROOT_DIR) not in sys.path:
@@ -12,12 +16,15 @@ warnings.filterwarnings("ignore", category=UserWarning, module="huggingface_hub"
 
 import argparse
 import traceback
-from typing import Optional, List
 from schema import (
     GenerationRequest,
     GenerationResponse,
     SUPPORTED_SCHEDULERS,
     SUPPORTED_NOISE_TOPOLOGIES,
+    get_active_engine_defaults,
+    has_custom_default_preset,
+    DEFAULT_PRESET_FILENAME,
+    parse_k_vector,
 )
 from engine import MusicEngine
 
@@ -96,6 +103,7 @@ Fade to black"""
 
 
 def create_default_harness_request() -> GenerationRequest:
+    defaults = get_active_engine_defaults()
     return GenerationRequest(
         genre="Contemporary R&B",
         subgenre="2000s Pop R&B / Slow Jam Bounce",
@@ -105,25 +113,25 @@ def create_default_harness_request() -> GenerationRequest:
         vocals="Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.",
         arrangement="Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.",
         lyrics=DEFAULT_HARNESS_LYRICS,
-        temperature=0.9100,
-        top_p=0.9600,
-        top_k=44,
-        top_k_layers=[44, 44, 44, 44, 44, 44, 44, 44],
-        ar_guidance_scale=1.5200,
-        scheduler_type="heun",
-        num_inference_steps=42,
-        guidance_scale=1.7800,
-        noise_topology="blue_noise",
-        blue_noise_alpha=0.7500,
-        enable_pm_diffusion=True,
-        pm_iterations=5,
-        pm_conductance=0.1500,
-        pm_lambda=0.2000,
+        temperature=defaults["temperature"],
+        top_p=defaults["top_p"],
+        top_k=defaults["top_k"],
+        top_k_layers=list(defaults["top_k_layers"]),
+        ar_guidance_scale=defaults["ar_guidance_scale"],
+        scheduler_type=defaults["scheduler_type"],
+        num_inference_steps=defaults["num_inference_steps"],
+        guidance_scale=defaults["guidance_scale"],
+        noise_topology=defaults["noise_topology"],
+        blue_noise_alpha=defaults["blue_noise_alpha"],
+        enable_pm_diffusion=defaults["enable_pm_diffusion"],
+        pm_iterations=defaults["pm_iterations"],
+        pm_conductance=defaults["pm_conductance"],
+        pm_lambda=defaults["pm_lambda"],
         audio_duration=300.0,
         seed=42,
         output_path="output.wav",
-        apply_declick=True,
-        cpu_offload=False,
+        apply_declick=defaults["apply_declick"],
+        cpu_offload=defaults["cpu_offload"],
     )
 
 
@@ -156,11 +164,12 @@ def print_telemetry(resp: GenerationResponse) -> None:
 
 
 def display_menu(req: GenerationRequest) -> None:
-    t_disp = f"{req.temperature:.4f}" if req.temperature is not None else "0.9100"
-    p_disp = f"{req.top_p:.4f}" if req.top_p is not None else "0.9600"
-    ar_cfg_disp = f"{req.ar_guidance_scale:.4f}" if req.ar_guidance_scale is not None else "1.5200"
-    steps_disp = f"{req.num_inference_steps}" if req.num_inference_steps is not None else "42"
-    dit_cfg_disp = f"{req.guidance_scale:.4f}" if req.guidance_scale is not None else "1.7800"
+    defaults = get_active_engine_defaults()
+    t_disp = f"{req.temperature:.4f}" if req.temperature is not None else f"{defaults['temperature']:.4f}"
+    p_disp = f"{req.top_p:.4f}" if req.top_p is not None else f"{defaults['top_p']:.4f}"
+    ar_cfg_disp = f"{req.ar_guidance_scale:.4f}" if req.ar_guidance_scale is not None else f"{defaults['ar_guidance_scale']:.4f}"
+    steps_disp = f"{req.num_inference_steps}" if req.num_inference_steps is not None else f"{defaults['num_inference_steps']}"
+    dit_cfg_disp = f"{req.guidance_scale:.4f}" if req.guidance_scale is not None else f"{defaults['guidance_scale']:.4f}"
     declick_disp = "ENABLED (Symmetric Hann)" if req.apply_declick else "DISABLED"
     offload_disp = "ENABLED (Sequential Streaming)" if req.cpu_offload else "DISABLED (Resident VRAM)"
     pm_disp = (
@@ -172,21 +181,23 @@ def display_menu(req: GenerationRequest) -> None:
     k_vec = req.resolve_top_k_layers()
     k_vec_str = format_k_vector_display(k_vec)
     lyrics_status = f"{len(req.lyrics.splitlines())} lines configured" if req.lyrics.strip() else "<Instrumental (Empty)>"
+    anchor_tag = "Intelligen/default.json (Active File)" if has_custom_default_preset() else "Discovered Optimal Baseline (Hardcoded)"
 
     print("\n" + "=" * 84)
     print("               MINIMAX-MUSIC3 MODALITY EXPLORATION & ABLATION HARNESS")
+    print(f"                       [{anchor_tag}]")
     print("=" * 84)
     print(" --- AESTHETIC & SEMANTIC CONDITIONING ---")
     print(f" [1]  Genre & Subgenre:      {req.genre} / {req.subgenre}")
-    print(f" [2]  BPM:                   {req.bpm}")
-    print(f" [3]  Key Signature:         {req.key}")
-    print(f" [4]  Mood Narrative:        {req.mood}")
-    print(f" [5]  Vocal Architecture:    {req.vocals}")
-    print(f" [6]  Arrangement Details:   {req.arrangement}")
-    print(f" [7]  Raw Prompt Override:   {req.raw_prompt if req.raw_prompt else '<Auto-Compiled Metadata>'}")
+    print(f" [2]  BPM:                    {req.bpm}")
+    print(f" [3]  Key Signature:          {req.key}")
+    print(f" [4]  Mood Narrative:         {req.mood}")
+    print(f" [5]  Vocal Architecture:     {req.vocals}")
+    print(f" [6]  Arrangement Details:    {req.arrangement}")
+    print(f" [7]  Raw Prompt Override:    {req.raw_prompt if req.raw_prompt else '<Auto-Compiled Metadata>'}")
     print(" --- STAGE 1 AUTOREGRESSIVE GENERATION ---")
     print(f" [8]  Temperature & AR CFG:  T: {t_disp} | AR CFG: {ar_cfg_disp}")
-    print(f" [9]  Nucleus Top-P:         Top-P: {p_disp}")
+    print(f" [9]  Nucleus Top-P:          Top-P: {p_disp}")
     print(f" [10] Hierarchical K-Vector: [ {k_vec_str} ]")
     print(" --- STAGE 2 CONTINUOUS FLOW-MATCHING & PDE REGULARIZATION ---")
     print(f" [11] ODE Solver Trajectory: {req.scheduler_type.upper()}")
@@ -203,8 +214,9 @@ def display_menu(req: GenerationRequest) -> None:
     print(f" [19] DSP Boundary De-Click: {declick_disp}")
     print(f" [20] Memory CPU Streaming:  {offload_disp}")
     print("-" * 84)
-    print(" [P] Print Prompt   [T] Reset R&B Benchmark Fixture   [C] Clear to Instrumental")
-    print(" [L] Load Preset    [S] Save Preset                  [G] Generate Audio   [Q] Quit")
+    print(" [P] Print Prompt   [T] Reset Discovered Benchmark   [C] Clear to Instrumental")
+    print(" [L] Load Preset    [S] Save Preset (default.json)   [D] Direct Save default.json")
+    print(" [G] Generate Audio [Q] Quit")
     print("=" * 84)
 
 
@@ -224,14 +236,19 @@ def edit_k_topology_submenu(req: GenerationRequest) -> None:
         print(" [5] Layer 5 (RVQ Depth Head 4)     : ", k_vec[5])
         print(" [6] Layer 6 (RVQ Depth Head 5)     : ", k_vec[6])
         print(" [7] Layer 7 (RVQ Depth Head 6)     : ", k_vec[7])
-        print(" [V] Enter Full 8-Element Vector (e.g. 44,32,24,16,12,8,6,4)")
+        print(" [V] Enter Full 8-Element Vector (e.g. 46,44,43,42,39,38,38,39)")
+        print(" [D] Reset to Discovered Optimal Vector [46, 44, 43, 42, 39, 38, 38, 39]")
         print(" [R] Reset to Standard Flat Baseline (All 44)")
         print(" [B] Back to Main Harness")
         print("-" * 76)
         sub_choice = input("Select operation: ").strip().upper()
 
-        if sub_choice == "B" or sub_choice == "":
+        if sub_choice in ("B", ""):
             break
+        elif sub_choice == "D":
+            req.top_k_layers = [46, 44, 43, 42, 39, 38, 38, 39]
+            req.top_k = 46
+            print("K-search vector reset to discovered optimal [46, 44, 43, 42, 39, 38, 38, 39].")
         elif sub_choice == "R":
             req.top_k_layers = [44, 44, 44, 44, 44, 44, 44, 44]
             req.top_k = 44
@@ -252,15 +269,13 @@ def edit_k_topology_submenu(req: GenerationRequest) -> None:
                 req.set_layer_k(idx, int(val_in))
         elif sub_choice == "V":
             raw_v = input("Enter comma-separated 8 integers: ").strip()
-            try:
-                parts = [int(p.strip()) for p in raw_v.split(",") if p.strip()]
-                if len(parts) == 8:
-                    req.top_k_layers = parts
-                    print(f"Updated K-search vector to {parts}")
-                else:
-                    print(f"Error: Expected exactly 8 values, got {len(parts)}.")
-            except Exception as e:
-                print(f"Invalid input format: {e}")
+            parsed = parse_k_vector(raw_v)
+            if parsed:
+                req.top_k_layers = parsed
+                req.top_k = parsed[0]
+                print(f"Updated K-search vector to {parsed}")
+            else:
+                print("Error: Expected exactly 8 integer values.")
 
 
 def edit_multiline_lyrics(current_lyrics: str) -> str:
@@ -286,6 +301,7 @@ def edit_multiline_lyrics(current_lyrics: str) -> str:
 
 
 def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationRequest) -> None:
+    defaults = get_active_engine_defaults()
     while True:
         display_menu(req)
         choice = input("Select modality to mutate: ").strip().upper()
@@ -322,15 +338,15 @@ def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationReques
             req.raw_prompt = r if r else None
         elif choice == "8":
             t = input(
-                f"Enter Sampling Temperature [{req.temperature if req.temperature is not None else 0.9100}]: "
+                f"Enter Sampling Temperature [{req.temperature if req.temperature is not None else defaults['temperature']}]: "
             ).strip()
             req.temperature = float(t) if t and t.lower() != "native" else None
             ar_g = input(
-                f"Enter Stage 1 AR Guidance Scale (CFG) [{req.ar_guidance_scale if req.ar_guidance_scale is not None else 1.5200}]: "
+                f"Enter Stage 1 AR Guidance Scale (CFG) [{req.ar_guidance_scale if req.ar_guidance_scale is not None else defaults['ar_guidance_scale']}]: "
             ).strip()
             req.ar_guidance_scale = float(ar_g) if ar_g and ar_g.lower() != "native" else None
         elif choice == "9":
-            p = input(f"Enter Top-P [{req.top_p if req.top_p is not None else 0.9600}]: ").strip()
+            p = input(f"Enter Top-P [{req.top_p if req.top_p is not None else defaults['top_p']}]: ").strip()
             req.top_p = float(p) if p and p.lower() != "native" else None
         elif choice == "10":
             edit_k_topology_submenu(req)
@@ -341,11 +357,11 @@ def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationReques
             req.scheduler_type = s_map.get(sel, req.scheduler_type)
         elif choice == "12":
             s = input(
-                f"Enter Steps [{req.num_inference_steps if req.num_inference_steps is not None else 42}]: "
+                f"Enter Steps [{req.num_inference_steps if req.num_inference_steps is not None else defaults['num_inference_steps']}]: "
             ).strip()
             req.num_inference_steps = int(s) if s and s.lower() != "native" else None
             c = input(
-                f"Enter Stage 2 DiT Guidance Scale [{req.guidance_scale if req.guidance_scale is not None else 1.7800}]: "
+                f"Enter Stage 2 DiT Guidance Scale [{req.guidance_scale if req.guidance_scale is not None else defaults['guidance_scale']}]: "
             ).strip()
             req.guidance_scale = float(c) if c and c.lower() != "native" else None
         elif choice == "13":
@@ -376,12 +392,12 @@ def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationReques
                 req.audio_duration = float(d)
         elif choice == "16":
             sd = input(f"Enter PRNG Seed [{req.seed}]: ").strip()
-            if sd:
+            if sd.isdigit():
                 req.seed = int(sd)
         elif choice == "17":
-            o = input(f"Enter Output WAV Path [{req.output_path}]: ").strip()
-            if o:
-                req.output_path = o
+            dst = input(f"Enter Output WAV Path [{req.output_path}]: ").strip()
+            if dst:
+                req.output_path = dst
         elif choice == "18":
             req.lyrics = edit_multiline_lyrics(req.lyrics)
         elif choice == "19":
@@ -402,7 +418,23 @@ def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationReques
             req.arrangement = default_fixture.arrangement
             req.lyrics = default_fixture.lyrics
             req.seed = default_fixture.seed
-            print("\nLoaded complete Midnight Frequency R&B baseline test fixture.")
+            req.temperature = default_fixture.temperature
+            req.top_p = default_fixture.top_p
+            req.top_k = default_fixture.top_k
+            req.top_k_layers = list(default_fixture.top_k_layers)
+            req.ar_guidance_scale = default_fixture.ar_guidance_scale
+            req.scheduler_type = default_fixture.scheduler_type
+            req.num_inference_steps = default_fixture.num_inference_steps
+            req.guidance_scale = default_fixture.guidance_scale
+            req.noise_topology = default_fixture.noise_topology
+            req.blue_noise_alpha = default_fixture.blue_noise_alpha
+            req.enable_pm_diffusion = default_fixture.enable_pm_diffusion
+            req.pm_iterations = default_fixture.pm_iterations
+            req.pm_conductance = default_fixture.pm_conductance
+            req.pm_lambda = default_fixture.pm_lambda
+            req.apply_declick = default_fixture.apply_declick
+            req.cpu_offload = default_fixture.cpu_offload
+            print("\nLoaded complete Midnight Frequency R&B baseline fixture with active defaults.")
         elif choice == "C":
             req.genre = ""
             req.subgenre = ""
@@ -414,27 +446,79 @@ def run_interactive_harness(engine: Optional[MusicEngine], req: GenerationReques
             req.lyrics = ""
             req.raw_prompt = None
             req.prompt = None
-            print("\nCleared harness conditioning to pure blank / unvoiced instrumental.")
+            print("\nCleared harness conditioning to blank unvoiced instrumental.")
         elif choice == "L":
             p_path = input("Enter JSON preset to load: ").strip()
+            if not p_path:
+                continue
+            chosen_path = Path(p_path)
+            if not chosen_path.is_absolute() and not chosen_path.exists():
+                candidate_preset = ROOT_DIR / "presets" / p_path
+                if candidate_preset.exists():
+                    chosen_path = candidate_preset
+                else:
+                    candidate_root = ROOT_DIR / p_path
+                    if candidate_root.exists():
+                        chosen_path = candidate_root
             try:
-                req = GenerationRequest.load_preset(Path(p_path))
-                print(f"Preset loaded successfully from {p_path}")
+                loaded_req = GenerationRequest.load_preset(chosen_path)
+                req.genre = loaded_req.genre
+                req.subgenre = loaded_req.subgenre
+                req.bpm = loaded_req.bpm
+                req.key = loaded_req.key
+                req.mood = loaded_req.mood
+                req.vocals = loaded_req.vocals
+                req.arrangement = loaded_req.arrangement
+                req.lyrics = loaded_req.lyrics
+                req.temperature = loaded_req.temperature
+                req.top_p = loaded_req.top_p
+                req.top_k = loaded_req.top_k
+                req.top_k_layers = list(loaded_req.top_k_layers) if loaded_req.top_k_layers else list(defaults["top_k_layers"])
+                req.ar_guidance_scale = loaded_req.ar_guidance_scale
+                req.scheduler_type = loaded_req.scheduler_type
+                req.num_inference_steps = loaded_req.num_inference_steps
+                req.guidance_scale = loaded_req.guidance_scale
+                req.noise_topology = loaded_req.noise_topology
+                req.blue_noise_alpha = loaded_req.blue_noise_alpha
+                req.enable_pm_diffusion = loaded_req.enable_pm_diffusion
+                req.pm_iterations = loaded_req.pm_iterations
+                req.pm_conductance = loaded_req.pm_conductance
+                req.pm_lambda = loaded_req.pm_lambda
+                req.apply_declick = loaded_req.apply_declick
+                req.cpu_offload = loaded_req.cpu_offload
+                print(f"Preset loaded successfully from {chosen_path}")
             except Exception as e:
                 print(f"Preset load error: {e}")
         elif choice == "S":
-            p_path = input("Enter destination JSON preset path: ").strip()
+            p_path = input(f"Enter destination JSON preset path (e.g., {DEFAULT_PRESET_FILENAME}): ").strip()
+            if not p_path:
+                continue
+            if not p_path.endswith(".json"):
+                p_path = f"{p_path}.json"
+            target = Path(p_path)
+            if not target.is_absolute():
+                if target.name == DEFAULT_PRESET_FILENAME:
+                    target = ROOT_DIR / DEFAULT_PRESET_FILENAME
+                else:
+                    target = ROOT_DIR / "presets" / target.name
             try:
-                req.save_preset(Path(p_path))
-                print(f"Preset saved to {p_path}")
+                req.save_preset(target)
+                print(f"Preset saved successfully to {target}")
+            except Exception as e:
+                print(f"Preset save error: {e}")
+        elif choice == "D":
+            target = ROOT_DIR / DEFAULT_PRESET_FILENAME
+            try:
+                req.save_preset(target)
+                print(f"Authoritative default.json updated at {target}")
             except Exception as e:
                 print(f"Preset save error: {e}")
         elif choice == "G":
             if engine is None:
                 print("\nInitializing neural engine...")
                 engine = MusicEngine(repo_id=req.repo_id, device=req.device)
-            resolved_ar_cfg = req.ar_guidance_scale if req.ar_guidance_scale is not None else 1.5200
-            resolved_dit_cfg = req.guidance_scale if req.guidance_scale is not None else 1.7800
+            resolved_ar_cfg = req.ar_guidance_scale if req.ar_guidance_scale is not None else defaults["ar_guidance_scale"]
+            resolved_dit_cfg = req.guidance_scale if req.guidance_scale is not None else defaults["guidance_scale"]
             k_vec = req.resolve_top_k_layers()
             print(
                 f"\nExecuting Synthesis Pass (Ceiling={req.audio_duration:.4f}s, AR_CFG={resolved_ar_cfg:.4f}, K_Vec={k_vec}, DiT_CFG={resolved_dit_cfg:.4f}, Solver={req.scheduler_type.upper()}, Noise={req.noise_topology}, PM={req.enable_pm_diffusion})..."
@@ -463,7 +547,7 @@ def main() -> None:
     parser.add_argument("--temperature", type=float, default=None)
     parser.add_argument("--top_p", type=float, default=None)
     parser.add_argument("--top_k", type=int, default=None)
-    parser.add_argument("--top_k_layers", type=str, default=None, help="Comma-separated 8 ints, e.g. 44,32,24,16,12,8,6,4")
+    parser.add_argument("--top_k_layers", type=str, default=None, help="Comma-separated 8 ints, e.g. 46,44,43,42,39,38,38,39")
     parser.add_argument("--k_macro", nargs=3, type=int, default=None, metavar=("FUNDAMENTAL", "ACOUSTIC", "FINE"))
     parser.add_argument("--ar_cfg", dest="ar_guidance_scale", type=float, default=None, help="Stage 1 AR CFG scale.")
     parser.add_argument("--scheduler", dest="scheduler_type", type=str, choices=SUPPORTED_SCHEDULERS, default=None)
@@ -515,9 +599,10 @@ def main() -> None:
         req.top_k = args.top_k
         req.top_k_layers = [args.top_k] * 8
     if args.top_k_layers is not None:
-        parsed_k = [int(p.strip()) for p in args.top_k_layers.split(",") if p.strip()]
-        if len(parsed_k) == 8:
+        parsed_k = parse_k_vector(args.top_k_layers)
+        if parsed_k:
             req.top_k_layers = parsed_k
+            req.top_k = parsed_k[0]
     if args.k_macro is not None:
         req.set_macro_k(args.k_macro[0], args.k_macro[1], args.k_macro[2])
     if args.ar_guidance_scale is not None:
@@ -559,8 +644,11 @@ def main() -> None:
         req.lyrics = p.read_text(encoding="utf-8") if p.is_file() else args.lyrics
 
     if args.save_preset:
-        req.save_preset(Path(args.save_preset))
-        print(f"Preset exported to {args.save_preset}")
+        target = Path(args.save_preset)
+        if not target.is_absolute() and target.name == DEFAULT_PRESET_FILENAME:
+            target = ROOT_DIR / DEFAULT_PRESET_FILENAME
+        req.save_preset(target)
+        print(f"Preset exported to {target}")
         sys.exit(0)
 
     if not args.batch:
