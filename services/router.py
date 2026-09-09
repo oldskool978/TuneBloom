@@ -19,7 +19,7 @@ import subprocess
 from pathlib import Path
 from datetime import datetime, timezone
 from contextlib import asynccontextmanager
-from typing import Dict, Any, Optional, Tuple, Callable, List, Union
+from typing import Dict, Any, Optional, Tuple, Callable, List
 
 import torch
 import numpy as np
@@ -166,12 +166,10 @@ def resolve_site_root() -> Path:
         return Path(env_site).resolve()
 
     candidates = [
-        BACKEND_ROOT / "site",
-        Path.cwd() / "site",
         BACKEND_ROOT / "webui",
         Path.cwd() / "webui",
-        Path.cwd(),
-        BACKEND_ROOT,
+        BACKEND_ROOT / "site",
+        Path.cwd() / "site",
     ]
     for c in candidates:
         if (c / "index.html").exists():
@@ -228,17 +226,10 @@ def get_user_registry_candidates() -> List[Path]:
     custom_dir = os.environ.get("TUNEBLOOM_CONFIG_DIR")
     if custom_dir and (Path(custom_dir) / "users.json").exists():
         return [(Path(custom_dir) / "users.json").resolve()]
-    if is_standalone_mode():
-        return [
-            BACKEND_ROOT / "webui" / "config" / "users.json",
-            Path.cwd() / "webui" / "config" / "users.json",
-            BACKEND_ROOT / "config" / "users.json",
-        ]
     resolved_site = resolve_site_root()
     return [
         resolved_site / "config" / "users.json",
         BACKEND_ROOT / "config" / "users.json",
-        Path.cwd() / "config" / "users.json",
         BACKEND_ROOT / "webui" / "config" / "users.json",
         SERVICES_DIR / "config" / "users.json",
     ]
@@ -490,37 +481,17 @@ class EnginePipeline:
         blocks = request_data.get("blocks", [])
         active_defaults = get_active_engine_defaults()
 
-        def pick_param(key: str, legacy_fallback: Any = None):
+        def get_param(key: str) -> Any:
             val = request_data.get(key)
-            baseline_val = BASELINE_ENGINE_DEFAULTS.get(key)
-            active_val = active_defaults.get(key, baseline_val)
-
-            if val is None:
-                return active_val
-            if legacy_fallback is not None:
-                if isinstance(legacy_fallback, (int, float)) and isinstance(val, (int, float)):
-                    if abs(float(val) - float(legacy_fallback)) < 1e-4:
-                        return active_val
-                elif val == legacy_fallback:
-                    return active_val
-            if baseline_val is not None:
-                if isinstance(baseline_val, (int, float)) and isinstance(val, (int, float)):
-                    if abs(float(val) - float(baseline_val)) < 1e-4:
-                        return active_val
-                elif val == baseline_val:
-                    return active_val
-            return val
+            if val is not None:
+                return val
+            return active_defaults.get(key, BASELINE_ENGINE_DEFAULTS.get(key))
 
         raw_k_layers = request_data.get("top_k_layers")
-        baseline_k = BASELINE_ENGINE_DEFAULTS["top_k_layers"]
-        active_k = list(active_defaults["top_k_layers"])
-
-        if raw_k_layers is None or raw_k_layers == [47] * 8 or raw_k_layers == baseline_k:
-            resolved_k_layers = active_k
-        elif isinstance(raw_k_layers, list) and len(raw_k_layers) == 8:
+        if isinstance(raw_k_layers, list) and len(raw_k_layers) == 8:
             resolved_k_layers = [int(k) for k in raw_k_layers]
         else:
-            resolved_k_layers = active_k
+            resolved_k_layers = list(active_defaults["top_k_layers"])
 
         resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
 
@@ -535,26 +506,26 @@ class EnginePipeline:
             lyrics=raw_lyrics,
             raw_prompt=request_data.get("raw_prompt"),
             prompt=request_data.get("prompt"),
-            temperature=float(pick_param("temperature", 0.9100)),
-            top_p=float(pick_param("top_p", 0.9600)),
+            temperature=float(get_param("temperature")),
+            top_p=float(get_param("top_p")),
             top_k=int(resolved_top_k),
             top_k_layers=resolved_k_layers,
-            ar_guidance_scale=float(pick_param("ar_guidance_scale", 1.5200)),
-            scheduler_type=str(pick_param("scheduler_type", "heun")),
-            num_inference_steps=int(pick_param("num_inference_steps", 42)),
-            guidance_scale=float(pick_param("guidance_scale", 1.7800)),
-            noise_topology=str(pick_param("noise_topology", "blue_noise")),
-            blue_noise_alpha=float(pick_param("blue_noise_alpha", 0.7500)),
-            enable_pm_diffusion=bool(pick_param("enable_pm_diffusion", True)),
-            pm_iterations=int(pick_param("pm_iterations", 5)),
-            pm_conductance=float(pick_param("pm_conductance", 0.1500)),
-            pm_lambda=float(pick_param("pm_lambda", 0.2000)),
+            ar_guidance_scale=float(get_param("ar_guidance_scale")),
+            scheduler_type=str(get_param("scheduler_type")),
+            num_inference_steps=int(get_param("num_inference_steps")),
+            guidance_scale=float(get_param("guidance_scale")),
+            noise_topology=str(get_param("noise_topology")),
+            blue_noise_alpha=float(get_param("blue_noise_alpha")),
+            enable_pm_diffusion=bool(get_param("enable_pm_diffusion")),
+            pm_iterations=int(get_param("pm_iterations")),
+            pm_conductance=float(get_param("pm_conductance")),
+            pm_lambda=float(get_param("pm_lambda")),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
             device=self.device_str,
-            apply_declick=bool(pick_param("apply_declick", True)),
-            cpu_offload=bool(pick_param("cpu_offload", False)),
+            apply_declick=bool(get_param("apply_declick")),
+            cpu_offload=bool(get_param("cpu_offload")),
             blocks=blocks,
         )
 
@@ -1108,15 +1079,7 @@ async def login(payload: AuthPayload):
     if history_file.exists():
         try:
             with open(history_file, "r", encoding="utf-8-sig") as f:
-                raw_tracks = json.load(f).get("tracks", [])
-                for trk in raw_tracks:
-                    url = trk.get("audio_url", "")
-                    if url.startswith("/"):
-                        trk["audio_url"] = url.lstrip("/")
-                    if not trk["audio_url"].startswith("api/"):
-                        if trk["audio_url"].startswith("v1/"):
-                            trk["audio_url"] = f"api/{trk['audio_url']}"
-                    tracks.append(trk)
+                tracks = json.load(f).get("tracks", [])
         except Exception:
             pass
 
@@ -1126,7 +1089,6 @@ async def login(payload: AuthPayload):
         for trk in tracks
         if trk.get("created_at", "").startswith(today_utc)
         and not trk.get("is_default", False)
-        and not str(trk.get("track_id", "")).startswith("default_")
     )
     daily_quota = int(user_meta.get("daily_quota", 2))
     tokens_remaining = max(0, daily_quota - tokens_used_today)
@@ -1210,7 +1172,6 @@ async def synthesize(
                         for trk in raw_tracks
                         if trk.get("created_at", "").startswith(today_utc)
                         and not trk.get("is_default", False)
-                        and not str(trk.get("track_id", "")).startswith("default_")
                     )
             except Exception:
                 pass
@@ -1338,19 +1299,36 @@ async def get_audio_stream_user(user_slug: str, filename: str):
     return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
 
 
-ROUTE_PREFIXES = [
-    "",
-    "/api",
-    "/v1",
-    "/api/v1",
-    "/TuneBloom/api",
-    "/TuneBloom/api/v1",
-    "/tunebloom/api",
-    "/tunebloom/api/v1",
-]
+@api_router.delete("/tracks/{track_id}")
+async def delete_user_track(
+    track_id: str,
+    authorization: Optional[str] = Header(None),
+):
+    token = authorization.replace("Bearer ", "").strip() if authorization else None
+    slug = verify_session_token(token)
 
-for prefix in ROUTE_PREFIXES:
-    app.include_router(api_router, prefix=prefix)
+    user_dir = STORAGE_ROOT / slug
+    history_file = user_dir / "history.json"
+    if history_file.exists():
+        try:
+            with open(history_file, "r", encoding="utf-8-sig") as f:
+                history_data = json.load(f)
+            original_tracks = history_data.get("tracks", [])
+            history_data["tracks"] = [t for t in original_tracks if t.get("track_id") != track_id]
+            with open(history_file, "w", encoding="utf-8") as f:
+                json.dump(history_data, f, indent=2)
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Failed updating vault storage: {e}")
+
+    audio_file = user_dir / "tracks" / f"{track_id}_master.opus"
+    if audio_file.exists():
+        audio_file.unlink(missing_ok=True)
+
+    return {"status": "deleted", "track_id": track_id}
+
+
+app.include_router(api_router, prefix="/api/v1")
+app.include_router(api_router, prefix="/v1")
 
 
 def mount_static_and_spa():
@@ -1360,14 +1338,8 @@ def mount_static_and_spa():
             sub_dir = site_dir / sub
             if sub_dir.exists():
                 app.mount(f"/{sub}", StaticFiles(directory=str(sub_dir)), name=sub)
-                app.mount(f"/TuneBloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_{sub}")
-                app.mount(f"/tunebloom/{sub}", StaticFiles(directory=str(sub_dir)), name=f"tb_sub_lc_{sub}")
 
         @app.get("/")
-        @app.get("/TuneBloom")
-        @app.get("/TuneBloom/")
-        @app.get("/tunebloom")
-        @app.get("/tunebloom/")
         async def serve_index():
             return FileResponse(str(resolve_site_root() / "index.html"))
 
@@ -1380,20 +1352,16 @@ def mount_static_and_spa():
                 or path_lower.startswith("jobs/")
                 or path_lower.startswith("audio/")
                 or path_lower.startswith("health")
-                or path_lower.startswith("themes/registry")
+                or path_lower.startswith("themes/")
                 or path_lower.startswith("api/")
                 or path_lower.startswith("v1/")
-                or "api/" in path_lower
+                or path_lower.startswith("tracks/")
             ):
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})
 
-            cleaned_path = full_path
-            if cleaned_path.lower().startswith("tunebloom/"):
-                cleaned_path = cleaned_path[len("tunebloom/") :]
-
             current_site = resolve_site_root()
             try:
-                target = (current_site / cleaned_path).resolve()
+                target = (current_site / full_path).resolve()
                 if not target.is_relative_to(current_site.resolve()):
                     raise HTTPException(status_code=403, detail="Forbidden")
             except Exception:

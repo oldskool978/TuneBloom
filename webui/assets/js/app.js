@@ -426,8 +426,8 @@ function getCurrentFormPayload() {
 
 function sortTracks(tracks) {
   return tracks.slice().sort((a, b) => {
-    const aDefault = a.is_default || String(a.track_id).startsWith("default_");
-    const bDefault = b.is_default || String(b.track_id).startsWith("default_");
+    const aDefault = Boolean(a.is_default);
+    const bDefault = Boolean(b.is_default);
     if (aDefault && !bDefault) return -1;
     if (!aDefault && bDefault) return 1;
     const orderA = typeof a.order_index === "number" ? a.order_index : 0;
@@ -445,9 +445,7 @@ async function ensureShowcaseTrack(slug, storage) {
     existingTracks = Array.isArray(AppState.tracks) ? AppState.tracks : [];
   }
 
-  let defaultTrack = existingTracks.find(
-    (t) => t && (t.is_default || t.track_id === `default_${slug}` || String(t.track_id).startsWith("default_"))
-  );
+  let defaultTrack = existingTracks.find((t) => t && t.is_default);
 
   if (!defaultTrack) {
     const initialBp = window.TuneBloomBlueprints
@@ -515,7 +513,6 @@ async function ensureShowcaseTrack(slug, storage) {
   } else {
     defaultTrack.order_index = 0;
     defaultTrack.is_default = true;
-    defaultTrack.created_at = "2020-01-01T00:00:00.000Z";
   }
 
   const otherTracks = existingTracks
@@ -802,11 +799,19 @@ function renderDiscography() {
   const resolver = window.ClientJewelResolver;
 
   AppState.tracks.forEach((track) => {
-    const isDefault = track.is_default || track.track_id.startsWith("default_");
+    const isDefault = Boolean(track.is_default);
     const isSelected = track.track_id === AppState.activeTrackId;
     const isDraft = track.status === "DRAFT";
     const isProcessing = track.status === "PROCESSING";
     const coverUrl = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : resolveAssetUrl("public/jewelcases/default.jpg");
+
+    const displayTitle = track.status === "COMPLETED"
+      ? (track.title || "Untitled Master")
+      : (track.working_draft?.title || track.title || "Untitled Master");
+
+    const displayGenre = track.status === "COMPLETED"
+      ? (track.recipe?.genre || "R&B")
+      : (track.working_draft?.genre || track.recipe?.genre || "R&B");
 
     const item = document.createElement("div");
     item.className = `group relative flex-shrink-0 w-32 p-2 rounded-2xl border backdrop-blur-md cursor-pointer transition transform active:scale-95 select-none ${
@@ -852,8 +857,8 @@ function renderDiscography() {
              alt="Cover Art"
              class="w-full h-full object-cover">
       </div>
-      <div class="text-[11px] font-black truncate text-white leading-tight">${track.working_draft?.title || track.title}</div>
-      <div class="text-[9px] text-white/70 font-mono mt-0.5">${track.working_draft?.genre || track.recipe?.genre || "R&B"}</div>
+      <div class="text-[11px] font-black truncate text-white leading-tight">${displayTitle}</div>
+      <div class="text-[9px] text-white/70 font-mono mt-0.5">${displayGenre}</div>
     `;
 
     container.appendChild(item);
@@ -892,16 +897,14 @@ function selectTrackById(trackId, autoMountPlayer = true) {
     window.playerEngine.loadTrack(track);
   }
 
-  const isDefault = Boolean(track.is_default || String(track.track_id).startsWith("default_"));
+  const isDefault = Boolean(track.is_default);
 
-  if (track.working_draft) {
-    loadDraftIntoForm(track.working_draft, isDefault);
-  } else if (track.recipe) {
+  if (track.status === "COMPLETED" && track.recipe) {
     const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
       ? track.recipe.blocks
       : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []);
 
-    const draftFromRecipe = {
+    const canonicalDraft = {
       title: track.title,
       genre: track.recipe.genre || "",
       subgenre: track.recipe.subgenre || "",
@@ -916,15 +919,18 @@ function selectTrackById(trackId, autoMountPlayer = true) {
       top_k_layers: track.recipe.telemetry?.top_k_vector_used || [47, 47, 47, 45, 39, 37, 38, 39],
       ...DEFAULT_ENGINE_SETTINGS
     };
-    track.working_draft = draftFromRecipe;
-    loadDraftIntoForm(draftFromRecipe, isDefault);
+
+    const draftToLoad = track.fork_draft || canonicalDraft;
+    track.working_draft = draftToLoad;
+    loadDraftIntoForm(draftToLoad, isDefault);
+  } else if (track.working_draft) {
+    loadDraftIntoForm(track.working_draft, isDefault);
   } else {
     loadDraftIntoForm({ title: track.title, ...DEFAULT_ENGINE_SETTINGS }, isDefault);
   }
 
   if (track.status === "COMPLETED" && Boolean(track.audio_url)) {
-    const canonicalSource = track.recipe || track.working_draft;
-    AppState.activeTrackCleanRecipe = computeCanonicalRecipe(track.title, canonicalSource);
+    AppState.activeTrackCleanRecipe = computeCanonicalRecipe(track.title, track.recipe);
   } else {
     AppState.activeTrackCleanRecipe = null;
   }
@@ -1001,22 +1007,33 @@ function syncActiveTrackDraftDebounced() {
   syncTimeout = setTimeout(async () => {
     if (!AppState.user || !targetTrackId || targetTrackId !== AppState.activeTrackId) return;
     const track = AppState.tracks.find((t) => t.track_id === targetTrackId);
-    if (track) {
-      const payload = getCurrentFormPayload();
-      track.working_draft = {
-        ...DEFAULT_ENGINE_SETTINGS,
-        ...track.working_draft,
-        ...payload
-      };
-      track.title = payload.title || track.title;
-      track.updated_at = new Date().toISOString();
-      const storage = window.clientStorage;
-      if (storage) await storage.saveTrack(track);
+    if (!track) return;
 
-      if (track.track_id === AppState.activeTrackId) {
-        const titleEl = document.getElementById("player-track-title");
-        if (titleEl) titleEl.textContent = track.title;
-      }
+    const payload = getCurrentFormPayload();
+    const isCompleted = track.status === "COMPLETED" && Boolean(track.audio_url);
+
+    if (isCompleted) {
+      track.fork_draft = {
+        ...DEFAULT_ENGINE_SETTINGS,
+        ...payload,
+        seed: track.recipe?.telemetry?.seed ?? track.working_draft?.seed
+      };
+      return;
+    }
+
+    track.working_draft = {
+      ...DEFAULT_ENGINE_SETTINGS,
+      ...track.working_draft,
+      ...payload
+    };
+    track.title = payload.title || track.title;
+    track.updated_at = new Date().toISOString();
+    const storage = window.clientStorage;
+    if (storage) await storage.saveTrack(track);
+
+    if (track.track_id === AppState.activeTrackId) {
+      const titleEl = document.getElementById("player-track-title");
+      if (titleEl) titleEl.textContent = track.title;
     }
   }, 350);
 }
@@ -1042,7 +1059,7 @@ async function handleAddNewTrackCardClick() {
   const trackId = `track_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const seed = Math.floor(Math.random() * 90000000) + 100000;
   const resolver = window.ClientJewelResolver;
-  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase);
+  const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase).filter(Boolean);
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed, usedCovers) : "default.jpg";
 
   const newOrderIndex = AppState.tracks.length;
@@ -1097,7 +1114,7 @@ async function handleTrackDelete(trackId, e) {
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
 
-  if (track.is_default || track.track_id.startsWith("default_")) {
+  if (track.is_default) {
     await AppModal.alert("Action Disallowed", "The showcase reference track is permanently preserved and cannot be removed.", "fa-lock");
     return;
   }
@@ -1224,6 +1241,31 @@ async function handleGenerateSubmit(e) {
 
   let workingTrackTarget = null;
   if (isFork) {
+    if (currentTrack && currentTrack.recipe) {
+      currentTrack.fork_draft = null;
+      const parentBlocks = Array.isArray(currentTrack.recipe.blocks) && currentTrack.recipe.blocks.length > 0
+        ? currentTrack.recipe.blocks
+        : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(currentTrack.recipe.lyrics || "") : []);
+
+      currentTrack.working_draft = {
+        title: currentTrack.title,
+        genre: currentTrack.recipe.genre || "",
+        subgenre: currentTrack.recipe.subgenre || "",
+        bpm: currentTrack.recipe.bpm || 96,
+        key: currentTrack.recipe.key || "",
+        mood: currentTrack.recipe.mood || "",
+        vocals: currentTrack.recipe.vocals || "",
+        arrangement: currentTrack.recipe.arrangement || "",
+        lyrics: currentTrack.recipe.lyrics || "",
+        blocks: JSON.parse(JSON.stringify(parentBlocks)),
+        seed: originSeed,
+        top_k_layers: currentTrack.recipe.telemetry?.top_k_vector_used || [47, 47, 47, 45, 39, 37, 38, 39],
+        ...DEFAULT_ENGINE_SETTINGS
+      };
+      const storage = window.clientStorage;
+      if (storage) await storage.saveTrack(currentTrack);
+    }
+
     workingTrackTarget = {
       track_id: stagedId,
       user_slug: AppState.user.slug,
@@ -1244,7 +1286,11 @@ async function handleGenerateSubmit(e) {
         seed: seed
       }
     };
+
     AppState.tracks.push(workingTrackTarget);
+    const storage = window.clientStorage;
+    if (storage) await storage.saveTrack(workingTrackTarget);
+
     AppState.activeTrackId = stagedId;
     if (AppState.user) {
       localStorage.setItem(`tb_active_track_${AppState.user.slug}`, stagedId);
@@ -1269,6 +1315,9 @@ async function handleGenerateSubmit(e) {
       seed: seed
     };
     AppState.activeTrackId = currentTrack.track_id;
+    const storage = window.clientStorage;
+    if (storage) await storage.saveTrack(currentTrack);
+
     if (window.playerEngine) {
       window.playerEngine.loadTrack(currentTrack, false);
     }
@@ -1349,13 +1398,16 @@ async function handleGenerateSubmit(e) {
     updateQuotaDisplay();
 
     if (isFork && workingTrackTarget) {
+      if (storage) await storage.deleteTrack(stagedId);
       workingTrackTarget.track_id = jobData.job_id;
+      if (storage) await storage.saveTrack(workingTrackTarget);
       AppState.activeTrackId = jobData.job_id;
       if (AppState.user) {
         localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
       }
     } else if (currentTrack) {
       currentTrack.track_id = jobData.job_id;
+      if (storage) await storage.saveTrack(currentTrack);
       AppState.activeTrackId = jobData.job_id;
       if (AppState.user) {
         localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
@@ -1376,7 +1428,14 @@ async function handleGenerateSubmit(e) {
 
     startTrackingJob(jobData.job_id, { ...formPayload, seed, ...payload }, isFork, originTrackId, dispatchCover, stagedId);
   } catch (err) {
+    const storage = window.clientStorage;
     if (isFork) {
+      if (storage) {
+        await storage.deleteTrack(stagedId);
+        if (workingTrackTarget?.track_id) {
+          await storage.deleteTrack(workingTrackTarget.track_id);
+        }
+      }
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId && t.track_id !== workingTrackTarget?.track_id);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
@@ -1385,6 +1444,7 @@ async function handleGenerateSubmit(e) {
       renderDiscography();
     } else if (currentTrack) {
       currentTrack.status = "DRAFT";
+      if (storage) await storage.saveTrack(currentTrack);
       renderDiscography();
     }
     AppState.isDispatching = false;
@@ -1444,6 +1504,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
     if (hudEl) hudEl.classList.add("hidden");
 
     if (isFork) {
+      const storage = window.clientStorage;
+      if (storage) {
+        await storage.deleteTrack(jobId);
+        if (stagedId) await storage.deleteTrack(stagedId);
+      }
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
@@ -1451,7 +1516,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       }
     } else {
       const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
-      if (active) active.status = "DRAFT";
+      if (active) {
+        active.status = "DRAFT";
+        const storage = window.clientStorage;
+        if (storage) await storage.saveTrack(active);
+      }
     }
     renderDiscography();
     checkRecipeDirtyState();
@@ -1549,7 +1618,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             top_k_vector_used: compositionPayload.top_k_layers || [47, 47, 47, 45, 39, 37, 38, 39]
           }
         },
-        working_draft: data.working_draft || {
+        working_draft: {
           title: compositionPayload.title,
           genre: compositionPayload.genre,
           subgenre: compositionPayload.subgenre,
@@ -1581,6 +1650,9 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       if (storage) {
         if (!isFork && originTrackId && originTrackId !== targetTrackId) {
           await storage.deleteTrack(originTrackId);
+        }
+        if (isFork && stagedId && stagedId !== targetTrackId) {
+          await storage.deleteTrack(stagedId);
         }
         await storage.saveTrack(completedTrack);
         fetch(audioUrl)
@@ -1658,6 +1730,20 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         }
       }
       AppState.isDispatching = false;
+
+      if (isFork) {
+        const storage = window.clientStorage;
+        if (storage) {
+          await storage.deleteTrack(jobId);
+          if (stagedId) await storage.deleteTrack(stagedId);
+        }
+        AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
+        AppState.activeTrackId = originTrackId;
+        if (originTrackId) {
+          selectTrackById(originTrackId, true);
+        }
+      }
+
       await AppModal.alert("Synthesis Failed", data.error || "Audio mastering process interrupted.", "fa-circle-xmark");
 
       const btnEl = document.getElementById("gen-submit-btn");
@@ -1667,6 +1753,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         btnEl.classList.remove("hidden");
       }
       if (hudEl) hudEl.classList.add("hidden");
+      renderDiscography();
       checkRecipeDirtyState();
     }
   };

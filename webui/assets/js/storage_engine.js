@@ -23,7 +23,7 @@ const SVG_FALLBACK_COVER = "data:image/svg+xml;charset=utf-8," + encodeURICompon
 class TuneBloomStorage {
   constructor() {
     this.dbName = "TuneBloomDB";
-    this.dbVersion = 5;
+    this.dbVersion = 6;
     this.db = null;
     this.initPromise = null;
     this.memoryFallback = false;
@@ -65,34 +65,17 @@ class TuneBloomStorage {
 
       req.onupgradeneeded = (e) => {
         const db = e.target.result;
-        const txn = e.target.transaction;
-
-        if (!db.objectStoreNames.contains("user_meta")) {
-          db.createObjectStore("user_meta", { keyPath: "slug" });
+        const existingStores = Array.from(db.objectStoreNames);
+        for (const name of existingStores) {
+          db.deleteObjectStore(name);
         }
 
-        let discoStore;
-        if (!db.objectStoreNames.contains("discography")) {
-          discoStore = db.createObjectStore("discography", { keyPath: "track_id" });
-        } else {
-          discoStore = txn.objectStore("discography");
-        }
-
-        if (discoStore) {
-          if (!discoStore.indexNames.contains("user_slug")) {
-            discoStore.createIndex("user_slug", "user_slug", { unique: false });
-          }
-          if (!discoStore.indexNames.contains("order_index")) {
-            discoStore.createIndex("order_index", "order_index", { unique: false });
-          }
-          if (!discoStore.indexNames.contains("user_order")) {
-            discoStore.createIndex("user_order", ["user_slug", "order_index"], { unique: false });
-          }
-        }
-
-        if (!db.objectStoreNames.contains("audio_blobs")) {
-          db.createObjectStore("audio_blobs", { keyPath: "track_id" });
-        }
+        db.createObjectStore("user_meta", { keyPath: "slug" });
+        const discoStore = db.createObjectStore("discography", { keyPath: "track_id" });
+        discoStore.createIndex("user_slug", "user_slug", { unique: false });
+        discoStore.createIndex("order_index", "order_index", { unique: false });
+        discoStore.createIndex("user_order", ["user_slug", "order_index"], { unique: false });
+        db.createObjectStore("audio_blobs", { keyPath: "track_id" });
       };
 
       req.onsuccess = (e) => {
@@ -301,20 +284,12 @@ class ClientJewelResolver {
   static async getManifest() {
     if (this.manifestCache) return this.manifestCache;
     try {
-      const cached = localStorage.getItem("tb_jewelcase_manifest");
-      if (cached) {
-        this.manifestCache = JSON.parse(cached);
-      }
-    } catch {}
-
-    try {
       const manifestUrl = window.RouterDiscovery ? window.RouterDiscovery.resolveAppUrl("public/jewelcases/manifest.json") : "public/jewelcases/manifest.json";
       const resp = await fetch(manifestUrl, { cache: "no-cache" });
       if (resp.ok) {
         const liveManifest = await resp.json();
         if (Array.isArray(liveManifest.covers) && liveManifest.covers.length > 0) {
           this.manifestCache = liveManifest.covers;
-          localStorage.setItem("tb_jewelcase_manifest", JSON.stringify(liveManifest.covers));
         }
       }
     } catch {}
@@ -332,12 +307,12 @@ class ClientJewelResolver {
       return "default.jpg";
     }
 
-    const windowSize = Math.max(1, availablePool.length - 1);
-    const validUsed = (Array.isArray(usedCovers) ? usedCovers : [])
-      .filter(c => c && !this.RESERVED_COVERS.has(c));
-    const recentUsed = new Set(validUsed.slice(-windowSize));
-    let candidates = availablePool.filter(c => !recentUsed.has(c));
+    const usedSet = new Set(
+      (Array.isArray(usedCovers) ? usedCovers : [])
+        .filter(c => c && !this.RESERVED_COVERS.has(c))
+    );
 
+    let candidates = availablePool.filter(c => !usedSet.has(c));
     if (candidates.length === 0) {
       candidates = availablePool;
     }
