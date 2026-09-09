@@ -1130,6 +1130,17 @@ async function handleTrackDelete(trackId, e) {
   const storage = window.clientStorage;
   if (storage) await storage.deleteTrack(trackId);
 
+  const router = window.RouterDiscovery;
+  if (router && router.isOnline) {
+    const token = AppState.token || localStorage.getItem("tb_session_token");
+    fetch(`${router.activeBase}/tracks/${trackId}`, {
+      method: "DELETE",
+      headers: {
+        "Authorization": `Bearer ${token}`
+      }
+    }).catch(() => {});
+  }
+
   AppState.tracks = AppState.tracks.filter((t) => t.track_id !== trackId);
 
   if (AppState.activeTrackId === trackId) {
@@ -1406,6 +1417,10 @@ async function handleGenerateSubmit(e) {
         localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
       }
     } else if (currentTrack) {
+      const oldDraftId = currentTrack.track_id;
+      if (storage && oldDraftId !== jobData.job_id) {
+        await storage.deleteTrack(oldDraftId);
+      }
       currentTrack.track_id = jobData.job_id;
       if (storage) await storage.saveTrack(currentTrack);
       AppState.activeTrackId = jobData.job_id;
@@ -1851,12 +1866,35 @@ document.addEventListener("DOMContentLoaded", async () => {
           await window.themeEngine.applyTheme(userRecord.assigned_theme);
         }
 
+        const pendingJobJson = localStorage.getItem(`tb_active_job_${savedSlug}`);
+        let activeJobId = null;
+        let activeOriginTrackId = null;
+        let activeStagedId = null;
+        let activeIsFork = false;
+
+        if (pendingJobJson) {
+          try {
+            const parsedJob = JSON.parse(pendingJobJson);
+            activeJobId = parsedJob.jobId;
+            activeOriginTrackId = parsedJob.originTrackId;
+            activeStagedId = parsedJob.stagedId;
+            activeIsFork = Boolean(parsedJob.isFork);
+          } catch {}
+        }
+
+        if (!activeIsFork && activeOriginTrackId && activeJobId && activeOriginTrackId !== activeJobId) {
+          await window.clientStorage.deleteTrack(activeOriginTrackId);
+          AppState.tracks = AppState.tracks.filter((t) => t.track_id !== activeOriginTrackId);
+        }
+
         renderDiscography();
 
         const savedTrackId = localStorage.getItem(`tb_active_track_${savedSlug}`);
-        const trackExists = AppState.tracks.some((t) => t.track_id === savedTrackId);
-        if (savedTrackId && trackExists) {
-          selectTrackById(savedTrackId);
+        const effectiveTrackId = (savedTrackId === activeOriginTrackId && activeJobId) ? activeJobId : savedTrackId;
+        const trackExists = AppState.tracks.some((t) => t.track_id === effectiveTrackId);
+
+        if (effectiveTrackId && trackExists) {
+          selectTrackById(effectiveTrackId);
         } else if (AppState.tracks.length > 0) {
           selectTrackById(AppState.tracks[0].track_id);
         }
@@ -1918,7 +1956,6 @@ document.addEventListener("DOMContentLoaded", async () => {
             .catch(() => {});
         }
 
-        const pendingJobJson = localStorage.getItem(`tb_active_job_${savedSlug}`);
         if (pendingJobJson) {
           try {
             const { jobId, compositionPayload, isFork, originTrackId, assignedCover, stagedId } = JSON.parse(pendingJobJson);
