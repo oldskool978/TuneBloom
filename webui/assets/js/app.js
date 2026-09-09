@@ -1,8 +1,8 @@
 const DEFAULT_ENGINE_SETTINGS = {
   temperature: 0.9192,
   top_p: 0.9600,
-  top_k: 44,
-  top_k_layers: [44, 44, 43, 42, 39, 38, 38, 39],
+  top_k: 47,
+  top_k_layers: [47, 47, 47, 45, 39, 37, 38, 39],
   ar_guidance_scale: 1.5200,
   scheduler_type: "heun",
   num_inference_steps: 42,
@@ -503,7 +503,7 @@ async function ensureShowcaseTrack(slug, storage) {
           integrated_loudness_db: -14.15,
           dynamic_punch_db: 13.85,
           master_format: "48.0 kHz Master Audio Bitstream",
-          top_k_vector_used: [44, 44, 43, 42, 39, 38, 38, 39]
+          top_k_vector_used: [47, 47, 47, 45, 39, 37, 38, 39]
         }
       },
       working_draft: {
@@ -913,7 +913,7 @@ function selectTrackById(trackId, autoMountPlayer = true) {
       lyrics: track.recipe.lyrics || "",
       blocks: parsedBlocks,
       seed: track.recipe.telemetry?.seed,
-      top_k_layers: track.recipe.telemetry?.top_k_vector_used || [44, 44, 43, 42, 39, 38, 38, 39],
+      top_k_layers: track.recipe.telemetry?.top_k_vector_used || [47, 47, 47, 45, 39, 37, 38, 39],
       ...DEFAULT_ENGINE_SETTINGS
     };
     track.working_draft = draftFromRecipe;
@@ -1546,7 +1546,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             integrated_loudness_db: -14.15,
             dynamic_punch_db: 13.85,
             master_format: "48.0 kHz Master Audio Bitstream",
-            top_k_vector_used: compositionPayload.top_k_layers || [44, 44, 43, 42, 39, 38, 38, 39]
+            top_k_vector_used: compositionPayload.top_k_layers || [47, 47, 47, 45, 39, 37, 38, 39]
           }
         },
         working_draft: data.working_draft || {
@@ -1561,7 +1561,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           lyrics: compositionPayload.lyrics,
           blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
           seed: seed,
-          top_k_layers: compositionPayload.top_k_layers || [44, 44, 43, 42, 39, 38, 38, 39],
+          top_k_layers: compositionPayload.top_k_layers || [47, 47, 47, 45, 39, 37, 38, 39],
           temperature: compositionPayload.temperature ?? 0.9192,
           ar_guidance_scale: compositionPayload.ar_guidance_scale ?? 1.5200,
           top_p: compositionPayload.top_p ?? 0.9600,

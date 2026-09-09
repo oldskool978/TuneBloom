@@ -374,9 +374,9 @@ class SynthesisPayload(BaseModel):
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     temperature: Optional[float] = Field(default=0.9192, ge=0.0001, le=3.0)
     top_p: Optional[float] = Field(default=0.9600, ge=0.0001, le=1.0)
-    top_k: Optional[int] = Field(default=44, ge=1, le=500)
+    top_k: Optional[int] = Field(default=47, ge=1, le=500)
     top_k_layers: Optional[List[int]] = Field(
-        default_factory=lambda: [44, 44, 43, 42, 39, 38, 38, 39]
+        default_factory=lambda: [47, 47, 47, 45, 39, 37, 38, 39]
     )
     ar_guidance_scale: Optional[float] = Field(default=1.5200, ge=0.0, le=10.0)
     scheduler_type: str = Field(default="heun")
@@ -515,7 +515,7 @@ class EnginePipeline:
         baseline_k = BASELINE_ENGINE_DEFAULTS["top_k_layers"]
         active_k = list(active_defaults["top_k_layers"])
 
-        if raw_k_layers is None or raw_k_layers == [44] * 8 or raw_k_layers == baseline_k:
+        if raw_k_layers is None or raw_k_layers == [47] * 8 or raw_k_layers == baseline_k:
             resolved_k_layers = active_k
         elif isinstance(raw_k_layers, list) and len(raw_k_layers) == 8:
             resolved_k_layers = [int(k) for k in raw_k_layers]
