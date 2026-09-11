@@ -363,24 +363,22 @@ class SynthesisPayload(BaseModel):
     seed: Optional[int] = Field(default=None, ge=0)
     assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
-    temperature: Optional[float] = Field(default=0.9192, ge=0.0001, le=3.0)
-    top_p: Optional[float] = Field(default=0.9600, ge=0.0001, le=1.0)
-    top_k: Optional[int] = Field(default=47, ge=1, le=500)
-    top_k_layers: Optional[List[int]] = Field(
-        default_factory=lambda: [47, 47, 47, 45, 39, 37, 38, 39]
-    )
-    ar_guidance_scale: Optional[float] = Field(default=1.5200, ge=0.0, le=10.0)
-    scheduler_type: str = Field(default="heun")
-    num_inference_steps: Optional[int] = Field(default=42, ge=1, le=200)
-    guidance_scale: Optional[float] = Field(default=1.7800, ge=0.0, le=20.0)
-    noise_topology: str = Field(default="blue_noise")
-    blue_noise_alpha: float = Field(default=0.7500, ge=0.0, le=2.0)
-    enable_pm_diffusion: bool = Field(default=True)
-    pm_iterations: int = Field(default=5, ge=1, le=30)
-    pm_conductance: float = Field(default=0.1500, ge=0.0001, le=5.0)
-    pm_lambda: float = Field(default=0.2000, ge=0.0001, le=0.25)
-    apply_declick: bool = Field(default=True)
-    cpu_offload: bool = Field(default=False)
+    temperature: Optional[float] = Field(default=None, ge=0.0001, le=3.0)
+    top_p: Optional[float] = Field(default=None, ge=0.0001, le=1.0)
+    top_k: Optional[int] = Field(default=None, ge=1, le=500)
+    top_k_layers: Optional[List[int]] = Field(default=None)
+    ar_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    scheduler_type: Optional[str] = Field(default=None)
+    num_inference_steps: Optional[int] = Field(default=None, ge=1, le=200)
+    guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    noise_topology: Optional[str] = Field(default=None)
+    blue_noise_alpha: Optional[float] = Field(default=None, ge=0.0, le=2.0)
+    enable_pm_diffusion: Optional[bool] = Field(default=None)
+    pm_iterations: Optional[int] = Field(default=None, ge=1, le=30)
+    pm_conductance: Optional[float] = Field(default=None, ge=0.0001, le=5.0)
+    pm_lambda: Optional[float] = Field(default=None, ge=0.0001, le=0.25)
+    apply_declick: Optional[bool] = Field(default=None)
+    cpu_offload: Optional[bool] = Field(default=None)
     pow: PowSubmission
 
     @field_validator("bpm", mode="before")
@@ -426,14 +424,10 @@ class SynthesisPayload(BaseModel):
 
     @field_validator("top_k_layers", mode="before")
     @classmethod
-    def coerce_top_k_layers(cls, v: Any) -> List[int]:
-        defaults = get_active_engine_defaults()
-        if v is None:
-            return list(defaults["top_k_layers"])
-        parsed = parse_k_vector(v)
-        if parsed:
-            return parsed
-        return list(defaults["top_k_layers"])
+    def coerce_top_k_layers(cls, v: Any) -> Optional[List[int]]:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        return parse_k_vector(v)
 
 
 class SynthesisJob:
@@ -474,7 +468,7 @@ class EnginePipeline:
         progress_cb: Callable[[int, str], None],
     ) -> Tuple[Any, GenerationRequest]:
         progress_cb(5, "Arranging Harmonic Structure & Instrumentation...")
-        from Intelligen.schema import GenerationRequest
+        from Intelligen.schema import GenerationRequest, get_active_engine_defaults
         from Intelligen.engine import MusicEngine
 
         raw_lyrics = request_data.get("lyrics", "")
@@ -488,12 +482,17 @@ class EnginePipeline:
             return active_defaults.get(key, BASELINE_ENGINE_DEFAULTS.get(key))
 
         raw_k_layers = request_data.get("top_k_layers")
-        if isinstance(raw_k_layers, list) and len(raw_k_layers) == 8:
-            resolved_k_layers = [int(k) for k in raw_k_layers]
+        parsed_k = parse_k_vector(raw_k_layers) if raw_k_layers is not None else None
+        if parsed_k:
+            resolved_k_layers = parsed_k
         else:
             resolved_k_layers = list(active_defaults["top_k_layers"])
 
-        resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
+        raw_top_k = request_data.get("top_k")
+        if raw_top_k is not None:
+            resolved_top_k = int(raw_top_k)
+        else:
+            resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
 
         gen_req = GenerationRequest(
             genre=request_data.get("genre", ""),
@@ -1329,6 +1328,8 @@ async def delete_user_track(
 
 app.include_router(api_router, prefix="/api/v1")
 app.include_router(api_router, prefix="/v1")
+app.include_router(api_router, prefix="/TuneBloom/api/v1")
+app.include_router(api_router, prefix="/tunebloom/api/v1")
 
 
 def mount_static_and_spa():
@@ -1355,6 +1356,7 @@ def mount_static_and_spa():
                 or path_lower.startswith("themes/")
                 or path_lower.startswith("api/")
                 or path_lower.startswith("v1/")
+                or path_lower.startswith("tunebloom/")
                 or path_lower.startswith("tracks/")
             ):
                 return JSONResponse(status_code=404, content={"detail": f"Route not found: /{full_path}"})

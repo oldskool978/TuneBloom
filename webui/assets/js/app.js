@@ -1,22 +1,3 @@
-const DEFAULT_ENGINE_SETTINGS = {
-  temperature: 0.9192,
-  top_p: 0.9600,
-  top_k: 47,
-  top_k_layers: [47, 47, 47, 45, 39, 37, 38, 39],
-  ar_guidance_scale: 1.5200,
-  scheduler_type: "heun",
-  num_inference_steps: 42,
-  guidance_scale: 1.7800,
-  noise_topology: "blue_noise",
-  blue_noise_alpha: 0.7500,
-  enable_pm_diffusion: true,
-  pm_iterations: 5,
-  pm_conductance: 0.1500,
-  pm_lambda: 0.2000,
-  apply_declick: true,
-  cpu_offload: false
-};
-
 const AppModal = {
   backdrop: null,
   box: null,
@@ -241,7 +222,7 @@ const AppToast = {
       document.body.appendChild(this.container);
     }
   },
-  show({ title, subtitle, coverUrl, onPlay, duration = 6000 }) {
+  show({ title, subtitle, coverUrl, onPlay, duration = 8000 }) {
     this.init();
     const toast = document.createElement("div");
     toast.className = "theme-toast shadow-2xl cursor-pointer";
@@ -506,8 +487,7 @@ async function ensureShowcaseTrack(slug, storage) {
       },
       working_draft: {
         ...JSON.parse(JSON.stringify(initialBp)),
-        seed: 42,
-        ...DEFAULT_ENGINE_SETTINGS
+        seed: 42
       }
     };
   } else {
@@ -915,9 +895,7 @@ function selectTrackById(trackId, autoMountPlayer = true) {
       arrangement: track.recipe.arrangement || "",
       lyrics: track.recipe.lyrics || "",
       blocks: parsedBlocks,
-      seed: track.recipe.telemetry?.seed,
-      top_k_layers: track.recipe.telemetry?.top_k_vector_used || [47, 47, 47, 45, 39, 37, 38, 39],
-      ...DEFAULT_ENGINE_SETTINGS
+      seed: track.recipe.telemetry?.seed
     };
 
     const draftToLoad = track.fork_draft || canonicalDraft;
@@ -926,7 +904,7 @@ function selectTrackById(trackId, autoMountPlayer = true) {
   } else if (track.working_draft) {
     loadDraftIntoForm(track.working_draft, isDefault);
   } else {
-    loadDraftIntoForm({ title: track.title, ...DEFAULT_ENGINE_SETTINGS }, isDefault);
+    loadDraftIntoForm({ title: track.title }, isDefault);
   }
 
   if (track.status === "COMPLETED" && Boolean(track.audio_url)) {
@@ -1014,7 +992,6 @@ function syncActiveTrackDraftDebounced() {
 
     if (isCompleted) {
       track.fork_draft = {
-        ...DEFAULT_ENGINE_SETTINGS,
         ...payload,
         seed: track.recipe?.telemetry?.seed ?? track.working_draft?.seed
       };
@@ -1022,7 +999,6 @@ function syncActiveTrackDraftDebounced() {
     }
 
     track.working_draft = {
-      ...DEFAULT_ENGINE_SETTINGS,
       ...track.working_draft,
       ...payload
     };
@@ -1085,7 +1061,6 @@ async function handleAddNewTrackCardClick() {
     duration_seconds: 240.0,
     recipe: null,
     working_draft: {
-      ...DEFAULT_ENGINE_SETTINGS,
       ...JSON.parse(JSON.stringify(blueprint)),
       title: enteredTitle.slice(0, 80),
       lyrics: compiledLyrics,
@@ -1247,9 +1222,6 @@ async function handleGenerateSubmit(e) {
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
 
-  const draft = currentTrack?.working_draft || {};
-  const activeEngineDefaults = Object.assign({}, DEFAULT_ENGINE_SETTINGS, window.RouterDiscovery?.engineDefaults || {});
-
   let workingTrackTarget = null;
   if (isFork) {
     if (currentTrack && currentTrack.recipe) {
@@ -1269,9 +1241,7 @@ async function handleGenerateSubmit(e) {
         arrangement: currentTrack.recipe.arrangement || "",
         lyrics: currentTrack.recipe.lyrics || "",
         blocks: JSON.parse(JSON.stringify(parentBlocks)),
-        seed: originSeed,
-        top_k_layers: currentTrack.recipe.telemetry?.top_k_vector_used || [47, 47, 47, 45, 39, 37, 38, 39],
-        ...DEFAULT_ENGINE_SETTINGS
+        seed: originSeed
       };
       const storage = window.clientStorage;
       if (storage) await storage.saveTrack(currentTrack);
@@ -1292,7 +1262,6 @@ async function handleGenerateSubmit(e) {
       duration_seconds: formPayload.audio_duration,
       recipe: null,
       working_draft: {
-        ...activeEngineDefaults,
         ...JSON.parse(JSON.stringify(formPayload)),
         seed: seed
       }
@@ -1306,9 +1275,12 @@ async function handleGenerateSubmit(e) {
     if (AppState.user) {
       localStorage.setItem(`tb_active_track_${AppState.user.slug}`, stagedId);
     }
-    if (window.playerEngine) {
-      window.playerEngine.loadTrack(workingTrackTarget, false);
-    }
+
+    const jewelImg = document.getElementById("active-jewel-image");
+    const titleEl = document.getElementById("player-track-title");
+    if (jewelImg && resolver) jewelImg.src = resolver.getCoverUrl(assignedCover);
+    if (titleEl) titleEl.textContent = formPayload.title;
+
     renderDiscography();
     const carousel = document.getElementById("discography-carousel");
     if (carousel) {
@@ -1321,7 +1293,6 @@ async function handleGenerateSubmit(e) {
       : assignedCover;
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
-      ...activeEngineDefaults,
       ...JSON.parse(JSON.stringify(formPayload)),
       seed: seed
     };
@@ -1329,9 +1300,11 @@ async function handleGenerateSubmit(e) {
     const storage = window.clientStorage;
     if (storage) await storage.saveTrack(currentTrack);
 
-    if (window.playerEngine) {
-      window.playerEngine.loadTrack(currentTrack, false);
-    }
+    const jewelImg = document.getElementById("active-jewel-image");
+    const titleEl = document.getElementById("player-track-title");
+    if (jewelImg && resolver) jewelImg.src = resolver.getCoverUrl(currentTrack.assigned_jewelcase);
+    if (titleEl) titleEl.textContent = formPayload.title;
+
     renderDiscography();
   }
 
@@ -1358,22 +1331,6 @@ async function handleGenerateSubmit(e) {
       seed: seed,
       assigned_jewelcase: isFork ? assignedCover : (currentTrack?.assigned_jewelcase || assignedCover),
       blocks: formPayload.blocks,
-      temperature: draft.temperature ?? activeEngineDefaults.temperature,
-      top_p: draft.top_p ?? activeEngineDefaults.top_p,
-      top_k: draft.top_k ?? (draft.top_k_layers ? draft.top_k_layers[0] : activeEngineDefaults.top_k),
-      top_k_layers: draft.top_k_layers ?? activeEngineDefaults.top_k_layers,
-      ar_guidance_scale: draft.ar_guidance_scale ?? activeEngineDefaults.ar_guidance_scale,
-      scheduler_type: draft.scheduler_type ?? activeEngineDefaults.scheduler_type,
-      num_inference_steps: draft.num_inference_steps ?? activeEngineDefaults.num_inference_steps,
-      guidance_scale: draft.guidance_scale ?? activeEngineDefaults.guidance_scale,
-      noise_topology: draft.noise_topology ?? activeEngineDefaults.noise_topology,
-      blue_noise_alpha: draft.blue_noise_alpha ?? activeEngineDefaults.blue_noise_alpha,
-      enable_pm_diffusion: draft.enable_pm_diffusion ?? activeEngineDefaults.enable_pm_diffusion,
-      pm_iterations: draft.pm_iterations ?? activeEngineDefaults.pm_iterations,
-      pm_conductance: draft.pm_conductance ?? activeEngineDefaults.pm_conductance,
-      pm_lambda: draft.pm_lambda ?? activeEngineDefaults.pm_lambda,
-      apply_declick: draft.apply_declick ?? activeEngineDefaults.apply_declick,
-      cpu_offload: draft.cpu_offload ?? activeEngineDefaults.cpu_offload,
       pow: {
         challenge: challengeData.challenge,
         signature: challengeData.signature,
@@ -1434,14 +1391,14 @@ async function handleGenerateSubmit(e) {
 
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
-      compositionPayload: { ...formPayload, seed, ...payload },
+      compositionPayload: { ...formPayload, seed },
       isFork,
       originTrackId,
       stagedId: isFork ? stagedId : null,
       assignedCover: dispatchCover
     }));
 
-    startTrackingJob(jobData.job_id, { ...formPayload, seed, ...payload }, isFork, originTrackId, dispatchCover, stagedId);
+    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, dispatchCover, stagedId);
   } catch (err) {
     const storage = window.clientStorage;
     if (isFork) {
@@ -1629,8 +1586,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             true_peak_dbtp: -0.30,
             integrated_loudness_db: -14.15,
             dynamic_punch_db: 13.85,
-            master_format: "48.0 kHz Master Audio Bitstream",
-            top_k_vector_used: compositionPayload.top_k_layers || [47, 47, 47, 45, 39, 37, 38, 39]
+            master_format: "48.0 kHz Master Audio Bitstream"
           }
         },
         working_draft: {
@@ -1644,20 +1600,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
           blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
-          seed: seed,
-          top_k_layers: compositionPayload.top_k_layers || [47, 47, 47, 45, 39, 37, 38, 39],
-          temperature: compositionPayload.temperature ?? 0.9192,
-          ar_guidance_scale: compositionPayload.ar_guidance_scale ?? 1.5200,
-          top_p: compositionPayload.top_p ?? 0.9600,
-          scheduler_type: compositionPayload.scheduler_type ?? "heun",
-          num_inference_steps: compositionPayload.num_inference_steps ?? 42,
-          guidance_scale: compositionPayload.guidance_scale ?? 1.7800,
-          noise_topology: compositionPayload.noise_topology ?? "blue_noise",
-          blue_noise_alpha: compositionPayload.blue_noise_alpha ?? 0.7500,
-          enable_pm_diffusion: compositionPayload.enable_pm_diffusion ?? true,
-          pm_iterations: compositionPayload.pm_iterations ?? 5,
-          pm_conductance: compositionPayload.pm_conductance ?? 0.1500,
-          pm_lambda: compositionPayload.pm_lambda ?? 0.2000
+          seed: seed
         }
       };
 
@@ -1695,12 +1638,17 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       renderDiscography();
 
       const isCurrentlyPlaying = window.playerEngine && window.playerEngine.isPlaying;
-      const currentlyPlayingTrackId = window.playerEngine?.activeTrack?.track_id;
+      const isUserViewingThisTrack = (AppState.activeTrackId === targetTrackId || AppState.activeTrackId === stagedId);
 
-      if (!isCurrentlyPlaying) {
-        selectTrackById(targetTrackId, true);
-      } else if (currentlyPlayingTrackId === targetTrackId || currentlyPlayingTrackId === stagedId) {
-        selectTrackById(targetTrackId, false);
+      if (isUserViewingThisTrack) {
+        AppState.activeTrackId = targetTrackId;
+        if (AppState.user) {
+          localStorage.setItem(`tb_active_track_${AppState.user.slug}`, targetTrackId);
+        }
+        AppState.activeTrackCleanRecipe = computeCanonicalRecipe(completedTrack.title, completedTrack.recipe);
+        if (!isCurrentlyPlaying && window.playerEngine) {
+          window.playerEngine.loadTrack(completedTrack, false);
+        }
       }
 
       const coverResolver = window.ClientJewelResolver;
@@ -1710,7 +1658,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         title: completedTrack.title,
         subtitle: `${completedTrack.recipe?.genre || "Studio Master"} • 48.0 kHz FL32`,
         coverUrl: toastCoverUrl,
-        duration: 7000,
+        duration: 8000,
         onPlay: () => {
           selectTrackById(targetTrackId, true);
           if (window.playerEngine) {
@@ -2015,7 +1963,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 window.AppState = AppState;
 window.AppModal = AppModal;
 window.AppToast = AppToast;
-window.DEFAULT_ENGINE_SETTINGS = DEFAULT_ENGINE_SETTINGS;
+window.DEFAULT_ENGINE_SETTINGS = window.RouterDiscovery?.engineDefaults || {};
 window.sortTracks = sortTracks;
 window.computeCanonicalRecipe = computeCanonicalRecipe;
 window.ensureShowcaseTrack = ensureShowcaseTrack;
