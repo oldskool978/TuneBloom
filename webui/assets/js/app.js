@@ -1202,10 +1202,20 @@ async function handleGenerateSubmit(e) {
   const isFork = Boolean(isCompleted);
   const originTrackId = currentTrack ? currentTrack.track_id : null;
 
+  // SEED RESOLUTION:
+  // Forks explicitly take on their parent's seed.
+  // Never-been-generated songs use their draft seed or a new PRNG seed.
   const originSeed = currentTrack?.recipe?.telemetry?.seed ?? currentTrack?.working_draft?.seed;
-  const seed = (isFork && originSeed !== undefined && originSeed !== null)
-    ? Number(originSeed)
-    : (Math.floor(Math.random() * 90000000) + 100000);
+  let seed;
+  if (isFork) {
+    seed = (originSeed !== undefined && originSeed !== null)
+      ? Number(originSeed)
+      : (Math.floor(Math.random() * 90000000) + 100000);
+  } else {
+    seed = (currentTrack?.working_draft?.seed && !isNaN(Number(currentTrack.working_draft.seed)))
+      ? Number(currentTrack.working_draft.seed)
+      : (Math.floor(Math.random() * 90000000) + 100000);
+  }
 
   const btn = document.getElementById("gen-submit-btn");
   const hud = document.getElementById("queue-status-hud");
@@ -1217,10 +1227,23 @@ async function handleGenerateSubmit(e) {
   }
   if (hud) hud.classList.remove("hidden");
 
+  // JEWELCASE RESOLUTION:
+  // Forks generate a new, distinct jewelcase excluding all used covers.
+  // Never-been-generated songs retain their existing assigned jewelcase.
   const resolver = window.ClientJewelResolver;
   const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase).filter(Boolean);
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-  const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
+
+  let targetCover = "default.jpg";
+  if (isFork) {
+    targetCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
+  } else {
+    if (currentTrack?.assigned_jewelcase && currentTrack.assigned_jewelcase !== "default.jpg") {
+      targetCover = currentTrack.assigned_jewelcase;
+    } else {
+      targetCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, usedCovers) : "default.jpg";
+    }
+  }
 
   let workingTrackTarget = null;
   if (isFork) {
@@ -1258,7 +1281,7 @@ async function handleGenerateSubmit(e) {
       title: formPayload.title,
       artist: AppState.user.display_name,
       audio_url: null,
-      assigned_jewelcase: assignedCover,
+      assigned_jewelcase: targetCover,
       duration_seconds: formPayload.audio_duration,
       recipe: null,
       working_draft: {
@@ -1276,11 +1299,6 @@ async function handleGenerateSubmit(e) {
       localStorage.setItem(`tb_active_track_${AppState.user.slug}`, stagedId);
     }
 
-    const jewelImg = document.getElementById("active-jewel-image");
-    const titleEl = document.getElementById("player-track-title");
-    if (jewelImg && resolver) jewelImg.src = resolver.getCoverUrl(assignedCover);
-    if (titleEl) titleEl.textContent = formPayload.title;
-
     renderDiscography();
     const carousel = document.getElementById("discography-carousel");
     if (carousel) {
@@ -1288,9 +1306,7 @@ async function handleGenerateSubmit(e) {
     }
   } else if (currentTrack) {
     currentTrack.title = formPayload.title;
-    currentTrack.assigned_jewelcase = currentTrack.assigned_jewelcase && currentTrack.assigned_jewelcase !== "default.jpg"
-      ? currentTrack.assigned_jewelcase
-      : assignedCover;
+    currentTrack.assigned_jewelcase = targetCover;
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
       ...JSON.parse(JSON.stringify(formPayload)),
@@ -1299,11 +1315,6 @@ async function handleGenerateSubmit(e) {
     AppState.activeTrackId = currentTrack.track_id;
     const storage = window.clientStorage;
     if (storage) await storage.saveTrack(currentTrack);
-
-    const jewelImg = document.getElementById("active-jewel-image");
-    const titleEl = document.getElementById("player-track-title");
-    if (jewelImg && resolver) jewelImg.src = resolver.getCoverUrl(currentTrack.assigned_jewelcase);
-    if (titleEl) titleEl.textContent = formPayload.title;
 
     renderDiscography();
   }
@@ -1329,7 +1340,7 @@ async function handleGenerateSubmit(e) {
       lyrics: formPayload.lyrics,
       audio_duration: formPayload.audio_duration,
       seed: seed,
-      assigned_jewelcase: isFork ? assignedCover : (currentTrack?.assigned_jewelcase || assignedCover),
+      assigned_jewelcase: targetCover,
       blocks: formPayload.blocks,
       pow: {
         challenge: challengeData.challenge,
@@ -1387,18 +1398,16 @@ async function handleGenerateSubmit(e) {
     }
     renderDiscography();
 
-    const dispatchCover = isFork ? assignedCover : (currentTrack?.assigned_jewelcase || assignedCover);
-
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
       compositionPayload: { ...formPayload, seed },
       isFork,
       originTrackId,
       stagedId: isFork ? stagedId : null,
-      assignedCover: dispatchCover
+      assignedCover: targetCover
     }));
 
-    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, dispatchCover, stagedId);
+    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, targetCover, stagedId);
   } catch (err) {
     const storage = window.clientStorage;
     if (isFork) {
@@ -1411,7 +1420,7 @@ async function handleGenerateSubmit(e) {
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId && t.track_id !== workingTrackTarget?.track_id);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
-        selectTrackById(originTrackId, true);
+        selectTrackById(originTrackId, false);
       }
       renderDiscography();
     } else if (currentTrack) {
@@ -1484,7 +1493,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
-        selectTrackById(originTrackId, true);
+        selectTrackById(originTrackId, false);
       }
     } else {
       const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
@@ -1637,18 +1646,18 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       AppState.isDispatching = false;
       renderDiscography();
 
-      const isCurrentlyPlaying = window.playerEngine && window.playerEngine.isPlaying;
+      // NON-INTERRUPTIVE PLAYBACK:
+      // If user is editing/viewing this track, synchronize the form and pristine recipe hash.
+      // NEVER stop active player playback. Surface completion via interactive toast.
       const isUserViewingThisTrack = (AppState.activeTrackId === targetTrackId || AppState.activeTrackId === stagedId);
-
       if (isUserViewingThisTrack) {
         AppState.activeTrackId = targetTrackId;
         if (AppState.user) {
           localStorage.setItem(`tb_active_track_${AppState.user.slug}`, targetTrackId);
         }
         AppState.activeTrackCleanRecipe = computeCanonicalRecipe(completedTrack.title, completedTrack.recipe);
-        if (!isCurrentlyPlaying && window.playerEngine) {
-          window.playerEngine.loadTrack(completedTrack, false);
-        }
+        loadDraftIntoForm(completedTrack.working_draft, Boolean(completedTrack.is_default));
+        checkRecipeDirtyState();
       }
 
       const coverResolver = window.ClientJewelResolver;
@@ -1703,7 +1712,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
         AppState.activeTrackId = originTrackId;
         if (originTrackId) {
-          selectTrackById(originTrackId, true);
+          selectTrackById(originTrackId, false);
         }
       }
 
