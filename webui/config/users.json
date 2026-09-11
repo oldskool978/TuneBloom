@@ -1,6 +1,6 @@
 {
   "users": {
-    "oldskool978": {
+    "administrator": {
       "display_name": "Administrator",
       "daily_quota": 999,
       "assigned_theme": "cyber_neon",
@@ -11,121 +11,15 @@
         "debug_telemetry"
       ]
     },
-    "yungleak1231": {
-      "display_name": "Phanom",
-      "daily_quota": 2,
-      "assigned_theme": "sky_peace",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "abpoole92": {
-      "display_name": "Ashley",
-      "daily_quota": 6,
-      "assigned_theme": "dusk_youknow",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "bigty": {
-      "display_name": "Ty",
-      "daily_quota": 8,
-      "assigned_theme": "storm_lately",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-     },
-    "twanmc": {
-      "display_name": "Tweazy",
-      "daily_quota": 8,
-      "assigned_theme": "storm_lately",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "8ball": {
-      "display_name": "melendez",
-      "daily_quota": 8,
-      "assigned_theme": "sky_peace",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "ipatch": {
-      "display_name": "audi",
-      "daily_quota": 8,
+    "admin": {
+      "display_name": "Administrator",
+      "daily_quota": 999,
       "assigned_theme": "cyber_neon",
       "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "kingbmo": {
-      "display_name": "BMO",
-      "daily_quota": 2,
-      "assigned_theme": "dusk_youknow",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "swifto": {
-      "display_name": "swiftomatic",
-      "daily_quota": 2,
-      "assigned_theme": "storm_lately",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "chuck": {
-      "display_name": "thorn",
-      "daily_quota": 2,
-      "assigned_theme": "storm_lately",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "evo": {
-      "display_name": "evo",
-      "daily_quota": 2,
-      "assigned_theme": "storm_lately",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "blaspheme": {
-      "display_name": "NES",
-      "daily_quota": 8,
-      "assigned_theme": "dusk_youknow",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "leslacalle": {
-      "display_name": "Colita",
-      "daily_quota": 8,
-      "assigned_theme": "sky_peace",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
-      ]
-    },
-    "schoolgroup": {
-      "display_name": "aidemo",
-      "daily_quota": 8,
-      "assigned_theme": "sky_peace",
-      "custom_permissions": [
-        "creator",
-        "standard_queue"
+        "admin",
+        "unlimited_quota",
+        "bypass_queue",
+        "debug_telemetry"
       ]
     }
   }
