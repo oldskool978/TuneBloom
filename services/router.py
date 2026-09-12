@@ -25,7 +25,6 @@ import torch
 import numpy as np
 import soundfile as sf
 import uvicorn
-
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, Response, JSONResponse, StreamingResponse
@@ -174,6 +173,7 @@ def resolve_site_root() -> Path:
     for c in candidates:
         if (c / "index.html").exists():
             return c.resolve()
+
     return (BACKEND_ROOT / "webui").resolve()
 
 
@@ -226,6 +226,7 @@ def get_user_registry_candidates() -> List[Path]:
     custom_dir = os.environ.get("TUNEBLOOM_CONFIG_DIR")
     if custom_dir and (Path(custom_dir) / "users.json").exists():
         return [(Path(custom_dir) / "users.json").resolve()]
+
     resolved_site = resolve_site_root()
     return [
         resolved_site / "config" / "users.json",
@@ -628,6 +629,7 @@ class EnginePipeline:
                     audio_tensor = host_tensor.to(self.device)
                 del host_tensor
                 del audio_48k
+
                 limited_tensor = limiter.process_full_prepass(audio_tensor)
                 final_audio_np = limited_tensor.detach().cpu().numpy().T
 
@@ -671,6 +673,7 @@ class EnginePipeline:
                 "stage2_top_octave_sfm": round(getattr(furgie_telem, "top_octave_sfm", 0.0), 4) if furgie_telem else None,
                 "stage2_spectral_tilt_db_oct": round(getattr(furgie_telem, "spectral_tilt_slope", 0.0), 3) if furgie_telem else None,
             }
+
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
                 "stage2_profile": "Spatial Air & Harmonic Balancing",
@@ -841,6 +844,7 @@ class ComputeQueue:
         job = self.jobs.get(job_id)
         if not job:
             return None
+
         ahead_count = 0
         if job.status == "QUEUED":
             queue_items = list(self.queue._queue)
@@ -981,6 +985,7 @@ class ComputeQueue:
                     "audio_url": f"api/v1/audio/stream/{job.user_slug}/{job.job_id}_master.opus",
                     "duration_seconds": realized_duration,
                     "assigned_jewelcase": assigned_cover,
+                    "status": "COMPLETED",
                     "recipe": recipe,
                     "working_draft": working_draft,
                     "telemetry": telemetry,
@@ -1087,6 +1092,9 @@ async def login(payload: AuthPayload):
         try:
             with open(history_file, "r", encoding="utf-8-sig") as f:
                 tracks = json.load(f).get("tracks", [])
+                for trk in tracks:
+                    if trk.get("audio_url") or trk.get("recipe"):
+                        trk.setdefault("status", "COMPLETED")
         except Exception:
             pass
 
@@ -1097,6 +1105,7 @@ async def login(payload: AuthPayload):
         if trk.get("created_at", "").startswith(today_utc)
         and not trk.get("is_default", False)
     )
+
     daily_quota = int(user_meta.get("daily_quota", 2))
     tokens_remaining = max(0, daily_quota - tokens_used_today)
 
@@ -1238,19 +1247,15 @@ async def stream_job_status(
         while True:
             if await request.is_disconnected():
                 break
-
             current_status = compute_queue.get_status(job_id)
             if not current_status:
                 break
-
             state_str = json.dumps(current_status)
             if state_str != last_state_str:
                 last_state_str = state_str
                 yield f"data: {state_str}\n\n"
-
             if current_status.get("status") in ("COMPLETED", "FAILED"):
                 break
-
             try:
                 await asyncio.wait_for(event.wait(), timeout=1.0)
                 event.clear()
@@ -1273,7 +1278,6 @@ async def get_audio_stream_direct(job_id: str):
     job = compute_queue.jobs.get(job_id)
     if not job or job.status != "COMPLETED" or not job.output_file or not job.output_file.exists():
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master audio stream not ready.")
-
     return FileResponse(
         str(job.output_file),
         media_type="audio/ogg",
@@ -1290,19 +1294,16 @@ async def get_audio_stream_user(user_slug: str, filename: str):
     safe_slug = slugify(user_slug)
     safe_name = Path(filename).name
     target_file = STORAGE_ROOT / safe_slug / "tracks" / safe_name
-
     headers = {
         "Cross-Origin-Resource-Policy": "cross-origin",
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
     }
-
     if not target_file.exists() or not target_file.is_file():
         default_file = resolve_site_root() / "public" / "default.opus"
         if default_file.exists():
             return FileResponse(str(default_file), media_type="audio/ogg", headers=headers)
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
-
     return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
 
 
@@ -1414,6 +1415,7 @@ def launch_standalone(host: str, port: int):
     server_thread = threading.Thread(target=run_server, args=(host, port), daemon=True)
     server_thread.start()
     time.sleep(1.0)
+
     window = webview.create_window(
         title="TuneBloom - Studio Master Audio Creation",
         url=f"http://{host}:{port}/",
