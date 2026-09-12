@@ -263,9 +263,9 @@ const AppToast = {
     };
 
     if (playBtn && onPlay) {
-      playBtn.onclick = (e) => {
+      playBtn.onclick = async (e) => {
         e.stopPropagation();
-        onPlay();
+        await onPlay();
         dismiss();
       };
     }
@@ -277,8 +277,8 @@ const AppToast = {
       };
     }
 
-    toast.onclick = () => {
-      if (onPlay) onPlay();
+    toast.onclick = async () => {
+      if (onPlay) await onPlay();
       dismiss();
     };
 
@@ -699,9 +699,9 @@ async function handleAuthSubmit(event) {
     const savedTrackId = localStorage.getItem(`tb_active_track_${slug}`);
     const trackExists = AppState.tracks.some((t) => t.track_id === savedTrackId);
     if (savedTrackId && trackExists) {
-      selectTrackById(savedTrackId);
+      await selectTrackById(savedTrackId);
     } else if (AppState.tracks.length > 0) {
-      selectTrackById(AppState.tracks[0].track_id);
+      await selectTrackById(AppState.tracks[0].track_id);
     }
 
     const pendingJobJson = localStorage.getItem(`tb_active_job_${slug}`);
@@ -870,7 +870,7 @@ function renderDiscography() {
   container.appendChild(addCard);
 }
 
-function selectTrackById(trackId, autoMountPlayer = true) {
+async function selectTrackById(trackId, autoMountPlayer = true) {
   if (syncTimeout) {
     clearTimeout(syncTimeout);
     syncTimeout = null;
@@ -884,12 +884,12 @@ function selectTrackById(trackId, autoMountPlayer = true) {
     localStorage.setItem(`tb_active_track_${AppState.user.slug}`, trackId);
   }
 
-  if (autoMountPlayer && window.playerEngine) {
-    window.playerEngine.loadTrack(track);
-  }
-
   const isDefault = Boolean(track.is_default);
   const isCompleted = isTrackCompleted(track);
+
+  if (autoMountPlayer && window.playerEngine) {
+    await window.playerEngine.loadTrack(track);
+  }
 
   if (isCompleted && track.recipe) {
     const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
@@ -1089,7 +1089,7 @@ async function handleAddNewTrackCardClick() {
 
   AppState.tracks.push(newDraftTrack);
   renderDiscography();
-  selectTrackById(trackId);
+  await selectTrackById(trackId);
 
   const carousel = document.getElementById("discography-carousel");
   if (carousel) {
@@ -1136,7 +1136,7 @@ async function handleTrackDelete(trackId, e) {
   if (AppState.activeTrackId === trackId) {
     const fallbackTrack = AppState.tracks[0];
     if (fallbackTrack) {
-      selectTrackById(fallbackTrack.track_id);
+      await selectTrackById(fallbackTrack.track_id);
     }
   } else {
     renderDiscography();
@@ -1251,7 +1251,7 @@ async function handleGenerateSubmit(e) {
     targetCover = resolver ? await resolver.resolve(AppState.user.slug, stagedId, seed, Array.from(usedSet)) : "default.jpg";
     if (targetCover === parentCover && resolver) {
       const manifest = await resolver.getManifest();
-      const alts = manifest.filter((c) => c !== parentCover && !ClientJewelResolver.RESERVED_COVERS.has(c));
+      const alts = manifest.filter((c) => c !== parentCover && !window.ClientJewelResolver.RESERVED_COVERS.has(c));
       if (alts.length > 0) {
         targetCover = alts[Math.floor(Math.random() * alts.length)];
       }
@@ -1439,7 +1439,7 @@ async function handleGenerateSubmit(e) {
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== stagedId && t.track_id !== workingTrackTarget?.track_id);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
-        selectTrackById(originTrackId, false);
+        await selectTrackById(originTrackId, false);
       }
       renderDiscography();
     } else if (currentTrack) {
@@ -1512,7 +1512,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
       AppState.activeTrackId = originTrackId;
       if (originTrackId) {
-        selectTrackById(originTrackId, false);
+        await selectTrackById(originTrackId, false);
       }
     } else {
       const active = AppState.tracks.find((t) => t.track_id === jobId || t.track_id === originTrackId);
@@ -1667,13 +1667,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
       const isUserViewingThisTrack = (AppState.activeTrackId === targetTrackId || AppState.activeTrackId === stagedId);
       if (isUserViewingThisTrack) {
-        AppState.activeTrackId = targetTrackId;
-        if (AppState.user) {
-          localStorage.setItem(`tb_active_track_${AppState.user.slug}`, targetTrackId);
-        }
-        AppState.activeTrackCleanRecipe = computeCanonicalRecipe(completedTrack.title, completedTrack.recipe);
-        loadDraftIntoForm(completedTrack.working_draft, Boolean(completedTrack.is_default));
-        checkRecipeDirtyState();
+        await selectTrackById(targetTrackId, true);
       }
 
       const coverResolver = window.ClientJewelResolver;
@@ -1684,8 +1678,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         subtitle: `${completedTrack.recipe?.genre || "Studio Master"} • 48.0 kHz FL32`,
         coverUrl: toastCoverUrl,
         duration: 8000,
-        onPlay: () => {
-          selectTrackById(targetTrackId, true);
+        onPlay: async () => {
+          await selectTrackById(targetTrackId, true);
           if (window.playerEngine) {
             window.playerEngine.play();
           }
@@ -1728,7 +1722,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         AppState.tracks = AppState.tracks.filter((t) => t.track_id !== jobId && t.track_id !== stagedId);
         AppState.activeTrackId = originTrackId;
         if (originTrackId) {
-          selectTrackById(originTrackId, false);
+          await selectTrackById(originTrackId, false);
         }
       }
 
@@ -1875,9 +1869,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         const trackExists = AppState.tracks.some((t) => t.track_id === effectiveTrackId);
 
         if (effectiveTrackId && trackExists) {
-          selectTrackById(effectiveTrackId);
+          await selectTrackById(effectiveTrackId);
         } else if (AppState.tracks.length > 0) {
-          selectTrackById(AppState.tracks[0].track_id);
+          await selectTrackById(AppState.tracks[0].track_id);
         }
 
         if (window.RouterDiscovery && window.RouterDiscovery.isOnline) {

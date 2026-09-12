@@ -920,14 +920,6 @@ class ComputeQueue:
                     progress_hook,
                 )
 
-                job.output_file = output_file
-                job.telemetry = telemetry
-                job.recipe = recipe
-                job.working_draft = working_draft
-                job.progress_pct = 100
-                job.stage_description = "Studio Master Complete"
-                job.status = "COMPLETED"
-
                 user_dir = STORAGE_ROOT / job.user_slug
                 user_tracks_dir = user_dir / "tracks"
                 user_tracks_dir.mkdir(parents=True, exist_ok=True)
@@ -994,6 +986,14 @@ class ComputeQueue:
                 history_data.setdefault("tracks", []).insert(0, track_entry)
                 with open(history_file, "w", encoding="utf-8") as f:
                     json.dump(history_data, f, indent=2)
+
+                job.output_file = output_file
+                job.telemetry = telemetry
+                job.recipe = recipe
+                job.working_draft = working_draft
+                job.progress_pct = 100
+                job.stage_description = "Studio Master Complete"
+                job.status = "COMPLETED"
 
             except Exception as e:
                 job.status = "FAILED"
@@ -1299,12 +1299,19 @@ async def get_audio_stream_user(user_slug: str, filename: str):
         "Accept-Ranges": "bytes",
         "Cache-Control": "no-cache",
     }
-    if not target_file.exists() or not target_file.is_file():
-        default_file = resolve_site_root() / "public" / "default.opus"
-        if default_file.exists():
-            return FileResponse(str(default_file), media_type="audio/ogg", headers=headers)
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
-    return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
+    if target_file.exists() and target_file.is_file():
+        return FileResponse(str(target_file), media_type="audio/ogg", headers=headers)
+
+    clean_stem = safe_name.replace("_master.opus", "").replace(".opus", "")
+    artifact_file = ARTIFACTS_DIR / f"{clean_stem}.opus"
+    if artifact_file.exists() and artifact_file.is_file():
+        return FileResponse(str(artifact_file), media_type="audio/ogg", headers=headers)
+
+    default_file = resolve_site_root() / "public" / "default.opus"
+    if default_file.exists() and default_file.is_file():
+        return FileResponse(str(default_file), media_type="audio/ogg", headers=headers)
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Master stream artifact unavailable.")
 
 
 @api_router.delete("/tracks/{track_id}")
