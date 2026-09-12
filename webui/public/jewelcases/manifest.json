@@ -1,7 +1,7 @@
 {
   "version": 1,
   "default": "default.jpg",
-  "total": 19,
+  "total": 20,
   "covers": [
     "Dark.jpg",
     "basic.jpg",
@@ -12,6 +12,7 @@
     "flake.jpg",
     "harp.jpg",
     "heist.jpg",
+    "loudly.jpg",
     "maniacs.jpg",
     "planet.jpg",
     "prime.jpg",
