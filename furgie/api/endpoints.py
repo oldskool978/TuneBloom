@@ -19,9 +19,17 @@ router = APIRouter()
 
 @router.get("/models/status", response_model=StatusResponse)
 async def get_status(request: Request) -> StatusResponse:
-    engine = request.app.state.engine
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None:
+        return StatusResponse(
+            status="uninitialized",
+            cuda_available=torch.cuda.is_available(),
+            device="unknown",
+            active_model="none",
+        )
+    is_ready = getattr(engine.wrapper, "_is_loaded", False)
     return StatusResponse(
-        status="ready" if engine.wrapper._is_loaded else "uninitialized",
+        status="ready" if is_ready else "uninitialized",
         cuda_available=torch.cuda.is_available(),
         device=str(engine.device),
         active_model=engine.current_model_repo,
@@ -33,10 +41,20 @@ async def process_file(
     file: UploadFile = File(...),
     config: Optional[str] = Form(None),
 ) -> Response:
-    engine = request.app.state.engine
-    cfg = FurgieInferenceConfig(**json.loads(config)) if config else FurgieInferenceConfig()
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None or not getattr(engine.wrapper, "_is_loaded", False):
+        raise HTTPException(status_code=503, detail="Neural inference engine is uninitialized.")
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename or "input.wav").suffix) as in_tmp, \
+    if config:
+        try:
+            cfg = FurgieInferenceConfig(**json.loads(config))
+        except Exception as e:
+            raise HTTPException(status_code=422, detail=f"Malformed inference configuration: {e}")
+    else:
+        cfg = FurgieInferenceConfig()
+
+    suffix = Path(file.filename or "input.wav").suffix or ".wav"
+    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as in_tmp, \
          tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as out_tmp:
         in_bytes = await file.read()
         in_tmp.write(in_bytes)
@@ -50,6 +68,7 @@ async def process_file(
             ode_steps=cfg.ode_steps,
             solver=cfg.solver,
             guidance_scale=cfg.guidance_scale,
+            seed=cfg.seed,
             input_sr_anchor=cfg.input_sr_anchor,
             headroom_mode=cfg.headroom_mode,
             target_peak_dbfs=cfg.target_peak_dbfs,
@@ -73,12 +92,14 @@ async def process_file(
 async def process_array(
     request: Request, payload: ArrayProcessRequest
 ) -> ArrayProcessResponse:
-    engine = request.app.state.engine
-    cfg = payload.config or FurgieInferenceConfig()
+    engine = getattr(request.app.state, "engine", None)
+    if engine is None or not getattr(engine.wrapper, "_is_loaded", False):
+        raise HTTPException(status_code=503, detail="Neural inference engine is uninitialized.")
 
+    cfg = payload.config or FurgieInferenceConfig()
     audio_np = np.array(payload.audio, dtype=np.float32)
     if audio_np.size == 0:
-        raise HTTPException(status_code=400, detail="Input audio array is empty.")
+        raise HTTPException(status_code=400, detail="Input audio buffer is empty.")
 
     with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as in_tmp, \
          tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as out_tmp:
@@ -94,6 +115,7 @@ async def process_array(
             ode_steps=cfg.ode_steps,
             solver=cfg.solver,
             guidance_scale=cfg.guidance_scale,
+            seed=cfg.seed,
             input_sr_anchor=cfg.input_sr_anchor,
             headroom_mode=cfg.headroom_mode,
             target_peak_dbfs=cfg.target_peak_dbfs,
@@ -109,6 +131,10 @@ async def process_array(
             peak_dbfs=res["peak_dbfs"],
             true_peak_dbtp=res["true_peak_dbtp"],
             master_gain_scalar=res["master_gain_scalar"],
+            crossover_magnitude_step_db=res.get("crossover_magnitude_step_db"),
+            crossover_phase_delta_rad=res.get("crossover_phase_delta_rad"),
+            top_octave_sfm=res.get("top_octave_sfm"),
+            spectral_tilt_slope=res.get("spectral_tilt_slope"),
         )
     finally:
         in_tmp_path.unlink(missing_ok=True)

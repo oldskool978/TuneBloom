@@ -6,21 +6,25 @@ from furgie_core.schema import (
     SUPPORTED_HEADROOM_MODES,
 )
 
-
 class FurgieInferenceConfig(BaseModel):
     ode_steps: int = Field(
         default=16,
         ge=1,
-        description="2nd-Order Runge-Kutta / Heun ODE integration steps",
+        description="Runge-Kutta / Adams-Bashforth ODE integration steps",
     )
     solver: str = Field(
-        default="heun",
+        default="res_multistep_cfg_pp",
         description=f"Flow ODE solver trajectory: {SUPPORTED_SOLVERS}",
     )
     guidance_scale: float = Field(
         default=0.0,
         ge=0.0,
         description="Classifier-Free Guidance (CFG) scale",
+    )
+    seed: int = Field(
+        default=42,
+        ge=0,
+        description="Hardware-accelerated Philox PRNG seed for deterministic prior sampling",
     )
     input_sr_anchor: int = Field(
         default=24000,
@@ -39,7 +43,6 @@ class FurgieInferenceConfig(BaseModel):
         description=f"Target delivery master format: {SUPPORTED_TARGET_RATES}",
     )
 
-
 class ArrayProcessRequest(BaseModel):
     audio: Union[List[List[float]], List[float]] = Field(
         ...,
@@ -53,7 +56,6 @@ class ArrayProcessRequest(BaseModel):
         default_factory=FurgieInferenceConfig,
         description="Inference solver parameters",
     )
-
 
 class ArrayProcessResponse(BaseModel):
     audio: List[List[float]] = Field(
@@ -73,7 +75,6 @@ class ArrayProcessResponse(BaseModel):
     crossover_phase_delta_rad: Optional[float] = None
     top_octave_sfm: Optional[float] = None
     spectral_tilt_slope: Optional[float] = None
-
 
 class StatusResponse(BaseModel):
     status: str

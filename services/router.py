@@ -550,6 +550,7 @@ class EnginePipeline:
         self,
         raw_path: Path,
         out_path: Path,
+        seed: int,
         progress_cb: Callable[[int, str], None],
     ) -> Any:
         progress_cb(45, "Refining Acoustic Space & High-Frequency Detail...")
@@ -568,8 +569,9 @@ class EnginePipeline:
             headroom_mode="bypass",
             target_peak_dbfs=0.0,
             ode_steps=16,
-            solver="heun",
+            solver="res_multistep_cfg_pp",
             guidance_scale=0.0,
+            seed=seed,
             device=self.device_str,
         )
         furgie_eng = FurgieEngine(device=self.device_str)
@@ -661,8 +663,13 @@ class EnginePipeline:
                 "stage1_pm_lambda": gen_req.pm_lambda,
                 "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
                 "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
+                "stage2_solver": getattr(furgie_telem, "solver_used", "res_multistep_cfg_pp") if furgie_telem else None,
                 "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 4) if furgie_telem else None,
                 "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 3) if furgie_telem else None,
+                "stage2_crossover_disc_db": round(getattr(furgie_telem, "crossover_magnitude_step_db", 0.0), 3) if furgie_telem else None,
+                "stage2_boundary_phase_rad": round(getattr(furgie_telem, "crossover_phase_delta_rad", 0.0), 4) if furgie_telem else None,
+                "stage2_top_octave_sfm": round(getattr(furgie_telem, "top_octave_sfm", 0.0), 4) if furgie_telem else None,
+                "stage2_spectral_tilt_db_oct": round(getattr(furgie_telem, "spectral_tilt_slope", 0.0), 3) if furgie_telem else None,
             }
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
@@ -724,6 +731,7 @@ class EnginePipeline:
                 furgie_telem = self.run_stage2_enhancement(
                     raw_path=raw_stage1_path,
                     out_path=furgie_stage2_path,
+                    seed=seed,
                     progress_cb=progress_cb,
                 )
                 telemetry, recipe_meta = self.run_stage3_limiting(

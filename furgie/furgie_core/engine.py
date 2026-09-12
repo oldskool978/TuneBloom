@@ -36,7 +36,6 @@ from furgie_core.dsp_cuda import measure_true_peak_linear
 
 DEFAULT_MODEL_REPO = "OLDSKOOL978/universr-audio"
 
-
 def compute_spectral_diagnostics(
     waveform: torch.Tensor,
     anchor_hz: int = 24000,
@@ -54,6 +53,7 @@ def compute_spectral_diagnostics(
         center=True,
         return_complex=True,
     ).squeeze(0)
+
     mag = torch.abs(spec)
     mean_mag = torch.mean(mag, dim=-1)
     phase = torch.angle(spec)
@@ -90,7 +90,6 @@ def compute_spectral_diagnostics(
 
     return delta_mag, delta_phi, sfm, tilt_slope
 
-
 class FurgieEngine:
     def __init__(
         self,
@@ -102,19 +101,24 @@ class FurgieEngine:
         self.project_root = PROJECT_ROOT
         self.device = torch.device(device)
         self.current_model_repo = model_repo_id
+
         if config_path is None:
             self.config_path = self.project_root / "furgie_core" / "config" / "inference" / "Furgie_Convergent_48k.yaml"
         else:
             self.config_path = Path(config_path)
+
         if not self.config_path.exists():
             self.config_path.parent.mkdir(parents=True, exist_ok=True)
             self._write_default_config(self.config_path)
+
         with open(self.config_path, "r", encoding="utf-8") as f:
             self.config = yaml.safe_load(f)
+
         self.custom_weights_dir = Path(weights_dir) if weights_dir else None
         self.resolved_weights_dir = self._resolve_weight_directory(self.current_model_repo)
         self.wrapper = UniverSRWrapper(config_path=self.config_path, weight_dir=self.resolved_weights_dir)
         self.wrapper.load_weights(device=self.device, model_repo_id=self.current_model_repo)
+
         audio_cfg = self.config.get("audio", {})
         self.target_sr = audio_cfg.get("target_sample_rate", 48000)
         self._resamplers: Dict[Tuple[int, int], torchaudio.transforms.Resample] = {}
@@ -146,9 +150,13 @@ class FurgieEngine:
             "universr_flow_core": {
                 "enabled": True,
                 "repo_id": "OLDSKOOL978/universr-audio",
-                "solver": "heun",
+                "solver": "res_multistep_cfg_pp",
                 "ode_steps": 16,
                 "guidance_scale": 0.0,
+                "scheduler_type": "uniform",
+                "time_warp_gamma": 1.0,
+                "seed": 42,
+                "crossover_blend_bins": 0,
                 "input_sr_anchor": 24000,
             },
         }
@@ -213,11 +221,13 @@ class FurgieEngine:
         audio_path = Path(req.input_path)
         output_path = Path(req.output_path)
         output_path.parent.mkdir(parents=True, exist_ok=True)
+
         if self.device.type == "cuda":
             torch.cuda.reset_peak_memory_stats(self.device)
 
         waveform, orig_sr = self.load_audio(audio_path)
         waveform_48k = self.resample_if_needed(waveform, orig_sr, self.target_sr)
+
         in_peak_lin = float(torch.max(torch.abs(waveform_48k)).item())
         in_peak_dbfs = 20.0 * np.log10(max(in_peak_lin, 1e-9))
         in_tp_lin = measure_true_peak_linear(waveform_48k, sample_rate=self.target_sr)
@@ -229,6 +239,7 @@ class FurgieEngine:
             ode_steps=req.ode_steps,
             solver=req.solver,
             guidance_scale=req.guidance_scale,
+            seed=req.seed,
             tile_progress_callback=tile_progress_callback,
         )
 
@@ -251,6 +262,7 @@ class FurgieEngine:
 
         restored_48k_staged = restored_48k * gain_48k
         final_tp_48k = tp_48k * gain_48k
+
         master_48k_data = restored_48k_staged.cpu().numpy()
         if master_48k_data.ndim == 2 and master_48k_data.shape[0] < master_48k_data.shape[1]:
             master_48k_data = master_48k_data.T
@@ -275,6 +287,7 @@ class FurgieEngine:
                 gain_44k1 = float(min(1.0, target_linear / max(tp_44k1, 1e-9)))
             else:
                 gain_44k1 = 1.0
+
             waveform_44k1 = waveform_unscaled_44k1 * gain_44k1
             final_tp_44k1 = tp_44k1 * gain_44k1
             master_44k1_data = waveform_44k1.cpu().numpy()
@@ -318,6 +331,7 @@ class FurgieEngine:
         peak_vram_gb = 0.0
         if self.device.type == "cuda":
             peak_vram_gb = torch.cuda.max_memory_allocated(self.device) / (1024**3)
+
         total_samples = primary_data.shape[0]
         duration_sec = total_samples / float(delivered_sr)
         rtf = elapsed_sec / max(duration_sec, 1e-6)
@@ -357,6 +371,7 @@ class FurgieEngine:
             solver_used=req.solver,
             ode_steps=req.ode_steps,
             guidance_scale=req.guidance_scale,
+            seed=req.seed,
             input_sr_anchor=req.input_sr_anchor,
             target_rate=target_mode,
             headroom_mode=mode_headroom,
@@ -390,12 +405,13 @@ class FurgieEngine:
         audio_path: Union[str, Path],
         output_path: Union[str, Path],
         ode_steps: int = 16,
-        solver: str = "heun",
+        solver: str = "res_multistep_cfg_pp",
         guidance_scale: float = 0.0,
         input_sr_anchor: int = 24000,
         headroom_mode: str = "bypass",
         target_peak_dbfs: float = 0.0,
         target_rate: str = "48k",
+        seed: int = 42,
         tile_progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> Dict[str, Any]:
         req = FurgieRequest(
@@ -408,6 +424,7 @@ class FurgieEngine:
             solver=solver,
             guidance_scale=guidance_scale,
             input_sr_anchor=input_sr_anchor,
+            seed=seed,
             device=str(self.device),
             repo_id=self.current_model_repo,
         )
@@ -425,6 +442,7 @@ class FurgieEngine:
             "headroom_mode": telemetry.headroom_mode,
             "ode_steps": telemetry.ode_steps,
             "solver": telemetry.solver_used,
+            "seed": telemetry.seed,
             "input_sr_anchor": telemetry.input_sr_anchor,
             "peak_dbfs": telemetry.peak_dbfs,
             "true_peak_dbtp": telemetry.true_peak_dbtp,

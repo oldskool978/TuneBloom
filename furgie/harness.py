@@ -23,7 +23,6 @@ from rich.progress import (
     TaskProgressColumn,
     TimeRemainingColumn,
 )
-
 from furgie_core.schema import (
     FurgieRequest,
     FurgieTelemetry,
@@ -34,7 +33,6 @@ from furgie_core.schema import (
 from furgie_core.engine import FurgieEngine
 
 console = Console()
-
 
 def print_telemetry(resp: FurgieTelemetry) -> None:
     print("\n" + "=" * 84)
@@ -48,7 +46,7 @@ def print_telemetry(resp: FurgieTelemetry) -> None:
     print(f"Audio Duration:          {resp.duration_seconds:.2f}s ({resp.total_samples:,} samples)")
     print(f"Inference Latency:       {resp.generation_time_seconds:.2f}s (RTF: {resp.real_time_factor:.3f}x)")
     print(f"Peak VRAM Footprint:     {resp.peak_vram_gb:.2f} GB")
-    print(f"Flow ODE Integrator:     {resp.solver_used.upper()} ({resp.ode_steps} steps, CFG w={resp.guidance_scale:.2f})")
+    print(f"Flow ODE Integrator:     {resp.solver_used.upper()} ({resp.ode_steps} steps, CFG w={resp.guidance_scale:.2f}, Seed={resp.seed})")
     print(f"Harmonic Splicing:       {resp.input_sr_anchor // 1000} kHz Anchor (Neural Upper-Band: {resp.input_sr_anchor // 2000} - 24.0 kHz)")
     print(f"Target Delivery Mode:    {resp.target_rate.upper()}")
     print(f"Headroom Strategy:       {resp.headroom_mode.upper()}")
@@ -69,7 +67,6 @@ def print_telemetry(resp: FurgieTelemetry) -> None:
     print(f"Linear Gain Scalar:      {resp.master_gain_scalar:.6f} ({gain_db:.2f} dB)")
     print("=" * 84 + "\n")
 
-
 def list_workspace_files(workspace_dir: Path) -> List[Path]:
     audio_extensions = {".wav", ".flac", ".mp3", ".ogg", ".m4a", ".aiff", ".alac"}
     files = []
@@ -82,7 +79,6 @@ def list_workspace_files(workspace_dir: Path) -> List[Path]:
             if "output" not in parts_lower and not any(p.startswith(".") for p in item.parts):
                 files.append(item)
     return sorted(files, key=lambda x: str(x.relative_to(workspace_dir)))
-
 
 def display_menu(req: FurgieRequest) -> None:
     headroom_labels = {
@@ -106,15 +102,15 @@ def display_menu(req: FurgieRequest) -> None:
     print(f" [4]  Flow ODE Solver:           {req.solver.upper()}")
     print(f" [5]  Trajectory Steps / CFG:    Steps: {req.ode_steps} | Guidance Scale w: {req.guidance_scale:.2f}")
     print(f" [6]  Conditioning Anchor:       {req.input_sr_anchor // 1000} kHz Anchor")
+    print(f" [7]  Deterministic Seed:        {req.seed}")
     print(" --- [STAGE 2: ITU-R BS.1770 TRUE-PEAK LOSSLESS GAIN STAGING] ---")
-    print(f" [7]  Headroom Strategy:         {headroom_labels.get(req.headroom_mode, req.headroom_mode)}")
+    print(f" [8]  Headroom Strategy:         {headroom_labels.get(req.headroom_mode, req.headroom_mode)}")
     print(" --- [STAGE 3: COMPUTE HARDWARE] ---")
-    print(f" [8]  Target Device:             {req.device.upper()}")
+    print(f" [9]  Target Device:             {req.device.upper()}")
     print("-" * 84)
     print(" [L] Load Preset (JSON)   [S] Save Preset (JSON)")
     print(" [G] Generate Audio       [Q] Quit")
     print("=" * 84)
-
 
 def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) -> None:
     workspace_dir = ROOT_DIR / "workspace"
@@ -147,9 +143,19 @@ def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) 
             cycle = {"48k": "44.1k", "44.1k": "both", "both": "48k"}
             req.target_rate = cycle.get(req.target_rate, "48k")
         elif choice == "4":
-            print("\n[1] HEUN (2nd-Order Predictor-Corrector) [2] MIDPOINT (2nd-Order RK2) [3] EULER")
+            print("\n[1] HEUN (2nd-Order Predictor-Corrector, 2x NFE)")
+            print("[2] MIDPOINT (2nd-Order RK2, 2x NFE)")
+            print("[3] EULER (1st-Order Baseline, 1x NFE)")
+            print("[4] RES_MULTISTEP (Heun-PECE Bootstrapped Linear OT-AB2)")
+            print("[5] RES_MULTISTEP_CFG_PP (Decoupled CFG++ Manifold OT-AB2)")
             s_sel = input(f"Select Solver [{req.solver}]: ").strip()
-            s_map = {"1": "heun", "2": "midpoint", "3": "euler"}
+            s_map = {
+                "1": "heun",
+                "2": "midpoint",
+                "3": "euler",
+                "4": "res_multistep",
+                "5": "res_multistep_cfg_pp",
+            }
             req.solver = s_map.get(s_sel, req.solver)
         elif choice == "5":
             s_val = input(f"Enter ODE Integration Steps [{req.ode_steps}]: ").strip()
@@ -164,6 +170,10 @@ def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) 
             a_map = {"1": 24000, "2": 16000, "3": 12000, "4": 8000}
             req.input_sr_anchor = a_map.get(a_sel, req.input_sr_anchor)
         elif choice == "7":
+            sd_val = input(f"Enter Philox PRNG Seed [{req.seed}]: ").strip()
+            if sd_val.isdigit():
+                req.seed = int(sd_val)
+        elif choice == "8":
             print("\n[1] BYPASS  [2] PEAK RESISTANCE  [3] STRICT CEILING")
             h_sel = input(f"Select Headroom Mode [{req.headroom_mode}]: ").strip()
             if h_sel in ["1", "bypass"]:
@@ -178,7 +188,7 @@ def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) 
                 p_val = input(f"Enter Target Ceiling dBTP [{req.target_peak_dbfs:.1f}]: ").strip()
                 if p_val:
                     req.target_peak_dbfs = float(p_val)
-        elif choice == "8":
+        elif choice == "9":
             req.device = "cpu" if req.device == "cuda" else ("cuda" if torch.cuda.is_available() else "cpu")
         elif choice == "L":
             p_path = input("Enter JSON preset path: ").strip().strip('"').strip("'")
@@ -208,10 +218,8 @@ def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) 
                     console=console,
                 ) as progress:
                     task = progress.add_task("[cyan]Complex STFT Flow Inpainting...", total=100)
-
                     def update_progress(cur: int, tot: int) -> None:
                         progress.update(task, completed=int((cur / tot) * 100))
-
                     telemetry = engine.synthesize_request(req, tile_progress_callback=update_progress)
                 print_telemetry(telemetry)
             except Exception as e:
@@ -220,16 +228,16 @@ def run_interactive_harness(engine: Optional[FurgieEngine], req: FurgieRequest) 
         elif choice == "Q":
             sys.exit(0)
 
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Complex STFT Flow-Matching Audio Super-Resolution Harness")
     parser.add_argument("--batch", action="store_true")
     parser.add_argument("--input", type=str, default=None)
     parser.add_argument("--output", type=str, default=None)
     parser.add_argument("--steps", dest="ode_steps", type=int, default=16)
-    parser.add_argument("--solver", type=str, choices=SUPPORTED_SOLVERS, default="heun")
+    parser.add_argument("--solver", type=str, choices=SUPPORTED_SOLVERS, default="res_multistep_cfg_pp")
     parser.add_argument("--cfg", dest="guidance_scale", type=float, default=0.0)
     parser.add_argument("--anchor", dest="input_sr_anchor", type=int, default=24000)
+    parser.add_argument("--seed", dest="seed", type=int, default=42)
     parser.add_argument("--headroom-mode", dest="headroom_mode", type=str, choices=SUPPORTED_HEADROOM_MODES, default="bypass")
     parser.add_argument("--target-peak", dest="target_peak_dbfs", type=float, default=0.0)
     parser.add_argument("--target-rate", type=str, choices=SUPPORTED_TARGET_RATES, default="48k")
@@ -249,6 +257,8 @@ def main() -> None:
         req.guidance_scale = args.guidance_scale
     if args.input_sr_anchor is not None:
         req.input_sr_anchor = args.input_sr_anchor
+    if args.seed is not None:
+        req.seed = args.seed
     if args.headroom_mode is not None:
         req.headroom_mode = args.headroom_mode
     if args.target_peak_dbfs is not None:
@@ -267,7 +277,6 @@ def main() -> None:
         print_telemetry(telem)
     else:
         run_interactive_harness(engine=None, req=req)
-
 
 if __name__ == "__main__":
     try:

@@ -3,10 +3,9 @@ from dataclasses import dataclass, asdict
 from pathlib import Path
 from typing import Optional
 
-SUPPORTED_SOLVERS = ["heun", "midpoint", "euler"]
+SUPPORTED_SOLVERS = ["heun", "midpoint", "euler", "res_multistep", "res_multistep_cfg_pp"]
 SUPPORTED_TARGET_RATES = ["48k", "44.1k", "both"]
 SUPPORTED_HEADROOM_MODES = ["bypass", "peak_resistant", "strict_ceiling"]
-
 
 @dataclass
 class FurgieRequest:
@@ -18,8 +17,9 @@ class FurgieRequest:
     headroom_mode: str = "bypass"
     target_peak_dbfs: float = 0.0
     ode_steps: int = 16
-    solver: str = "heun"
+    solver: str = "res_multistep_cfg_pp"
     guidance_scale: float = 0.0
+    seed: int = 42
     device: str = "cuda"
     repo_id: str = "OLDSKOOL978/universr-audio"
 
@@ -33,7 +33,6 @@ class FurgieRequest:
         with open(path, "r", encoding="utf-8") as f:
             data = json.load(f)
         return cls(**data)
-
 
 @dataclass
 class FurgieTelemetry:
@@ -49,6 +48,7 @@ class FurgieTelemetry:
     solver_used: str
     ode_steps: int
     guidance_scale: float
+    seed: int
     input_sr_anchor: int
     target_rate: str
     headroom_mode: str

@@ -6,12 +6,10 @@ import soundfile as sf
 import numpy as np
 from pathlib import Path
 from typing import Optional, Union, Callable
-
 from furgie_core.dsp_cuda import generate_c_infinite_ola_window
 from furgie_core.arch.model import UniverSRModel
 
 VALID_UNIVERSR_SRS = [8000, 12000, 16000, 24000]
-
 
 class UniverSRWrapper(nn.Module):
     def __init__(self, config_path: Path, weight_dir: Path):
@@ -22,8 +20,9 @@ class UniverSRWrapper(nn.Module):
         flow_cfg = self.cfg.get("universr_flow_core", {})
         self.target_sr = audio_cfg.get("target_sample_rate", 48000)
         self.ode_steps = flow_cfg.get("ode_steps", 16)
-        self.solver = flow_cfg.get("solver", "heun")
+        self.solver = flow_cfg.get("solver", "res_multistep_cfg_pp")
         self.guidance_scale = flow_cfg.get("guidance_scale", 0.0)
+        self.seed = flow_cfg.get("seed", 42)
         self.weight_dir = Path(weight_dir)
         self.model: Optional[UniverSRModel] = None
         self._is_loaded = False
@@ -70,6 +69,7 @@ class UniverSRWrapper(nn.Module):
         steps: int,
         solve_method: str,
         cfg_scale: float,
+        seed: Optional[int] = None,
         progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> torch.Tensor:
         channels, total_samples = wav_tensor.shape
@@ -77,18 +77,22 @@ class UniverSRWrapper(nn.Module):
         chunk_len = 261120
         overlap_len = 30720
         stride_len = chunk_len - overlap_len
+
         if pad_len > 0:
             wav_padded = F.pad(wav_tensor.unsqueeze(0), (pad_len, pad_len), mode="reflect").squeeze(0)
         else:
             wav_padded = wav_tensor
+
         padded_samples = wav_padded.shape[-1]
         if padded_samples < chunk_len:
             extra_pad = chunk_len - padded_samples
             wav_padded = F.pad(wav_padded, (0, extra_pad), mode="constant", value=0.0)
             padded_samples = chunk_len
+
         starts = list(range(0, padded_samples - chunk_len + 1, stride_len))
         if not starts or starts[-1] + chunk_len < padded_samples:
             starts.append(padded_samples - chunk_len)
+
         total_tiles = len(starts)
         output_acc = torch.zeros((channels, padded_samples), dtype=torch.float32, device=self.device)
         weight_acc = torch.zeros((1, padded_samples), dtype=torch.float32, device=self.device)
@@ -106,6 +110,8 @@ class UniverSRWrapper(nn.Module):
                 ode_method=solve_method,
                 ode_steps=steps,
                 guidance_scale=cfg_scale,
+                seed=seed,
+                tile_index=tile_idx,
             )
             if res_tensor.shape[-1] != chunk_len:
                 res_tensor = F.interpolate(
@@ -128,6 +134,7 @@ class UniverSRWrapper(nn.Module):
         ode_steps: Optional[int] = None,
         solver: Optional[str] = None,
         guidance_scale: Optional[float] = None,
+        seed: Optional[int] = None,
         tile_progress_callback: Optional[Callable[[int, int], None]] = None,
     ) -> torch.Tensor:
         if not self._is_loaded or self.model is None:
@@ -137,11 +144,13 @@ class UniverSRWrapper(nn.Module):
         steps = ode_steps if ode_steps is not None else self.ode_steps
         solve_method = solver if solver is not None else self.solver
         cfg_scale = guidance_scale if guidance_scale is not None else self.guidance_scale
+        seed_val = seed if seed is not None else self.seed
         return self._enhance_tiled(
             wav_tensor=audio_tensor,
             input_sr=mapped_input_sr,
             steps=steps,
             solve_method=solve_method,
             cfg_scale=cfg_scale,
+            seed=seed_val,
             progress_callback=tile_progress_callback,
         )

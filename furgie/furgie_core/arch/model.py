@@ -1,13 +1,12 @@
 from pathlib import Path
-from typing import Dict, Any, Tuple
+from typing import Dict, Any, Tuple, Optional
 import torch
 import torch.nn as nn
 from safetensors.torch import load_file as load_safetensors
-
 from furgie_core.arch.universr import UniverSRBackbone
 from furgie_core.arch.solver import FlowMatchingODESolver
 from furgie_core.arch.spectral_ops import forward_stft, inverse_stft
-
+from furgie_core.arch.prng import philox_randn
 
 class UniverSRModel(nn.Module):
     def __init__(self, config: Dict[str, Any]):
@@ -20,6 +19,7 @@ class UniverSRModel(nn.Module):
         self.alpha = audio_cfg.get("power_alpha", audio_cfg.get("alpha", 0.2))
         self.beta = audio_cfg.get("beta", 1.0)
         self.comp_eps = audio_cfg.get("comp_eps", 1.0e-4)
+
         model_cfg = config.get("model", {})
         arch_kwargs = {
             "dims": model_cfg.get("dims", [96, 192, 384, 768]),
@@ -49,6 +49,7 @@ class UniverSRModel(nn.Module):
             clean_sd[k_clean] = v
             if v.is_floating_point():
                 target_dtype = v.dtype
+
         self.model_dtype = target_dtype
         self.backbone.to(dtype=self.model_dtype)
         self.backbone.load_state_dict(clean_sd, strict=True)
@@ -71,17 +72,20 @@ class UniverSRModel(nn.Module):
         ode_method: str = "heun",
         ode_steps: int = 16,
         guidance_scale: float = 0.0,
+        seed: Optional[int] = None,
+        tile_index: int = 0,
     ) -> torch.Tensor:
         orig_device = waveform.device
         orig_len = waveform.shape[-1]
+
         if waveform.ndim == 1:
             wav_tensor = waveform.unsqueeze(0)
         elif waveform.ndim == 3 and waveform.shape[1] == 1:
             wav_tensor = waveform.squeeze(1)
         else:
             wav_tensor = waveform
-        b_sz = wav_tensor.shape[0]
 
+        b_sz = wav_tensor.shape[0]
         Y = forward_stft(
             waveform=wav_tensor,
             n_fft=self.n_fft,
@@ -90,18 +94,38 @@ class UniverSRModel(nn.Module):
             beta=self.beta,
             comp_eps=self.comp_eps,
         )
+
         sr_khz, lr_bin_count = self._map_sr_to_index(input_sr)
         hf_start_bin = self.total_freq_bins - self.hr_freq_bins
         t_frames = Y.shape[-1]
+
         Y_lr = Y[:, :, :lr_bin_count, :].to(dtype=self.model_dtype)
-        Y_hr = Y[:, :, hf_start_bin:, :]
 
-        x_0 = torch.randn_like(Y_hr, device=orig_device, dtype=self.model_dtype)
+        if seed is not None:
+            ch_tensors = []
+            for ch in range(b_sz):
+                stream_id = (tile_index << 2) | ch
+                ch_noise = philox_randn(
+                    shape=(1, 2, self.hr_freq_bins, t_frames),
+                    seed=seed,
+                    stream_id=stream_id,
+                    device=orig_device,
+                    dtype=self.model_dtype,
+                )
+                ch_tensors.append(ch_noise)
+            x_0 = torch.cat(ch_tensors, dim=0).contiguous()
+        else:
+            x_0 = torch.randn(
+                (b_sz, 2, self.hr_freq_bins, t_frames),
+                device=orig_device,
+                dtype=self.model_dtype,
+            )
+
         w = float(guidance_scale)
-
         sr_proj_c, spatial_cond_c = self.backbone.precompute_spatial_conditioning(
             y_lr=Y_lr, sr_khz=sr_khz, batch_size=b_sz, time_steps=t_frames, is_unconditional=False
         )
+
         if w > 1.0:
             sr_proj_u, spatial_cond_u = self.backbone.precompute_spatial_conditioning(
                 y_lr=None, sr_khz=sr_khz, batch_size=b_sz, time_steps=t_frames, is_unconditional=True
@@ -112,7 +136,7 @@ class UniverSRModel(nn.Module):
             sr_proj_dual = sr_proj_c
             spatial_cond_dual = spatial_cond_c
 
-        def guided_velocity_field(x_current: torch.Tensor, t_current: torch.Tensor) -> torch.Tensor:
+        def guided_velocity_field(x_current: torch.Tensor, t_current: torch.Tensor) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
             x_in = x_current.to(dtype=self.model_dtype)
             t_in = t_current.to(dtype=self.model_dtype)
             if w > 1.0:
@@ -126,6 +150,7 @@ class UniverSRModel(nn.Module):
                 )
                 v_cond, v_uncond = v_both.chunk(2, dim=0)
                 v = v_uncond + w * (v_cond - v_uncond)
+                return v.float(), v_uncond.float()
             else:
                 v = self.backbone.forward_with_precomputed_cond(
                     x=x_in,
@@ -133,24 +158,38 @@ class UniverSRModel(nn.Module):
                     sr_proj=sr_proj_dual,
                     spatial_cond=spatial_cond_dual,
                 )
-            return v.float()
+                return v.float(), None
 
         method = ode_method.lower()
         if method == "euler":
             x_1 = FlowMatchingODESolver.solve_euler(
-                model_fn=guided_velocity_field,
+                model_fn=lambda x_c, t_c: guided_velocity_field(x_c, t_c)[0],
                 x_0=x_0,
                 num_steps=ode_steps,
             )
         elif method == "midpoint":
             x_1 = FlowMatchingODESolver.solve_midpoint(
-                model_fn=guided_velocity_field,
+                model_fn=lambda x_c, t_c: guided_velocity_field(x_c, t_c)[0],
                 x_0=x_0,
                 num_steps=ode_steps,
             )
+        elif method == "res_multistep":
+            x_1 = FlowMatchingODESolver.solve_res_multistep(
+                model_fn=guided_velocity_field,
+                x_0=x_0,
+                num_steps=ode_steps,
+                cfg_pp=False,
+            )
+        elif method == "res_multistep_cfg_pp":
+            x_1 = FlowMatchingODESolver.solve_res_multistep(
+                model_fn=guided_velocity_field,
+                x_0=x_0,
+                num_steps=ode_steps,
+                cfg_pp=True,
+            )
         else:
             x_1 = FlowMatchingODESolver.solve_heun(
-                model_fn=guided_velocity_field,
+                model_fn=lambda x_c, t_c: guided_velocity_field(x_c, t_c)[0],
                 x_0=x_0,
                 num_steps=ode_steps,
             )
