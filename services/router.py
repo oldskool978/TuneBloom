@@ -84,6 +84,8 @@ from Intelligen.schema import (
     has_custom_default_preset,
     parse_k_vector,
     BASELINE_ENGINE_DEFAULTS,
+    SUPPORTED_SOLVERS,
+    SUPPORTED_NOISE_TOPOLOGIES,
 )
 
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
@@ -369,9 +371,15 @@ class SynthesisPayload(BaseModel):
     top_k: Optional[int] = Field(default=None, ge=1, le=500)
     top_k_layers: Optional[List[int]] = Field(default=None)
     ar_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    instrumental_scheduler: Optional[str] = Field(default=None)
+    vocal_scheduler: Optional[str] = Field(default=None)
     scheduler_type: Optional[str] = Field(default=None)
     num_inference_steps: Optional[int] = Field(default=None, ge=1, le=200)
+    instrumental_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    vocal_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
     guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    eta: Optional[float] = Field(default=None, ge=0.0, le=1.0)
+    s_noise: Optional[float] = Field(default=None, ge=0.0, le=5.0)
     noise_topology: Optional[str] = Field(default=None)
     blue_noise_alpha: Optional[float] = Field(default=None, ge=0.0, le=2.0)
     enable_pm_diffusion: Optional[bool] = Field(default=None)
@@ -407,7 +415,11 @@ class SynthesisPayload(BaseModel):
         "temperature",
         "top_p",
         "ar_guidance_scale",
+        "instrumental_guidance_scale",
+        "vocal_guidance_scale",
         "guidance_scale",
+        "eta",
+        "s_noise",
         "blue_noise_alpha",
         "pm_conductance",
         "pm_lambda",
@@ -476,10 +488,14 @@ class EnginePipeline:
         blocks = request_data.get("blocks", [])
         active_defaults = get_active_engine_defaults()
 
-        def get_param(key: str) -> Any:
+        def get_param(key: str, fallback_key: Optional[str] = None) -> Any:
             val = request_data.get(key)
             if val is not None:
                 return val
+            if fallback_key is not None:
+                val = request_data.get(fallback_key)
+                if val is not None:
+                    return val
             return active_defaults.get(key, BASELINE_ENGINE_DEFAULTS.get(key))
 
         raw_k_layers = request_data.get("top_k_layers")
@@ -511,9 +527,13 @@ class EnginePipeline:
             top_k=int(resolved_top_k),
             top_k_layers=resolved_k_layers,
             ar_guidance_scale=float(get_param("ar_guidance_scale")),
-            scheduler_type=str(get_param("scheduler_type")),
+            instrumental_scheduler=str(get_param("instrumental_scheduler", "scheduler_type")),
+            vocal_scheduler=str(get_param("vocal_scheduler", "scheduler_type")),
             num_inference_steps=int(get_param("num_inference_steps")),
-            guidance_scale=float(get_param("guidance_scale")),
+            instrumental_guidance_scale=float(get_param("instrumental_guidance_scale", "guidance_scale")),
+            vocal_guidance_scale=float(get_param("vocal_guidance_scale", "guidance_scale")),
+            eta=float(get_param("eta")),
+            s_noise=float(get_param("s_noise")),
             noise_topology=str(get_param("noise_topology")),
             blue_noise_alpha=float(get_param("blue_noise_alpha")),
             enable_pm_diffusion=bool(get_param("enable_pm_diffusion")),
@@ -654,9 +674,15 @@ class EnginePipeline:
                 "stage1_temperature": gen_req.temperature,
                 "stage1_ar_cfg": gen_req.ar_guidance_scale,
                 "stage1_top_p": gen_req.top_p,
-                "stage1_scheduler": getattr(intelli_resp, "scheduler_used", gen_req.scheduler_type) if intelli_resp else gen_req.scheduler_type,
+                "stage1_instrumental_scheduler": getattr(intelli_resp, "instrumental_scheduler_used", gen_req.instrumental_scheduler) if intelli_resp else gen_req.instrumental_scheduler,
+                "stage1_vocal_scheduler": getattr(intelli_resp, "vocal_scheduler_used", gen_req.vocal_scheduler) if intelli_resp else gen_req.vocal_scheduler,
+                "stage1_scheduler": getattr(intelli_resp, "instrumental_scheduler_used", gen_req.instrumental_scheduler) if intelli_resp else gen_req.instrumental_scheduler,
                 "stage1_inference_steps": gen_req.num_inference_steps,
-                "stage1_guidance_scale": gen_req.guidance_scale,
+                "stage1_instrumental_guidance_scale": getattr(intelli_resp, "instrumental_guidance_scale_used", gen_req.instrumental_guidance_scale) if intelli_resp else gen_req.instrumental_guidance_scale,
+                "stage1_vocal_guidance_scale": getattr(intelli_resp, "vocal_guidance_scale_used", gen_req.vocal_guidance_scale) if intelli_resp else gen_req.vocal_guidance_scale,
+                "stage1_guidance_scale": getattr(intelli_resp, "instrumental_guidance_scale_used", gen_req.instrumental_guidance_scale) if intelli_resp else gen_req.instrumental_guidance_scale,
+                "stage1_eta": getattr(intelli_resp, "eta_used", gen_req.eta) if intelli_resp else gen_req.eta,
+                "stage1_s_noise": getattr(intelli_resp, "s_noise_used", gen_req.s_noise) if intelli_resp else gen_req.s_noise,
                 "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", gen_req.noise_topology) if intelli_resp else gen_req.noise_topology,
                 "stage1_blue_noise_alpha": gen_req.blue_noise_alpha,
                 "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", gen_req.enable_pm_diffusion) if intelli_resp else gen_req.enable_pm_diffusion,
@@ -780,9 +806,15 @@ class EnginePipeline:
                     "temperature": gen_req.temperature,
                     "ar_guidance_scale": gen_req.ar_guidance_scale,
                     "top_p": gen_req.top_p,
-                    "scheduler_type": gen_req.scheduler_type,
+                    "instrumental_scheduler": gen_req.instrumental_scheduler,
+                    "vocal_scheduler": gen_req.vocal_scheduler,
                     "num_inference_steps": gen_req.num_inference_steps,
-                    "guidance_scale": gen_req.guidance_scale,
+                    "instrumental_guidance_scale": gen_req.instrumental_guidance_scale,
+                    "vocal_guidance_scale": gen_req.vocal_guidance_scale,
+                    "eta": gen_req.eta,
+                    "s_noise": gen_req.s_noise,
+                    "scheduler_type": gen_req.instrumental_scheduler,
+                    "guidance_scale": gen_req.instrumental_guidance_scale,
                     "noise_topology": gen_req.noise_topology,
                     "blue_noise_alpha": gen_req.blue_noise_alpha,
                     "enable_pm_diffusion": gen_req.enable_pm_diffusion,

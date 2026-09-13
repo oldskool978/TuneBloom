@@ -486,12 +486,24 @@ async function ensureShowcaseTrack(slug, storage) {
           integrated_loudness_db: -14.15,
           dynamic_punch_db: 13.85,
           master_format: "48.0 kHz Master Audio Bitstream",
-          top_k_vector_used: [47, 47, 47, 45, 39, 37, 38, 39]
+          top_k_vector_used: [47, 47, 47, 45, 39, 37, 38, 39],
+          stage1_instrumental_scheduler: "heun",
+          stage1_vocal_scheduler: "heun",
+          stage1_instrumental_guidance_scale: 1.78,
+          stage1_vocal_guidance_scale: 1.78,
+          stage1_eta: 0.0,
+          stage1_s_noise: 1.0
         }
       },
       working_draft: {
         ...JSON.parse(JSON.stringify(initialBp)),
-        seed: 42
+        seed: 42,
+        instrumental_scheduler: "heun",
+        vocal_scheduler: "heun",
+        instrumental_guidance_scale: 1.78,
+        vocal_guidance_scale: 1.78,
+        eta: 0.0,
+        s_noise: 1.0
       }
     };
   } else {
@@ -907,7 +919,13 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       arrangement: track.recipe.arrangement || "",
       lyrics: track.recipe.lyrics || "",
       blocks: parsedBlocks,
-      seed: track.recipe.telemetry?.seed
+      seed: track.recipe.telemetry?.seed,
+      instrumental_scheduler: track.recipe.telemetry?.stage1_instrumental_scheduler || track.working_draft?.instrumental_scheduler || "heun",
+      vocal_scheduler: track.recipe.telemetry?.stage1_vocal_scheduler || track.working_draft?.vocal_scheduler || "heun",
+      instrumental_guidance_scale: track.recipe.telemetry?.stage1_instrumental_guidance_scale ?? track.working_draft?.instrumental_guidance_scale ?? 1.78,
+      vocal_guidance_scale: track.recipe.telemetry?.stage1_vocal_guidance_scale ?? track.working_draft?.vocal_guidance_scale ?? 1.78,
+      eta: track.recipe.telemetry?.stage1_eta ?? track.working_draft?.eta ?? 0.0,
+      s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? 1.0
     };
 
     const draftToLoad = track.fork_draft || canonicalDraft;
@@ -1005,7 +1023,13 @@ function syncActiveTrackDraftDebounced() {
     if (isCompleted) {
       track.fork_draft = {
         ...payload,
-        seed: track.recipe?.telemetry?.seed ?? track.working_draft?.seed
+        seed: track.recipe?.telemetry?.seed ?? track.working_draft?.seed,
+        instrumental_scheduler: track.working_draft?.instrumental_scheduler,
+        vocal_scheduler: track.working_draft?.vocal_scheduler,
+        instrumental_guidance_scale: track.working_draft?.instrumental_guidance_scale,
+        vocal_guidance_scale: track.working_draft?.vocal_guidance_scale,
+        eta: track.working_draft?.eta,
+        s_noise: track.working_draft?.s_noise
       };
       track.updated_at = new Date().toISOString();
       const storage = window.clientStorage;
@@ -1283,7 +1307,13 @@ async function handleGenerateSubmit(e) {
         arrangement: currentTrack.recipe.arrangement || "",
         lyrics: currentTrack.recipe.lyrics || "",
         blocks: JSON.parse(JSON.stringify(parentBlocks)),
-        seed: originSeed
+        seed: originSeed,
+        instrumental_scheduler: currentTrack.working_draft?.instrumental_scheduler,
+        vocal_scheduler: currentTrack.working_draft?.vocal_scheduler,
+        instrumental_guidance_scale: currentTrack.working_draft?.instrumental_guidance_scale,
+        vocal_guidance_scale: currentTrack.working_draft?.vocal_guidance_scale,
+        eta: currentTrack.working_draft?.eta,
+        s_noise: currentTrack.working_draft?.s_noise
       };
       const storage = window.clientStorage;
       if (storage) await storage.saveTrack(currentTrack);
@@ -1305,7 +1335,13 @@ async function handleGenerateSubmit(e) {
       recipe: null,
       working_draft: {
         ...JSON.parse(JSON.stringify(formPayload)),
-        seed: seed
+        seed: seed,
+        instrumental_scheduler: currentTrack?.working_draft?.instrumental_scheduler,
+        vocal_scheduler: currentTrack?.working_draft?.vocal_scheduler,
+        instrumental_guidance_scale: currentTrack?.working_draft?.instrumental_guidance_scale,
+        vocal_guidance_scale: currentTrack?.working_draft?.vocal_guidance_scale,
+        eta: currentTrack?.working_draft?.eta,
+        s_noise: currentTrack?.working_draft?.s_noise
       }
     };
 
@@ -1329,7 +1365,13 @@ async function handleGenerateSubmit(e) {
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
       ...JSON.parse(JSON.stringify(formPayload)),
-      seed: seed
+      seed: seed,
+      instrumental_scheduler: currentTrack.working_draft?.instrumental_scheduler,
+      vocal_scheduler: currentTrack.working_draft?.vocal_scheduler,
+      instrumental_guidance_scale: currentTrack.working_draft?.instrumental_guidance_scale,
+      vocal_guidance_scale: currentTrack.working_draft?.vocal_guidance_scale,
+      eta: currentTrack.working_draft?.eta,
+      s_noise: currentTrack.working_draft?.s_noise
     };
     AppState.activeTrackId = currentTrack.track_id;
     const storage = window.clientStorage;
@@ -1361,6 +1403,12 @@ async function handleGenerateSubmit(e) {
       seed: seed,
       assigned_jewelcase: targetCover,
       blocks: formPayload.blocks,
+      ...(currentTrack?.working_draft?.instrumental_scheduler ? { instrumental_scheduler: currentTrack.working_draft.instrumental_scheduler } : {}),
+      ...(currentTrack?.working_draft?.vocal_scheduler ? { vocal_scheduler: currentTrack.working_draft.vocal_scheduler } : {}),
+      ...(currentTrack?.working_draft?.instrumental_guidance_scale !== undefined ? { instrumental_guidance_scale: currentTrack.working_draft.instrumental_guidance_scale } : {}),
+      ...(currentTrack?.working_draft?.vocal_guidance_scale !== undefined ? { vocal_guidance_scale: currentTrack.working_draft.vocal_guidance_scale } : {}),
+      ...(currentTrack?.working_draft?.eta !== undefined ? { eta: currentTrack.working_draft.eta } : {}),
+      ...(currentTrack?.working_draft?.s_noise !== undefined ? { s_noise: currentTrack.working_draft.s_noise } : {}),
       pow: {
         challenge: challengeData.challenge,
         signature: challengeData.signature,
@@ -1614,7 +1662,13 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             true_peak_dbtp: -0.30,
             integrated_loudness_db: -14.15,
             dynamic_punch_db: 13.85,
-            master_format: "48.0 kHz Master Audio Bitstream"
+            master_format: "48.0 kHz Master Audio Bitstream",
+            stage1_instrumental_scheduler: "heun",
+            stage1_vocal_scheduler: "heun",
+            stage1_instrumental_guidance_scale: 1.78,
+            stage1_vocal_guidance_scale: 1.78,
+            stage1_eta: 0.0,
+            stage1_s_noise: 1.0
           }
         },
         working_draft: {
@@ -1628,7 +1682,13 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
           blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
-          seed: seed
+          seed: seed,
+          instrumental_scheduler: data.working_draft?.instrumental_scheduler || "heun",
+          vocal_scheduler: data.working_draft?.vocal_scheduler || "heun",
+          instrumental_guidance_scale: data.working_draft?.instrumental_guidance_scale ?? 1.78,
+          vocal_guidance_scale: data.working_draft?.vocal_guidance_scale ?? 1.78,
+          eta: data.working_draft?.eta ?? 0.0,
+          s_noise: data.working_draft?.s_noise ?? 1.0
         }
       };
 
