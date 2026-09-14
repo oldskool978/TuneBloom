@@ -85,7 +85,6 @@ from Intelligen.schema import (
     parse_k_vector,
     BASELINE_ENGINE_DEFAULTS,
     SUPPORTED_SOLVERS,
-    SUPPORTED_NOISE_TOPOLOGIES,
 )
 
 ARTIFACTS_DIR = BACKEND_ROOT / "artifacts"
@@ -371,21 +370,24 @@ class SynthesisPayload(BaseModel):
     top_k: Optional[int] = Field(default=None, ge=1, le=500)
     top_k_layers: Optional[List[int]] = Field(default=None)
     ar_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=10.0)
+    early_instrumental_solver: Optional[str] = Field(default=None)
+    late_instrumental_solver: Optional[str] = Field(default=None)
+    early_vocal_solver: Optional[str] = Field(default=None)
+    late_vocal_solver: Optional[str] = Field(default=None)
+    handoff_threshold: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     instrumental_scheduler: Optional[str] = Field(default=None)
     vocal_scheduler: Optional[str] = Field(default=None)
     scheduler_type: Optional[str] = Field(default=None)
     num_inference_steps: Optional[int] = Field(default=None, ge=1, le=200)
     instrumental_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    early_instrumental_cfg: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    late_instrumental_cfg: Optional[float] = Field(default=None, ge=0.0, le=20.0)
     vocal_guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    early_vocal_cfg: Optional[float] = Field(default=None, ge=0.0, le=20.0)
+    late_vocal_cfg: Optional[float] = Field(default=None, ge=0.0, le=20.0)
     guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
     eta: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     s_noise: Optional[float] = Field(default=None, ge=0.0, le=5.0)
-    noise_topology: Optional[str] = Field(default=None)
-    blue_noise_alpha: Optional[float] = Field(default=None, ge=0.0, le=2.0)
-    enable_pm_diffusion: Optional[bool] = Field(default=None)
-    pm_iterations: Optional[int] = Field(default=None, ge=1, le=30)
-    pm_conductance: Optional[float] = Field(default=None, ge=0.0001, le=5.0)
-    pm_lambda: Optional[float] = Field(default=None, ge=0.0001, le=0.25)
     apply_declick: Optional[bool] = Field(default=None)
     cpu_offload: Optional[bool] = Field(default=None)
     pow: PowSubmission
@@ -416,13 +418,15 @@ class SynthesisPayload(BaseModel):
         "top_p",
         "ar_guidance_scale",
         "instrumental_guidance_scale",
+        "early_instrumental_cfg",
+        "late_instrumental_cfg",
         "vocal_guidance_scale",
+        "early_vocal_cfg",
+        "late_vocal_cfg",
         "guidance_scale",
+        "handoff_threshold",
         "eta",
         "s_noise",
-        "blue_noise_alpha",
-        "pm_conductance",
-        "pm_lambda",
         "audio_duration",
         mode="before",
     )
@@ -511,6 +515,16 @@ class EnginePipeline:
         else:
             resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
 
+        early_inst = str(get_param("early_instrumental_solver", "instrumental_scheduler") or get_param("scheduler_type", "early_instrumental_solver"))
+        late_inst = str(get_param("late_instrumental_solver", "early_instrumental_solver"))
+        early_voc = str(get_param("early_vocal_solver", "vocal_scheduler") or get_param("scheduler_type", "early_vocal_solver"))
+        late_voc = str(get_param("late_vocal_solver", "early_vocal_solver"))
+
+        early_i_cfg = float(get_param("early_instrumental_cfg", "instrumental_guidance_scale") or get_param("guidance_scale", "early_instrumental_cfg"))
+        late_i_cfg = float(get_param("late_instrumental_cfg", "early_instrumental_cfg") if request_data.get("late_instrumental_cfg") is not None else active_defaults.get("late_instrumental_cfg", 1.0))
+        early_v_cfg = float(get_param("early_vocal_cfg", "vocal_guidance_scale") or get_param("guidance_scale", "early_vocal_cfg"))
+        late_v_cfg = float(get_param("late_vocal_cfg", "early_vocal_cfg") if request_data.get("late_vocal_cfg") is not None else active_defaults.get("late_vocal_cfg", 1.0))
+
         gen_req = GenerationRequest(
             genre=request_data.get("genre", ""),
             subgenre=request_data.get("subgenre", ""),
@@ -527,19 +541,20 @@ class EnginePipeline:
             top_k=int(resolved_top_k),
             top_k_layers=resolved_k_layers,
             ar_guidance_scale=float(get_param("ar_guidance_scale")),
-            instrumental_scheduler=str(get_param("instrumental_scheduler", "scheduler_type")),
-            vocal_scheduler=str(get_param("vocal_scheduler", "scheduler_type")),
+            early_instrumental_solver=early_inst,
+            late_instrumental_solver=late_inst,
+            early_vocal_solver=early_voc,
+            late_vocal_solver=late_voc,
+            handoff_threshold=float(get_param("handoff_threshold")),
             num_inference_steps=int(get_param("num_inference_steps")),
-            instrumental_guidance_scale=float(get_param("instrumental_guidance_scale", "guidance_scale")),
-            vocal_guidance_scale=float(get_param("vocal_guidance_scale", "guidance_scale")),
+            instrumental_guidance_scale=early_i_cfg,
+            early_instrumental_cfg=early_i_cfg,
+            late_instrumental_cfg=late_i_cfg,
+            vocal_guidance_scale=early_v_cfg,
+            early_vocal_cfg=early_v_cfg,
+            late_vocal_cfg=late_v_cfg,
             eta=float(get_param("eta")),
             s_noise=float(get_param("s_noise")),
-            noise_topology=str(get_param("noise_topology")),
-            blue_noise_alpha=float(get_param("blue_noise_alpha")),
-            enable_pm_diffusion=bool(get_param("enable_pm_diffusion")),
-            pm_iterations=int(get_param("pm_iterations")),
-            pm_conductance=float(get_param("pm_conductance")),
-            pm_lambda=float(get_param("pm_lambda")),
             audio_duration=target_duration,
             seed=seed,
             output_path=str(out_path),
@@ -674,21 +689,27 @@ class EnginePipeline:
                 "stage1_temperature": gen_req.temperature,
                 "stage1_ar_cfg": gen_req.ar_guidance_scale,
                 "stage1_top_p": gen_req.top_p,
-                "stage1_instrumental_scheduler": getattr(intelli_resp, "instrumental_scheduler_used", gen_req.instrumental_scheduler) if intelli_resp else gen_req.instrumental_scheduler,
-                "stage1_vocal_scheduler": getattr(intelli_resp, "vocal_scheduler_used", gen_req.vocal_scheduler) if intelli_resp else gen_req.vocal_scheduler,
-                "stage1_scheduler": getattr(intelli_resp, "instrumental_scheduler_used", gen_req.instrumental_scheduler) if intelli_resp else gen_req.instrumental_scheduler,
+                "stage1_early_instrumental_solver": getattr(intelli_resp, "early_instrumental_solver_used", gen_req.early_instrumental_solver),
+                "stage1_late_instrumental_solver": getattr(intelli_resp, "late_instrumental_solver_used", gen_req.late_instrumental_solver),
+                "stage1_early_vocal_solver": getattr(intelli_resp, "early_vocal_solver_used", gen_req.early_vocal_solver),
+                "stage1_late_vocal_solver": getattr(intelli_resp, "late_vocal_solver_used", gen_req.late_vocal_solver),
+                "stage1_handoff_threshold": getattr(intelli_resp, "handoff_threshold_used", gen_req.handoff_threshold),
+                "stage1_early_steps": getattr(intelli_resp, "early_steps", None),
+                "stage1_late_steps": getattr(intelli_resp, "late_steps", None),
+                "stage1_total_nfe_chunk": getattr(intelli_resp, "total_nfe_chunk", None),
+                "stage1_early_instrumental_cfg": getattr(intelli_resp, "early_instrumental_cfg_used", gen_req.early_instrumental_cfg),
+                "stage1_late_instrumental_cfg": getattr(intelli_resp, "late_instrumental_cfg_used", gen_req.late_instrumental_cfg),
+                "stage1_early_vocal_cfg": getattr(intelli_resp, "early_vocal_cfg_used", gen_req.early_vocal_cfg),
+                "stage1_late_vocal_cfg": getattr(intelli_resp, "late_vocal_cfg_used", gen_req.late_vocal_cfg),
+                "stage1_instrumental_scheduler": getattr(intelli_resp, "early_instrumental_solver_used", gen_req.early_instrumental_solver),
+                "stage1_vocal_scheduler": getattr(intelli_resp, "early_vocal_solver_used", gen_req.early_vocal_solver),
+                "stage1_scheduler": getattr(intelli_resp, "early_instrumental_solver_used", gen_req.early_instrumental_solver),
                 "stage1_inference_steps": gen_req.num_inference_steps,
-                "stage1_instrumental_guidance_scale": getattr(intelli_resp, "instrumental_guidance_scale_used", gen_req.instrumental_guidance_scale) if intelli_resp else gen_req.instrumental_guidance_scale,
-                "stage1_vocal_guidance_scale": getattr(intelli_resp, "vocal_guidance_scale_used", gen_req.vocal_guidance_scale) if intelli_resp else gen_req.vocal_guidance_scale,
-                "stage1_guidance_scale": getattr(intelli_resp, "instrumental_guidance_scale_used", gen_req.instrumental_guidance_scale) if intelli_resp else gen_req.instrumental_guidance_scale,
+                "stage1_instrumental_guidance_scale": getattr(intelli_resp, "early_instrumental_cfg_used", gen_req.early_instrumental_cfg),
+                "stage1_vocal_guidance_scale": getattr(intelli_resp, "early_vocal_cfg_used", gen_req.early_vocal_cfg),
+                "stage1_guidance_scale": getattr(intelli_resp, "early_instrumental_cfg_used", gen_req.early_instrumental_cfg),
                 "stage1_eta": getattr(intelli_resp, "eta_used", gen_req.eta) if intelli_resp else gen_req.eta,
                 "stage1_s_noise": getattr(intelli_resp, "s_noise_used", gen_req.s_noise) if intelli_resp else gen_req.s_noise,
-                "stage1_noise_topology": getattr(intelli_resp, "noise_topology_used", gen_req.noise_topology) if intelli_resp else gen_req.noise_topology,
-                "stage1_blue_noise_alpha": gen_req.blue_noise_alpha,
-                "stage1_pm_diffusion": getattr(intelli_resp, "pm_diffusion_used", gen_req.enable_pm_diffusion) if intelli_resp else gen_req.enable_pm_diffusion,
-                "stage1_pm_iterations": gen_req.pm_iterations,
-                "stage1_pm_conductance": gen_req.pm_conductance,
-                "stage1_pm_lambda": gen_req.pm_lambda,
                 "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
                 "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
                 "stage2_solver": getattr(furgie_telem, "solver_used", "res_multistep_cfg_pp") if furgie_telem else None,
@@ -806,21 +827,24 @@ class EnginePipeline:
                     "temperature": gen_req.temperature,
                     "ar_guidance_scale": gen_req.ar_guidance_scale,
                     "top_p": gen_req.top_p,
-                    "instrumental_scheduler": gen_req.instrumental_scheduler,
-                    "vocal_scheduler": gen_req.vocal_scheduler,
+                    "early_instrumental_solver": gen_req.early_instrumental_solver,
+                    "late_instrumental_solver": gen_req.late_instrumental_solver,
+                    "early_vocal_solver": gen_req.early_vocal_solver,
+                    "late_vocal_solver": gen_req.late_vocal_solver,
+                    "handoff_threshold": gen_req.handoff_threshold,
                     "num_inference_steps": gen_req.num_inference_steps,
-                    "instrumental_guidance_scale": gen_req.instrumental_guidance_scale,
-                    "vocal_guidance_scale": gen_req.vocal_guidance_scale,
+                    "early_instrumental_cfg": gen_req.early_instrumental_cfg,
+                    "late_instrumental_cfg": gen_req.late_instrumental_cfg,
+                    "early_vocal_cfg": gen_req.early_vocal_cfg,
+                    "late_vocal_cfg": gen_req.late_vocal_cfg,
                     "eta": gen_req.eta,
                     "s_noise": gen_req.s_noise,
-                    "scheduler_type": gen_req.instrumental_scheduler,
-                    "guidance_scale": gen_req.instrumental_guidance_scale,
-                    "noise_topology": gen_req.noise_topology,
-                    "blue_noise_alpha": gen_req.blue_noise_alpha,
-                    "enable_pm_diffusion": gen_req.enable_pm_diffusion,
-                    "pm_iterations": gen_req.pm_iterations,
-                    "pm_conductance": gen_req.pm_conductance,
-                    "pm_lambda": gen_req.pm_lambda,
+                    "instrumental_scheduler": gen_req.early_instrumental_solver,
+                    "vocal_scheduler": gen_req.early_vocal_solver,
+                    "scheduler_type": gen_req.early_instrumental_solver,
+                    "instrumental_guidance_scale": gen_req.early_instrumental_cfg,
+                    "vocal_guidance_scale": gen_req.early_vocal_cfg,
+                    "guidance_scale": gen_req.early_instrumental_cfg,
                 }
 
                 return output_opus_path, telemetry, full_recipe, working_draft
