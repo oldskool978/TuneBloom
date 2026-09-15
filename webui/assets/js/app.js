@@ -487,6 +487,9 @@ async function ensureShowcaseTrack(slug, storage) {
           dynamic_punch_db: 13.85,
           master_format: "48.0 kHz Master Audio Bitstream",
           top_k_vector_used: [47, 47, 47, 45, 39, 37, 38, 39],
+          stage1_temperature: 0.9192,
+          stage1_top_p: 1.0000,
+          stage1_ar_cfg: 1.5200,
           stage1_early_instrumental_solver: "heun",
           stage1_late_instrumental_solver: "ipndm",
           stage1_early_vocal_solver: "heun",
@@ -508,6 +511,11 @@ async function ensureShowcaseTrack(slug, storage) {
       working_draft: {
         ...JSON.parse(JSON.stringify(initialBp)),
         seed: 42,
+        temperature: 0.9192,
+        top_p: 1.0000,
+        top_k: 47,
+        top_k_layers: [47, 47, 47, 45, 39, 37, 38, 39],
+        ar_guidance_scale: 1.5200,
         early_instrumental_solver: "heun",
         late_instrumental_solver: "ipndm",
         early_vocal_solver: "heun",
@@ -923,6 +931,8 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
     await window.playerEngine.loadTrack(track);
   }
 
+  const defaults = window.RouterDiscovery?.engineDefaults || {};
+
   if (isCompleted && track.recipe) {
     const parsedBlocks = Array.isArray(track.recipe.blocks) && track.recipe.blocks.length > 0
       ? track.recipe.blocks
@@ -940,26 +950,26 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       lyrics: track.recipe.lyrics || "",
       blocks: parsedBlocks,
       seed: track.recipe.telemetry?.seed,
-      temperature: track.recipe.telemetry?.stage1_temperature ?? track.working_draft?.temperature ?? 0.9192,
-      top_p: track.recipe.telemetry?.stage1_top_p ?? track.working_draft?.top_p ?? 0.9600,
-      ar_guidance_scale: track.recipe.telemetry?.stage1_ar_cfg ?? track.working_draft?.ar_guidance_scale ?? 1.5200,
-      top_k_layers: track.recipe.telemetry?.top_k_vector_used ?? track.working_draft?.top_k_layers ?? [47, 47, 47, 45, 39, 37, 38, 39],
-      early_instrumental_solver: track.recipe.telemetry?.stage1_early_instrumental_solver || track.working_draft?.early_instrumental_solver || "heun",
-      late_instrumental_solver: track.recipe.telemetry?.stage1_late_instrumental_solver || track.working_draft?.late_instrumental_solver || "ipndm",
-      early_vocal_solver: track.recipe.telemetry?.stage1_early_vocal_solver || track.working_draft?.early_vocal_solver || "heun",
-      late_vocal_solver: track.recipe.telemetry?.stage1_late_vocal_solver || track.working_draft?.late_vocal_solver || "ipndm",
-      handoff_threshold: track.recipe.telemetry?.stage1_handoff_threshold ?? track.working_draft?.handoff_threshold ?? 0.3257,
-      num_inference_steps: track.recipe.telemetry?.stage1_inference_steps ?? track.working_draft?.num_inference_steps ?? 42,
-      early_instrumental_cfg: track.recipe.telemetry?.stage1_early_instrumental_cfg ?? track.working_draft?.early_instrumental_cfg ?? 1.7800,
-      late_instrumental_cfg: track.recipe.telemetry?.stage1_late_instrumental_cfg ?? track.working_draft?.late_instrumental_cfg ?? 1.0000,
-      early_vocal_cfg: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.early_vocal_cfg ?? 1.7800,
-      late_vocal_cfg: track.recipe.telemetry?.stage1_late_vocal_cfg ?? track.working_draft?.late_vocal_cfg ?? 1.0000,
-      instrumental_scheduler: track.recipe.telemetry?.stage1_early_instrumental_solver || track.working_draft?.instrumental_scheduler || "heun",
-      vocal_scheduler: track.recipe.telemetry?.stage1_early_vocal_solver || track.working_draft?.vocal_scheduler || "heun",
-      instrumental_guidance_scale: track.recipe.telemetry?.stage1_early_instrumental_cfg ?? track.working_draft?.instrumental_guidance_scale ?? 1.7800,
-      vocal_guidance_scale: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.vocal_guidance_scale ?? 1.7800,
-      eta: track.recipe.telemetry?.stage1_eta ?? track.working_draft?.eta ?? 0.0,
-      s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? 1.0
+      temperature: track.recipe.telemetry?.stage1_temperature ?? track.working_draft?.temperature ?? defaults.temperature ?? 0.9192,
+      top_p: track.recipe.telemetry?.stage1_top_p ?? track.working_draft?.top_p ?? defaults.top_p ?? 1.0000,
+      ar_guidance_scale: track.recipe.telemetry?.stage1_ar_cfg ?? track.working_draft?.ar_guidance_scale ?? defaults.ar_guidance_scale ?? 1.5200,
+      top_k_layers: track.recipe.telemetry?.top_k_vector_used ?? track.working_draft?.top_k_layers ?? defaults.top_k_layers ?? [47, 47, 47, 45, 39, 37, 38, 39],
+      early_instrumental_solver: track.recipe.telemetry?.stage1_early_instrumental_solver || track.working_draft?.early_instrumental_solver || defaults.early_instrumental_solver || "heun",
+      late_instrumental_solver: track.recipe.telemetry?.stage1_late_instrumental_solver || track.working_draft?.late_instrumental_solver || defaults.late_instrumental_solver || "ipndm",
+      early_vocal_solver: track.recipe.telemetry?.stage1_early_vocal_solver || track.working_draft?.early_vocal_solver || defaults.early_vocal_solver || "heun",
+      late_vocal_solver: track.recipe.telemetry?.stage1_late_vocal_solver || track.working_draft?.late_vocal_solver || defaults.late_vocal_solver || "ipndm",
+      handoff_threshold: track.recipe.telemetry?.stage1_handoff_threshold ?? track.working_draft?.handoff_threshold ?? defaults.handoff_threshold ?? 0.3257,
+      num_inference_steps: track.recipe.telemetry?.stage1_inference_steps ?? track.working_draft?.num_inference_steps ?? defaults.num_inference_steps ?? 42,
+      early_instrumental_cfg: track.recipe.telemetry?.stage1_early_instrumental_cfg ?? track.working_draft?.early_instrumental_cfg ?? defaults.early_instrumental_cfg ?? 1.7800,
+      late_instrumental_cfg: track.recipe.telemetry?.stage1_late_instrumental_cfg ?? track.working_draft?.late_instrumental_cfg ?? defaults.late_instrumental_cfg ?? 1.0000,
+      early_vocal_cfg: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.7800,
+      late_vocal_cfg: track.recipe.telemetry?.stage1_late_vocal_cfg ?? track.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0000,
+      instrumental_scheduler: track.recipe.telemetry?.stage1_early_instrumental_solver || track.working_draft?.instrumental_scheduler || defaults.early_instrumental_solver || "heun",
+      vocal_scheduler: track.recipe.telemetry?.stage1_early_vocal_solver || track.working_draft?.vocal_scheduler || defaults.early_vocal_solver || "heun",
+      instrumental_guidance_scale: track.recipe.telemetry?.stage1_early_instrumental_cfg ?? track.working_draft?.instrumental_guidance_scale ?? defaults.early_instrumental_cfg ?? 1.7800,
+      vocal_guidance_scale: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.vocal_guidance_scale ?? defaults.early_vocal_cfg ?? 1.7800,
+      eta: track.recipe.telemetry?.stage1_eta ?? track.working_draft?.eta ?? defaults.eta ?? 0.0,
+      s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? defaults.s_noise ?? 1.0
     };
 
     const draftToLoad = track.fork_draft || canonicalDraft;
@@ -1736,6 +1746,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         }
       }
 
+      const defaults = window.RouterDiscovery?.engineDefaults || {};
+
       const completedTrack = {
         track_id: targetTrackId,
         user_slug: AppState.user.slug,
@@ -1802,27 +1814,27 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           lyrics: compositionPayload.lyrics,
           blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
           seed: seed,
-          temperature: data.working_draft?.temperature ?? 0.9192,
-          top_p: data.working_draft?.top_p ?? 0.9600,
-          top_k: data.working_draft?.top_k ?? 47,
-          top_k_layers: data.working_draft?.top_k_layers ?? [47, 47, 47, 45, 39, 37, 38, 39],
-          ar_guidance_scale: data.working_draft?.ar_guidance_scale ?? 1.5200,
-          early_instrumental_solver: data.working_draft?.early_instrumental_solver || "heun",
-          late_instrumental_solver: data.working_draft?.late_instrumental_solver || "ipndm",
-          early_vocal_solver: data.working_draft?.early_vocal_solver || "heun",
-          late_vocal_solver: data.working_draft?.late_vocal_solver || "ipndm",
-          handoff_threshold: data.working_draft?.handoff_threshold ?? 0.3257,
-          num_inference_steps: data.working_draft?.num_inference_steps ?? 42,
-          early_instrumental_cfg: data.working_draft?.early_instrumental_cfg ?? 1.78,
-          late_instrumental_cfg: data.working_draft?.late_instrumental_cfg ?? 1.0,
-          early_vocal_cfg: data.working_draft?.early_vocal_cfg ?? 1.78,
-          late_vocal_cfg: data.working_draft?.late_vocal_cfg ?? 1.0,
-          instrumental_scheduler: data.working_draft?.early_instrumental_solver || "heun",
-          vocal_scheduler: data.working_draft?.early_vocal_solver || "heun",
-          instrumental_guidance_scale: data.working_draft?.early_instrumental_cfg ?? 1.78,
-          vocal_guidance_scale: data.working_draft?.early_vocal_cfg ?? 1.78,
-          eta: data.working_draft?.eta ?? 0.0,
-          s_noise: data.working_draft?.s_noise ?? 1.0
+          temperature: data.working_draft?.temperature ?? defaults.temperature ?? 0.9192,
+          top_p: data.working_draft?.top_p ?? defaults.top_p ?? 1.0000,
+          top_k: data.working_draft?.top_k ?? defaults.top_k ?? 47,
+          top_k_layers: data.working_draft?.top_k_layers ?? defaults.top_k_layers ?? [47, 47, 47, 45, 39, 37, 38, 39],
+          ar_guidance_scale: data.working_draft?.ar_guidance_scale ?? defaults.ar_guidance_scale ?? 1.5200,
+          early_instrumental_solver: data.working_draft?.early_instrumental_solver || defaults.early_instrumental_solver || "heun",
+          late_instrumental_solver: data.working_draft?.late_instrumental_solver || defaults.late_instrumental_solver || "ipndm",
+          early_vocal_solver: data.working_draft?.early_vocal_solver || defaults.early_vocal_solver || "heun",
+          late_vocal_solver: data.working_draft?.late_vocal_solver || defaults.late_vocal_solver || "ipndm",
+          handoff_threshold: data.working_draft?.handoff_threshold ?? defaults.handoff_threshold ?? 0.3257,
+          num_inference_steps: data.working_draft?.num_inference_steps ?? defaults.num_inference_steps ?? 42,
+          early_instrumental_cfg: data.working_draft?.early_instrumental_cfg ?? defaults.early_instrumental_cfg ?? 1.78,
+          late_instrumental_cfg: data.working_draft?.late_instrumental_cfg ?? defaults.late_instrumental_cfg ?? 1.0,
+          early_vocal_cfg: data.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.78,
+          late_vocal_cfg: data.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0,
+          instrumental_scheduler: data.working_draft?.early_instrumental_solver || defaults.early_instrumental_solver || "heun",
+          vocal_scheduler: data.working_draft?.early_vocal_solver || defaults.early_vocal_solver || "heun",
+          instrumental_guidance_scale: data.working_draft?.early_instrumental_cfg ?? defaults.early_instrumental_cfg ?? 1.78,
+          vocal_guidance_scale: data.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.78,
+          eta: data.working_draft?.eta ?? defaults.eta ?? 0.0,
+          s_noise: data.working_draft?.s_noise ?? defaults.s_noise ?? 1.0
         }
       };
 
