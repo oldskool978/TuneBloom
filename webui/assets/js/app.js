@@ -53,7 +53,6 @@ const AppModal = {
   show(title, message, iconClass = "fa-circle-info") {
     this.init();
     this.lastFocusedElement = document.activeElement;
-
     if (this.titleEl) this.titleEl.textContent = title;
     if (this.messageEl) this.messageEl.textContent = message;
     if (this.iconEl) this.iconEl.className = `fa-solid ${iconClass}`;
@@ -113,7 +112,6 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
-
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-ack-btn" class="px-6 py-2 rounded-xl theme-btn-primary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-lg">
@@ -133,7 +131,6 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
-
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-cancel-btn" class="px-4 py-2 rounded-xl theme-btn-secondary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md">
@@ -160,7 +157,6 @@ const AppModal = {
     return new Promise((resolve) => {
       this.activeResolve = resolve;
       this.show(title, message, iconClass);
-
       if (this.inputContainer) {
         this.inputContainer.classList.remove("hidden");
       }
@@ -177,7 +173,6 @@ const AppModal = {
           }
         };
       }
-
       if (this.actionsEl) {
         this.actionsEl.innerHTML = `
           <button type="button" id="app-modal-cancel-btn" class="px-4 py-2 rounded-xl theme-btn-secondary font-bold text-xs uppercase tracking-wider hover:opacity-95 active:scale-95 transition shadow-md">
@@ -200,7 +195,6 @@ const AppModal = {
           };
         }
       }
-
       setTimeout(() => {
         if (this.inputEl) {
           this.inputEl.focus();
@@ -255,7 +249,6 @@ const AppToast = {
 
     const playBtn = toast.querySelector(".toast-play-btn");
     const closeBtn = toast.querySelector(".toast-close-btn");
-
     const dismiss = () => {
       if (toast.classList.contains("dismissing")) return;
       toast.classList.add("dismissing");
@@ -269,14 +262,12 @@ const AppToast = {
         dismiss();
       };
     }
-
     if (closeBtn) {
       closeBtn.onclick = (e) => {
         e.stopPropagation();
         dismiss();
       };
     }
-
     toast.onclick = async () => {
       if (onPlay) await onPlay();
       dismiss();
@@ -298,7 +289,11 @@ const AppState = {
   editingTagIndex: null,
   activeTrackCleanRecipe: null,
   songBlocks: [],
-  isDispatching: false
+  instrumentalBlocks: [],
+  isInstrumental: false,
+  isDispatching: false,
+  vocalLeadDraft: "",
+  instrumentalLeadDraft: ""
 };
 
 let syncTimeout = null;
@@ -358,11 +353,19 @@ function computeCanonicalRecipe(title, data) {
   const sanitize = (val) => String(val || "").replace(/\r\n/g, "\n").trim();
   const bpm = parseInt(data.bpm, 10);
   const cleanBpm = Math.max(30, Math.min(300, isNaN(bpm) ? 96 : bpm));
+
   let lyricsStr = "";
   if (typeof data.lyrics === "string" && data.lyrics.trim().length > 0) {
     lyricsStr = sanitize(data.lyrics);
   } else if (Array.isArray(data.blocks) && window.compileBlocksToLyrics) {
     lyricsStr = sanitize(window.compileBlocksToLyrics(data.blocks));
+  }
+
+  let instLyricsStr = "";
+  if (typeof data.instrumental_lyrics === "string" && data.instrumental_lyrics.trim().length > 0) {
+    instLyricsStr = sanitize(data.instrumental_lyrics);
+  } else if (Array.isArray(data.instrumental_blocks) && window.compileBlocksToCues) {
+    instLyricsStr = sanitize(window.compileBlocksToCues(data.instrumental_blocks));
   }
 
   const canonical = {
@@ -374,7 +377,10 @@ function computeCanonicalRecipe(title, data) {
     mood: sanitize(data.mood),
     vocals: sanitize(data.vocals),
     arrangement: sanitize(data.arrangement),
-    lyrics: lyricsStr
+    is_instrumental: Boolean(data.is_instrumental),
+    instrumental_branch: sanitize(data.instrumental_branch || "cues"),
+    lyrics: lyricsStr,
+    instrumental_lyrics: instLyricsStr
   };
   return JSON.stringify(canonical);
 }
@@ -384,28 +390,41 @@ function getCurrentFormPayload() {
   const cleanBpm = Math.max(30, Math.min(300, isNaN(bpmVal) ? 96 : bpmVal));
   const cadence = window.calculateQuantizedDuration ? window.calculateQuantizedDuration(cleanBpm) : { durationSeconds: 240.0 };
 
-  const sanitizeStr = (id, fallback, maxLen) => {
-    const val = document.getElementById(id)?.value || "";
-    const clean = val.trim();
+  const getCleanVal = (id, maxLen) => {
+    return (document.getElementById(id)?.value || "").trim().slice(0, maxLen);
+  };
+
+  const sanitizeRequired = (id, fallback, maxLen) => {
+    const clean = getCleanVal(id, maxLen);
     return (clean || fallback).slice(0, maxLen);
   };
 
   const compiledLyrics = window.compileBlocksToLyrics
     ? window.compileBlocksToLyrics(AppState.songBlocks)
     : "";
+  const compiledCues = window.compileBlocksToCues
+    ? window.compileBlocksToCues(AppState.instrumentalBlocks)
+    : "";
+
+  const activeDefaults = window.RouterDiscovery?.engineDefaults || {};
 
   return {
-    title: sanitizeStr("field-title", "Untitled Master", 80),
-    genre: sanitizeStr("field-genre", "Contemporary R&B", 60),
-    subgenre: sanitizeStr("field-subgenre", "2000s Pop R&B / Slow Jam Bounce", 60),
+    title: sanitizeRequired("field-title", "Untitled Master", 80),
+    genre: sanitizeRequired("field-genre", "Contemporary R&B", 60),
+    subgenre: getCleanVal("field-subgenre", 60),
     bpm: cleanBpm,
-    key: sanitizeStr("field-key", "F minor", 30),
-    mood: sanitizeStr("field-mood", "Sensual, passionate, smooth, confident, driving.", 200),
-    vocals: sanitizeStr("field-vocals", "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.", 300),
-    arrangement: sanitizeStr("field-arrangement", "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.", 300),
+    key: sanitizeRequired("field-key", "F minor", 30),
+    mood: sanitizeRequired("field-mood", "Sensual, passionate, smooth, confident, driving.", 200),
+    vocals: getCleanVal("field-vocals", 300),
+    arrangement: sanitizeRequired("field-arrangement", "Dynamic full acoustic arrangement.", 300),
     lyrics: compiledLyrics.slice(0, 4000),
+    instrumental_lyrics: compiledCues.slice(0, 4000),
+    is_instrumental: Boolean(AppState.isInstrumental),
+    instrumental_branch: "cues",
     audio_duration: Math.min(600.0, Math.max(30.0, Number(cadence.durationSeconds.toFixed(2)))),
-    blocks: JSON.parse(JSON.stringify(AppState.songBlocks))
+    blocks: JSON.parse(JSON.stringify(AppState.songBlocks || [])),
+    instrumental_blocks: JSON.parse(JSON.stringify(AppState.instrumentalBlocks || [])),
+    vocoder_batch_size: parseInt(activeDefaults.vocoder_batch_size || 4, 10)
   };
 }
 
@@ -431,7 +450,6 @@ async function ensureShowcaseTrack(slug, storage) {
   }
 
   let defaultTrack = existingTracks.find((t) => t && t.is_default);
-
   if (!defaultTrack) {
     const initialBp = window.TuneBloomBlueprints
       ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")
@@ -451,6 +469,10 @@ async function ensureShowcaseTrack(slug, storage) {
     const defaultAudioUrl = router && router.isOnline
       ? `${router.activeBase}/audio/stream/${slug}/default.opus`
       : resolveAssetUrl("public/default.opus");
+
+    const derivedInstBlocks = window.deriveDefaultCuesFromVocalBlocks
+      ? window.deriveDefaultCuesFromVocalBlocks(initialBp.blocks)
+      : [];
 
     defaultTrack = {
       track_id: `default_${slug}`,
@@ -474,6 +496,11 @@ async function ensureShowcaseTrack(slug, storage) {
         vocals: initialBp.vocals || "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.",
         arrangement: initialBp.arrangement || "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.",
         lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(initialBp.blocks) : "",
+        instrumental_lyrics: window.compileBlocksToCues ? window.compileBlocksToCues(derivedInstBlocks) : "",
+        is_instrumental: false,
+        instrumental_branch: "cues",
+        blocks: initialBp.blocks,
+        instrumental_blocks: derivedInstBlocks,
         stage1_profile: "Studio Master Acoustic Arrangement",
         stage2_profile: "Spatial Air & Harmonic Balancing",
         stage3_profile: "Dynamic Envelope Optimization",
@@ -500,17 +527,21 @@ async function ensureShowcaseTrack(slug, storage) {
           stage1_late_instrumental_cfg: 1.0,
           stage1_early_vocal_cfg: 1.78,
           stage1_late_vocal_cfg: 1.0,
-          stage1_instrumental_scheduler: "heun",
-          stage1_vocal_scheduler: "heun",
-          stage1_instrumental_guidance_scale: 1.78,
-          stage1_vocal_guidance_scale: 1.78,
           stage1_eta: 0.0,
-          stage1_s_noise: 1.0
+          stage1_s_noise: 1.0,
+          stage1_vocoder_batch_size: 4,
+          stage1_is_instrumental: false,
+          stage1_instrumental_branch: "cues"
         }
       },
       working_draft: {
         ...JSON.parse(JSON.stringify(initialBp)),
         seed: 42,
+        is_instrumental: false,
+        instrumental_branch: "cues",
+        instrumental_blocks: derivedInstBlocks,
+        vocal_lead: initialBp.vocals || "",
+        instrumental_lead: "",
         temperature: 0.9192,
         top_p: 1.0000,
         top_k: 47,
@@ -526,12 +557,9 @@ async function ensureShowcaseTrack(slug, storage) {
         late_instrumental_cfg: 1.0,
         early_vocal_cfg: 1.78,
         late_vocal_cfg: 1.0,
-        instrumental_scheduler: "heun",
-        vocal_scheduler: "heun",
-        instrumental_guidance_scale: 1.78,
-        vocal_guidance_scale: 1.78,
         eta: 0.0,
-        s_noise: 1.0
+        s_noise: 1.0,
+        vocoder_batch_size: 4
       }
     };
   } else {
@@ -552,7 +580,6 @@ async function ensureShowcaseTrack(slug, storage) {
   });
 
   const normalizedTracks = [defaultTrack, ...otherTracks];
-
   if (storage) {
     for (const track of normalizedTracks) {
       await storage.saveTrack(track);
@@ -607,7 +634,6 @@ async function handleAuthSubmit(event) {
   try {
     let authData = null;
     const router = window.RouterDiscovery;
-
     if (router && router.isOnline) {
       try {
         const loginResp = await fetch(`${router.activeBase}/auth/login`, {
@@ -724,10 +750,11 @@ async function handleAuthSubmit(event) {
     await ensureShowcaseTrack(slug, storage);
     AppState.user = userRecord;
     localStorage.setItem("tb_active_user_slug", slug);
-
     unlockWorkspaceUI();
+
     const userGreeting = document.getElementById("user-greeting-tag");
     if (userGreeting) userGreeting.textContent = `${userRecord.display_name} Studio`;
+
     updateQuotaDisplay();
 
     if (window.themeEngine && userRecord.assigned_theme) {
@@ -785,7 +812,8 @@ function handleLogout() {
   AppState.activeTrackId = null;
   AppState.activeTrackCleanRecipe = null;
   AppState.isDispatching = false;
-
+  AppState.vocalLeadDraft = "";
+  AppState.instrumentalLeadDraft = "";
   if (AppState.activeEventSource) {
     AppState.activeEventSource.close();
     AppState.activeEventSource = null;
@@ -794,10 +822,8 @@ function handleLogout() {
     clearInterval(AppState.pollIntervalId);
     AppState.pollIntervalId = null;
   }
-
   localStorage.removeItem("tb_session_token");
   localStorage.removeItem("tb_active_user_slug");
-
   const usernameInput = document.getElementById("auth-username");
   const btn = document.getElementById("auth-submit-btn");
   if (usernameInput) usernameInput.value = "";
@@ -805,7 +831,6 @@ function handleLogout() {
     btn.disabled = false;
     btn.textContent = "Initialize Studio";
   }
-
   lockWorkspaceUI();
   if (window.playerEngine) {
     window.playerEngine.setPlaybackState(false);
@@ -820,8 +845,8 @@ function renderDiscography() {
   const container = document.getElementById("discography-carousel");
   const counter = document.getElementById("discography-counter");
   if (!container) return;
-
   container.innerHTML = "";
+
   AppState.tracks = sortTracks(AppState.tracks);
   const total = AppState.tracks.length;
   if (counter) counter.textContent = `${total} Track${total === 1 ? "" : "s"} In Vault`;
@@ -834,12 +859,12 @@ function renderDiscography() {
     const isCompleted = isTrackCompleted(track);
     const isProcessing = track.status === "PROCESSING";
     const isDraft = !isCompleted && !isProcessing;
-    const coverUrl = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : resolveAssetUrl("public/jewelcases/default.jpg");
+    const isInst = Boolean(track.recipe?.is_instrumental ?? track.working_draft?.is_instrumental);
 
+    const coverUrl = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : resolveAssetUrl("public/jewelcases/default.jpg");
     const displayTitle = isCompleted
       ? (track.title || "Untitled Master")
       : (track.working_draft?.title || track.title || "Untitled Master");
-
     const displayGenre = isCompleted
       ? (track.recipe?.genre || "R&B")
       : (track.working_draft?.genre || track.recipe?.genre || "R&B");
@@ -850,8 +875,9 @@ function renderDiscography() {
     }`;
     item.onclick = () => selectTrackById(track.track_id);
 
-    let badgeText = "Master";
-    let badgeColor = "text-emerald-300";
+    let badgeText = isInst ? "Inst" : "Master";
+    let badgeColor = isInst ? "text-amber-300" : "text-emerald-300";
+
     if (isDefault) {
       badgeText = "Master";
       badgeColor = "text-amber-300";
@@ -859,26 +885,26 @@ function renderDiscography() {
       badgeText = "Studio";
       badgeColor = "text-sky-400 animate-pulse";
     } else if (isDraft) {
-      badgeText = "Draft";
-      badgeColor = "text-sky-300";
+      badgeText = isInst ? "Inst Draft" : "Draft";
+      badgeColor = isInst ? "text-amber-200" : "text-sky-300";
     }
 
     const badgeOrDeleteHtml = isDefault
       ? `
-      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
-        ${badgeText}
-      </div>
-    `
+        <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
+          ${badgeText}
+        </div>
+      `
       : `
-      <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
-        ${badgeText}
-      </div>
-      <button type="button" onclick="handleTrackDelete('${track.track_id}', event)"
-              class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-white/80 hover:text-white border border-white/20 flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition shadow-md z-10"
-              title="Delete Track">
-        <i class="fa-solid fa-trash-can"></i>
-      </button>
-    `;
+        <div class="absolute top-1.5 left-1.5 px-1.5 py-0.5 rounded bg-black/60 border border-white/20 text-[8px] font-mono font-bold uppercase ${badgeColor} pointer-events-none">
+          ${badgeText}
+        </div>
+        <button type="button" onclick="handleTrackDelete('${track.track_id}', event)"
+                class="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/70 hover:bg-rose-600 text-white/80 hover:text-white border border-white/20 flex items-center justify-center text-[9px] opacity-0 group-hover:opacity-100 transition shadow-md z-10"
+                title="Delete Track">
+          <i class="fa-solid fa-trash-can"></i>
+        </button>
+      `;
 
     item.innerHTML = `
       ${badgeOrDeleteHtml}
@@ -891,7 +917,6 @@ function renderDiscography() {
       <div class="text-[11px] font-black truncate text-white leading-tight">${displayTitle}</div>
       <div class="text-[9px] text-white/70 font-mono mt-0.5">${displayGenre}</div>
     `;
-
     container.appendChild(item);
   });
 
@@ -915,7 +940,6 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
     clearTimeout(syncTimeout);
     syncTimeout = null;
   }
-
   const track = AppState.tracks.find((t) => t.track_id === trackId);
   if (!track) return;
 
@@ -938,6 +962,14 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       ? track.recipe.blocks
       : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(track.recipe.lyrics || "") : []);
 
+    const parsedInstBlocks = Array.isArray(track.recipe.instrumental_blocks) && track.recipe.instrumental_blocks.length > 0
+      ? track.recipe.instrumental_blocks
+      : (Array.isArray(track.working_draft?.instrumental_blocks) && track.working_draft.instrumental_blocks.length > 0
+        ? track.working_draft.instrumental_blocks
+        : (window.deriveDefaultCuesFromVocalBlocks ? window.deriveDefaultCuesFromVocalBlocks(parsedBlocks) : []));
+
+    const isInst = Boolean(track.recipe.is_instrumental ?? track.working_draft?.is_instrumental ?? false);
+
     const canonicalDraft = {
       title: track.title,
       genre: track.recipe.genre || "",
@@ -948,7 +980,13 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       vocals: track.recipe.vocals || "",
       arrangement: track.recipe.arrangement || "",
       lyrics: track.recipe.lyrics || "",
+      instrumental_lyrics: track.recipe.instrumental_lyrics || "",
+      is_instrumental: isInst,
+      instrumental_branch: track.recipe.instrumental_branch || track.working_draft?.instrumental_branch || "cues",
       blocks: parsedBlocks,
+      instrumental_blocks: parsedInstBlocks,
+      vocal_lead: track.working_draft?.vocal_lead ?? (isInst ? "" : (track.recipe.vocals || "")),
+      instrumental_lead: track.working_draft?.instrumental_lead ?? (isInst ? (track.recipe.vocals || "") : ""),
       seed: track.recipe.telemetry?.seed,
       temperature: track.recipe.telemetry?.stage1_temperature ?? track.working_draft?.temperature ?? defaults.temperature ?? 0.9192,
       top_p: track.recipe.telemetry?.stage1_top_p ?? track.working_draft?.top_p ?? defaults.top_p ?? 1.0000,
@@ -964,14 +1002,10 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       late_instrumental_cfg: track.recipe.telemetry?.stage1_late_instrumental_cfg ?? track.working_draft?.late_instrumental_cfg ?? defaults.late_instrumental_cfg ?? 1.0000,
       early_vocal_cfg: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.7800,
       late_vocal_cfg: track.recipe.telemetry?.stage1_late_vocal_cfg ?? track.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0000,
-      instrumental_scheduler: track.recipe.telemetry?.stage1_early_instrumental_solver || track.working_draft?.instrumental_scheduler || defaults.early_instrumental_solver || "heun",
-      vocal_scheduler: track.recipe.telemetry?.stage1_early_vocal_solver || track.working_draft?.vocal_scheduler || defaults.early_vocal_solver || "heun",
-      instrumental_guidance_scale: track.recipe.telemetry?.stage1_early_instrumental_cfg ?? track.working_draft?.instrumental_guidance_scale ?? defaults.early_instrumental_cfg ?? 1.7800,
-      vocal_guidance_scale: track.recipe.telemetry?.stage1_early_vocal_cfg ?? track.working_draft?.vocal_guidance_scale ?? defaults.early_vocal_cfg ?? 1.7800,
       eta: track.recipe.telemetry?.stage1_eta ?? track.working_draft?.eta ?? defaults.eta ?? 0.0,
-      s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? defaults.s_noise ?? 1.0
+      s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? defaults.s_noise ?? 1.0,
+      vocoder_batch_size: track.recipe.telemetry?.stage1_vocoder_batch_size ?? track.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 4
     };
-
     const draftToLoad = track.fork_draft || canonicalDraft;
     track.working_draft = draftToLoad;
     loadDraftIntoForm(draftToLoad, isDefault);
@@ -996,15 +1030,24 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
     const el = document.getElementById(id);
     if (el && val !== undefined) el.value = val;
   };
-
   setVal("field-title", draft.title || "");
   setVal("field-genre", draft.genre || "");
   setVal("field-subgenre", draft.subgenre || "");
   setVal("field-bpm", draft.bpm || 96);
   setVal("field-key", draft.key || "");
   setVal("field-mood", draft.mood || "");
-  setVal("field-vocals", draft.vocals || "");
   setVal("field-arrangement", draft.arrangement || "");
+
+  AppState.isInstrumental = Boolean(draft.is_instrumental);
+
+  if (draft.is_instrumental) {
+    AppState.instrumentalLeadDraft = draft.vocals || draft.instrumental_lead || "";
+    AppState.vocalLeadDraft = draft.vocal_lead || "";
+  } else {
+    AppState.vocalLeadDraft = draft.vocals || draft.vocal_lead || "";
+    AppState.instrumentalLeadDraft = draft.instrumental_lead || "";
+  }
+  setVal("field-vocals", draft.vocals || "");
 
   if (Array.isArray(draft.blocks) && draft.blocks.length > 0) {
     AppState.songBlocks = JSON.parse(JSON.stringify(draft.blocks));
@@ -1021,7 +1064,24 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
     AppState.songBlocks = [];
   }
 
-  if (window.renderSongBlocks) window.renderSongBlocks();
+  if (Array.isArray(draft.instrumental_blocks) && draft.instrumental_blocks.length > 0) {
+    AppState.instrumentalBlocks = JSON.parse(JSON.stringify(draft.instrumental_blocks));
+  } else if (typeof draft.instrumental_lyrics === "string" && draft.instrumental_lyrics.trim().length > 0) {
+    AppState.instrumentalBlocks = window.parseLyricsIntoBlocks
+      ? window.parseLyricsIntoBlocks(draft.instrumental_lyrics)
+      : [];
+  } else if (window.deriveDefaultCuesFromVocalBlocks) {
+    AppState.instrumentalBlocks = window.deriveDefaultCuesFromVocalBlocks(AppState.songBlocks);
+  } else {
+    AppState.instrumentalBlocks = [];
+  }
+
+  if (typeof window.updateModalityToggleUI === "function") {
+    window.updateModalityToggleUI();
+  }
+  if (typeof window.renderSongBlocks === "function") {
+    window.renderSongBlocks();
+  }
 }
 
 function checkRecipeDirtyState() {
@@ -1033,9 +1093,10 @@ function checkRecipeDirtyState() {
 
   const currentPayload = getCurrentFormPayload();
   const currentSerialized = computeCanonicalRecipe(currentPayload.title, currentPayload);
-
   const isCompleted = isTrackCompleted(currentTrack);
   const isPristine = isCompleted && AppState.activeTrackCleanRecipe !== null && currentSerialized === AppState.activeTrackCleanRecipe;
+
+  const modeLabel = AppState.isInstrumental ? "Instrumental" : "Studio";
 
   if (isCompleted && isPristine) {
     btn.disabled = true;
@@ -1043,11 +1104,11 @@ function checkRecipeDirtyState() {
     btn.className = "w-full py-3.5 rounded-2xl font-black tracking-widest text-xs uppercase bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 cursor-default flex items-center justify-center gap-2 opacity-90 select-none";
   } else if (isCompleted && !isPristine) {
     btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-code-branch text-amber-300 mr-1.5"></i> Synthesize Forked Variation (1 Token)`;
+    btn.innerHTML = `<i class="fa-solid fa-code-branch text-amber-300 mr-1.5"></i> Synthesize Forked ${modeLabel} (1 Token)`;
     btn.className = "w-full py-3.5 rounded-2xl font-black tracking-widest text-xs uppercase theme-btn-primary hover:opacity-95 active:scale-98 transition shadow-xl flex items-center justify-center gap-2 cursor-pointer";
   } else {
     btn.disabled = false;
-    btn.innerHTML = `<i class="fa-solid fa-bolt mr-1.5"></i> Synthesize Studio Master (1 Token)`;
+    btn.innerHTML = `<i class="fa-solid fa-bolt mr-1.5"></i> Synthesize ${modeLabel} Master (1 Token)`;
     btn.className = "w-full py-3.5 rounded-2xl font-black tracking-widest text-xs uppercase theme-btn-primary hover:opacity-95 active:scale-98 transition shadow-xl flex items-center justify-center gap-2 cursor-pointer";
   }
 }
@@ -1055,7 +1116,6 @@ function checkRecipeDirtyState() {
 function syncActiveTrackDraftDebounced() {
   if (syncTimeout) clearTimeout(syncTimeout);
   const targetTrackId = AppState.activeTrackId;
-
   syncTimeout = setTimeout(async () => {
     if (!AppState.user || !targetTrackId || targetTrackId !== AppState.activeTrackId) return;
     const track = AppState.tracks.find((t) => t.track_id === targetTrackId);
@@ -1064,9 +1124,17 @@ function syncActiveTrackDraftDebounced() {
     const payload = getCurrentFormPayload();
     const isCompleted = isTrackCompleted(track);
 
+    if (AppState.isInstrumental) {
+      AppState.instrumentalLeadDraft = payload.vocals;
+    } else {
+      AppState.vocalLeadDraft = payload.vocals;
+    }
+
     if (isCompleted) {
       track.fork_draft = {
         ...payload,
+        vocal_lead: AppState.vocalLeadDraft,
+        instrumental_lead: AppState.instrumentalLeadDraft,
         seed: track.recipe?.telemetry?.seed ?? track.working_draft?.seed,
         temperature: track.working_draft?.temperature,
         top_p: track.working_draft?.top_p,
@@ -1083,12 +1151,9 @@ function syncActiveTrackDraftDebounced() {
         late_instrumental_cfg: track.working_draft?.late_instrumental_cfg,
         early_vocal_cfg: track.working_draft?.early_vocal_cfg,
         late_vocal_cfg: track.working_draft?.late_vocal_cfg,
-        instrumental_scheduler: track.working_draft?.instrumental_scheduler,
-        vocal_scheduler: track.working_draft?.vocal_scheduler,
-        instrumental_guidance_scale: track.working_draft?.instrumental_guidance_scale,
-        vocal_guidance_scale: track.working_draft?.vocal_guidance_scale,
         eta: track.working_draft?.eta,
-        s_noise: track.working_draft?.s_noise
+        s_noise: track.working_draft?.s_noise,
+        vocoder_batch_size: track.working_draft?.vocoder_batch_size ?? 4
       };
       track.updated_at = new Date().toISOString();
       const storage = window.clientStorage;
@@ -1098,13 +1163,14 @@ function syncActiveTrackDraftDebounced() {
 
     track.working_draft = {
       ...track.working_draft,
-      ...payload
+      ...payload,
+      vocal_lead: AppState.vocalLeadDraft,
+      instrumental_lead: AppState.instrumentalLeadDraft
     };
     track.title = payload.title || track.title;
     track.updated_at = new Date().toISOString();
     const storage = window.clientStorage;
     if (storage) await storage.saveTrack(track);
-
     if (track.track_id === AppState.activeTrackId) {
       const titleEl = document.getElementById("player-track-title");
       if (titleEl) titleEl.textContent = track.title;
@@ -1135,13 +1201,20 @@ async function handleAddNewTrackCardClick() {
   const resolver = window.ClientJewelResolver;
   const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase).filter(Boolean);
   const assignedCover = resolver ? await resolver.resolve(AppState.user.slug, trackId, seed, usedCovers) : "default.jpg";
-
   const newOrderIndex = AppState.tracks.length;
+
   const clonedBlocks = Array.isArray(blueprint.blocks)
     ? JSON.parse(JSON.stringify(blueprint.blocks))
     : [];
   const compiledLyrics = window.compileBlocksToLyrics
     ? window.compileBlocksToLyrics(clonedBlocks)
+    : "";
+
+  const clonedInstBlocks = Array.isArray(blueprint.instrumental_blocks) && blueprint.instrumental_blocks.length > 0
+    ? JSON.parse(JSON.stringify(blueprint.instrumental_blocks))
+    : (window.deriveDefaultCuesFromVocalBlocks ? window.deriveDefaultCuesFromVocalBlocks(clonedBlocks) : []);
+  const compiledCues = window.compileBlocksToCues
+    ? window.compileBlocksToCues(clonedInstBlocks)
     : "";
 
   const newDraftTrack = {
@@ -1162,14 +1235,20 @@ async function handleAddNewTrackCardClick() {
       ...JSON.parse(JSON.stringify(blueprint)),
       title: enteredTitle.slice(0, 80),
       lyrics: compiledLyrics,
+      instrumental_lyrics: compiledCues,
+      is_instrumental: false,
+      instrumental_branch: "cues",
       blocks: clonedBlocks,
-      seed: seed
+      instrumental_blocks: clonedInstBlocks,
+      vocal_lead: blueprint.vocals || "",
+      instrumental_lead: "",
+      seed: seed,
+      vocoder_batch_size: 4
     }
   };
 
   const storage = window.clientStorage;
   if (storage) await storage.saveTrack(newDraftTrack);
-
   AppState.tracks.push(newDraftTrack);
   renderDiscography();
   await selectTrackById(trackId);
@@ -1215,7 +1294,6 @@ async function handleTrackDelete(trackId, e) {
   }
 
   AppState.tracks = AppState.tracks.filter((t) => t.track_id !== trackId);
-
   if (AppState.activeTrackId === trackId) {
     const fallbackTrack = AppState.tracks[0];
     if (fallbackTrack) {
@@ -1277,7 +1355,7 @@ async function handleGenerateSubmit(e) {
   if (isCompleted && isPristine) {
     await AppModal.alert(
       "Master Already Synthesized",
-      "This composition master is already synthesized. Modify any arrangement parameter or lyrics to synthesize a new forked variation.",
+      "This composition master is already synthesized. Modify any arrangement parameter, section cue, or lyrics to synthesize a new forked variation.",
       "fa-circle-check"
     );
     return;
@@ -1299,8 +1377,8 @@ async function handleGenerateSubmit(e) {
   AppState.isDispatching = true;
   const isFork = Boolean(isCompleted);
   const originTrackId = currentTrack ? currentTrack.track_id : null;
-
   const originSeed = currentTrack?.recipe?.telemetry?.seed ?? currentTrack?.working_draft?.seed;
+
   let seed;
   if (isFork) {
     seed = (originSeed !== undefined && originSeed !== null)
@@ -1324,8 +1402,8 @@ async function handleGenerateSubmit(e) {
 
   const resolver = window.ClientJewelResolver;
   const stagedId = `staged_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
-
   let targetCover = "default.jpg";
+
   if (isFork) {
     const usedCovers = AppState.tracks.map((t) => t.assigned_jewelcase).filter(Boolean);
     const parentCover = currentTrack?.assigned_jewelcase;
@@ -1355,6 +1433,10 @@ async function handleGenerateSubmit(e) {
       const parentBlocks = Array.isArray(currentTrack.recipe.blocks) && currentTrack.recipe.blocks.length > 0
         ? currentTrack.recipe.blocks
         : (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(currentTrack.recipe.lyrics || "") : []);
+      const parentInstBlocks = Array.isArray(currentTrack.recipe.instrumental_blocks) && currentTrack.recipe.instrumental_blocks.length > 0
+        ? currentTrack.recipe.instrumental_blocks
+        : (window.deriveDefaultCuesFromVocalBlocks ? window.deriveDefaultCuesFromVocalBlocks(parentBlocks) : []);
+
       currentTrack.working_draft = {
         title: currentTrack.title,
         genre: currentTrack.recipe.genre || "",
@@ -1365,7 +1447,13 @@ async function handleGenerateSubmit(e) {
         vocals: currentTrack.recipe.vocals || "",
         arrangement: currentTrack.recipe.arrangement || "",
         lyrics: currentTrack.recipe.lyrics || "",
+        instrumental_lyrics: currentTrack.recipe.instrumental_lyrics || "",
+        is_instrumental: Boolean(currentTrack.recipe.is_instrumental),
+        instrumental_branch: currentTrack.recipe.instrumental_branch || "cues",
         blocks: JSON.parse(JSON.stringify(parentBlocks)),
+        instrumental_blocks: JSON.parse(JSON.stringify(parentInstBlocks)),
+        vocal_lead: currentTrack.working_draft?.vocal_lead ?? (currentTrack.recipe.is_instrumental ? "" : (currentTrack.recipe.vocals || "")),
+        instrumental_lead: currentTrack.working_draft?.instrumental_lead ?? (currentTrack.recipe.is_instrumental ? (currentTrack.recipe.vocals || "") : ""),
         seed: originSeed,
         temperature: currentTrack.working_draft?.temperature,
         top_p: currentTrack.working_draft?.top_p,
@@ -1382,12 +1470,9 @@ async function handleGenerateSubmit(e) {
         late_instrumental_cfg: currentTrack.working_draft?.late_instrumental_cfg,
         early_vocal_cfg: currentTrack.working_draft?.early_vocal_cfg,
         late_vocal_cfg: currentTrack.working_draft?.late_vocal_cfg,
-        instrumental_scheduler: currentTrack.working_draft?.instrumental_scheduler,
-        vocal_scheduler: currentTrack.working_draft?.vocal_scheduler,
-        instrumental_guidance_scale: currentTrack.working_draft?.instrumental_guidance_scale,
-        vocal_guidance_scale: currentTrack.working_draft?.vocal_guidance_scale,
         eta: currentTrack.working_draft?.eta,
-        s_noise: currentTrack.working_draft?.s_noise
+        s_noise: currentTrack.working_draft?.s_noise,
+        vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 4
       };
       const storage = window.clientStorage;
       if (storage) await storage.saveTrack(currentTrack);
@@ -1409,6 +1494,8 @@ async function handleGenerateSubmit(e) {
       recipe: null,
       working_draft: {
         ...JSON.parse(JSON.stringify(formPayload)),
+        vocal_lead: AppState.vocalLeadDraft,
+        instrumental_lead: AppState.instrumentalLeadDraft,
         seed: seed,
         temperature: currentTrack?.working_draft?.temperature,
         top_p: currentTrack?.working_draft?.top_p,
@@ -1425,24 +1512,18 @@ async function handleGenerateSubmit(e) {
         late_instrumental_cfg: currentTrack?.working_draft?.late_instrumental_cfg,
         early_vocal_cfg: currentTrack?.working_draft?.early_vocal_cfg,
         late_vocal_cfg: currentTrack?.working_draft?.late_vocal_cfg,
-        instrumental_scheduler: currentTrack?.working_draft?.instrumental_scheduler,
-        vocal_scheduler: currentTrack?.working_draft?.vocal_scheduler,
-        instrumental_guidance_scale: currentTrack?.working_draft?.instrumental_guidance_scale,
-        vocal_guidance_scale: currentTrack?.working_draft?.vocal_guidance_scale,
         eta: currentTrack?.working_draft?.eta,
-        s_noise: currentTrack?.working_draft?.s_noise
+        s_noise: currentTrack?.working_draft?.s_noise,
+        vocoder_batch_size: currentTrack?.working_draft?.vocoder_batch_size ?? 4
       }
     };
-
     AppState.tracks.push(workingTrackTarget);
     const storage = window.clientStorage;
     if (storage) await storage.saveTrack(workingTrackTarget);
-
     AppState.activeTrackId = stagedId;
     if (AppState.user) {
       localStorage.setItem(`tb_active_track_${AppState.user.slug}`, stagedId);
     }
-
     renderDiscography();
     const carousel = document.getElementById("discography-carousel");
     if (carousel) {
@@ -1454,6 +1535,8 @@ async function handleGenerateSubmit(e) {
     currentTrack.status = "PROCESSING";
     currentTrack.working_draft = {
       ...JSON.parse(JSON.stringify(formPayload)),
+      vocal_lead: AppState.vocalLeadDraft,
+      instrumental_lead: AppState.instrumentalLeadDraft,
       seed: seed,
       temperature: currentTrack.working_draft?.temperature,
       top_p: currentTrack.working_draft?.top_p,
@@ -1470,17 +1553,13 @@ async function handleGenerateSubmit(e) {
       late_instrumental_cfg: currentTrack.working_draft?.late_instrumental_cfg,
       early_vocal_cfg: currentTrack.working_draft?.early_vocal_cfg,
       late_vocal_cfg: currentTrack.working_draft?.late_vocal_cfg,
-      instrumental_scheduler: currentTrack.working_draft?.instrumental_scheduler,
-      vocal_scheduler: currentTrack.working_draft?.vocal_scheduler,
-      instrumental_guidance_scale: currentTrack.working_draft?.instrumental_guidance_scale,
-      vocal_guidance_scale: currentTrack.working_draft?.vocal_guidance_scale,
       eta: currentTrack.working_draft?.eta,
-      s_noise: currentTrack.working_draft?.s_noise
+      s_noise: currentTrack.working_draft?.s_noise,
+      vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 4
     };
     AppState.activeTrackId = currentTrack.track_id;
     const storage = window.clientStorage;
     if (storage) await storage.saveTrack(currentTrack);
-
     renderDiscography();
   }
 
@@ -1503,10 +1582,15 @@ async function handleGenerateSubmit(e) {
       vocals: formPayload.vocals,
       arrangement: formPayload.arrangement,
       lyrics: formPayload.lyrics,
+      instrumental_lyrics: formPayload.instrumental_lyrics,
+      is_instrumental: formPayload.is_instrumental,
+      instrumental_branch: formPayload.instrumental_branch,
       audio_duration: formPayload.audio_duration,
       seed: seed,
       assigned_jewelcase: targetCover,
       blocks: formPayload.blocks,
+      instrumental_blocks: formPayload.instrumental_blocks,
+      vocoder_batch_size: formPayload.vocoder_batch_size,
       ...(currentTrack?.working_draft?.temperature !== undefined ? { temperature: currentTrack.working_draft.temperature } : {}),
       ...(currentTrack?.working_draft?.top_p !== undefined ? { top_p: currentTrack.working_draft.top_p } : {}),
       ...(currentTrack?.working_draft?.top_k !== undefined ? { top_k: currentTrack.working_draft.top_k } : {}),
@@ -1522,10 +1606,6 @@ async function handleGenerateSubmit(e) {
       ...(currentTrack?.working_draft?.late_instrumental_cfg !== undefined ? { late_instrumental_cfg: currentTrack.working_draft.late_instrumental_cfg } : {}),
       ...(currentTrack?.working_draft?.early_vocal_cfg !== undefined ? { early_vocal_cfg: currentTrack.working_draft.early_vocal_cfg } : {}),
       ...(currentTrack?.working_draft?.late_vocal_cfg !== undefined ? { late_vocal_cfg: currentTrack.working_draft.late_vocal_cfg } : {}),
-      ...(currentTrack?.working_draft?.instrumental_scheduler ? { instrumental_scheduler: currentTrack.working_draft.instrumental_scheduler } : {}),
-      ...(currentTrack?.working_draft?.vocal_scheduler ? { vocal_scheduler: currentTrack.working_draft.vocal_scheduler } : {}),
-      ...(currentTrack?.working_draft?.instrumental_guidance_scale !== undefined ? { instrumental_guidance_scale: currentTrack.working_draft.instrumental_guidance_scale } : {}),
-      ...(currentTrack?.working_draft?.vocal_guidance_scale !== undefined ? { vocal_guidance_scale: currentTrack.working_draft.vocal_guidance_scale } : {}),
       ...(currentTrack?.working_draft?.eta !== undefined ? { eta: currentTrack.working_draft.eta } : {}),
       ...(currentTrack?.working_draft?.s_noise !== undefined ? { s_noise: currentTrack.working_draft.s_noise } : {}),
       pow: {
@@ -1582,8 +1662,8 @@ async function handleGenerateSubmit(e) {
         localStorage.setItem(`tb_active_track_${AppState.user.slug}`, jobData.job_id);
       }
     }
-    renderDiscography();
 
+    renderDiscography();
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
       compositionPayload: { ...formPayload, seed },
@@ -1616,7 +1696,6 @@ async function handleGenerateSubmit(e) {
     }
     AppState.isDispatching = false;
     await AppModal.alert("Dispatch Error", `Synthesis submission failed:\n${err.message}`, "fa-triangle-exclamation");
-
     if (btn) {
       btn.disabled = false;
       btn.classList.remove("hidden");
@@ -1661,7 +1740,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       }
     }
     AppState.isDispatching = false;
-
     const btnEl = document.getElementById("gen-submit-btn");
     const hudEl = document.getElementById("queue-status-hud");
     if (btnEl) {
@@ -1691,7 +1769,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
     }
     renderDiscography();
     checkRecipeDirtyState();
-
     await AppModal.alert(
       "Session Reset",
       "The compute studio was restarted and the pending job was cleared. Your lyrics, arrangement draft, and generation token remain intact.",
@@ -1770,8 +1847,12 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           vocals: compositionPayload.vocals,
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
+          instrumental_lyrics: compositionPayload.instrumental_lyrics,
+          is_instrumental: compositionPayload.is_instrumental,
+          instrumental_branch: compositionPayload.instrumental_branch,
           audio_duration: realizedDuration,
           blocks: compositionPayload.blocks,
+          instrumental_blocks: compositionPayload.instrumental_blocks,
           stage1_profile: "Studio Master Acoustic Arrangement",
           stage2_profile: "Spatial Air & Harmonic Balancing",
           stage3_profile: "Dynamic Envelope Optimization",
@@ -1794,12 +1875,11 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             stage1_late_instrumental_cfg: 1.0,
             stage1_early_vocal_cfg: 1.78,
             stage1_late_vocal_cfg: 1.0,
-            stage1_instrumental_scheduler: "heun",
-            stage1_vocal_scheduler: "heun",
-            stage1_instrumental_guidance_scale: 1.78,
-            stage1_vocal_guidance_scale: 1.78,
             stage1_eta: 0.0,
-            stage1_s_noise: 1.0
+            stage1_s_noise: 1.0,
+            stage1_vocoder_batch_size: 4,
+            stage1_is_instrumental: compositionPayload.is_instrumental,
+            stage1_instrumental_branch: compositionPayload.instrumental_branch
           }
         },
         working_draft: {
@@ -1812,7 +1892,13 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           vocals: compositionPayload.vocals,
           arrangement: compositionPayload.arrangement,
           lyrics: compositionPayload.lyrics,
-          blocks: compositionPayload.blocks || (window.parseLyricsIntoBlocks ? window.parseLyricsIntoBlocks(compositionPayload.lyrics) : []),
+          instrumental_lyrics: compositionPayload.instrumental_lyrics,
+          is_instrumental: compositionPayload.is_instrumental,
+          instrumental_branch: compositionPayload.instrumental_branch,
+          blocks: compositionPayload.blocks,
+          instrumental_blocks: compositionPayload.instrumental_blocks,
+          vocal_lead: AppState.vocalLeadDraft,
+          instrumental_lead: AppState.instrumentalLeadDraft,
           seed: seed,
           temperature: data.working_draft?.temperature ?? defaults.temperature ?? 0.9192,
           top_p: data.working_draft?.top_p ?? defaults.top_p ?? 1.0000,
@@ -1829,12 +1915,9 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           late_instrumental_cfg: data.working_draft?.late_instrumental_cfg ?? defaults.late_instrumental_cfg ?? 1.0,
           early_vocal_cfg: data.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.78,
           late_vocal_cfg: data.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0,
-          instrumental_scheduler: data.working_draft?.early_instrumental_solver || defaults.early_instrumental_solver || "heun",
-          vocal_scheduler: data.working_draft?.early_vocal_solver || defaults.early_vocal_solver || "heun",
-          instrumental_guidance_scale: data.working_draft?.early_instrumental_cfg ?? defaults.early_instrumental_cfg ?? 1.78,
-          vocal_guidance_scale: data.working_draft?.early_vocal_cfg ?? defaults.early_vocal_cfg ?? 1.78,
           eta: data.working_draft?.eta ?? defaults.eta ?? 0.0,
-          s_noise: data.working_draft?.s_noise ?? defaults.s_noise ?? 1.0
+          s_noise: data.working_draft?.s_noise ?? defaults.s_noise ?? 1.0,
+          vocoder_batch_size: data.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 4
         }
       };
 
@@ -1878,10 +1961,9 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
 
       const coverResolver = window.ClientJewelResolver;
       const toastCoverUrl = coverResolver ? coverResolver.getCoverUrl(finalCover) : resolveAssetUrl("public/jewelcases/default.jpg");
-
       AppToast.show({
         title: completedTrack.title,
-        subtitle: `${completedTrack.recipe?.genre || "Studio Master"} • 48.0 kHz FL32`,
+        subtitle: `${completedTrack.recipe?.genre || "Studio Master"} · 48.0 kHz FL32`,
         coverUrl: toastCoverUrl,
         duration: 8000,
         onPlay: async () => {
@@ -1918,7 +2000,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         }
       }
       AppState.isDispatching = false;
-
       if (isFork) {
         const storage = window.clientStorage;
         if (storage) {
@@ -1933,7 +2014,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
       }
 
       await AppModal.alert("Synthesis Failed", data.error || "Audio mastering process interrupted.", "fa-circle-xmark");
-
       const btnEl = document.getElementById("gen-submit-btn");
       const hudEl = document.getElementById("queue-status-hud");
       if (btnEl) {
@@ -1950,7 +2030,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
     if (AppState.pollIntervalId) return;
     let lastEtag = null;
     let currentInterval = 2000;
-
     const pollStep = async () => {
       try {
         const headers = { Authorization: `Bearer ${token}` };
@@ -1971,7 +2050,6 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
         }
       } catch {}
     };
-
     AppState.pollIntervalId = setInterval(pollStep, currentInterval);
     pollStep();
   };
@@ -2015,6 +2093,7 @@ document.addEventListener("DOMContentLoaded", async () => {
           const hData = await hRes.json();
           if (hData.baseline_parameters) {
             window.RouterDiscovery.engineDefaults = hData.baseline_parameters;
+            window.DEFAULT_ENGINE_SETTINGS = hData.baseline_parameters;
           }
         }
       } catch {}
@@ -2028,6 +2107,7 @@ document.addEventListener("DOMContentLoaded", async () => {
       if (userRecord) {
         AppState.user = userRecord;
         AppState.token = localStorage.getItem("tb_session_token");
+
         await ensureShowcaseTrack(savedSlug, window.clientStorage);
 
         for (const t of AppState.tracks) {
@@ -2038,9 +2118,9 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
 
         unlockWorkspaceUI();
-
         const userGreeting = document.getElementById("user-greeting-tag");
         if (userGreeting) userGreeting.textContent = `${userRecord.display_name} Studio`;
+
         updateQuotaDisplay();
 
         if (window.themeEngine && userRecord.assigned_theme) {
@@ -2116,6 +2196,7 @@ document.addEventListener("DOMContentLoaded", async () => {
                       user_slug: savedSlug,
                       order_index: existingIdx !== -1 ? AppState.tracks[existingIdx].order_index : (i + 1)
                     };
+
                     if (existingIdx === -1) {
                       await window.clientStorage.saveTrack(trackObj);
                       AppState.tracks.push(trackObj);

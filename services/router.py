@@ -174,7 +174,6 @@ def resolve_site_root() -> Path:
     for c in candidates:
         if (c / "index.html").exists():
             return c.resolve()
-
     return (BACKEND_ROOT / "webui").resolve()
 
 
@@ -221,9 +220,11 @@ def slugify(username: str) -> str:
 def get_user_registry_candidates() -> List[Path]:
     if _CLI_CONFIG_FILE and _CLI_CONFIG_FILE.exists():
         return [_CLI_CONFIG_FILE.resolve()]
+
     custom_file = os.environ.get("TUNEBLOOM_USERS_FILE")
     if custom_file and Path(custom_file).exists():
         return [Path(custom_file).resolve()]
+
     custom_dir = os.environ.get("TUNEBLOOM_CONFIG_DIR")
     if custom_dir and (Path(custom_dir) / "users.json").exists():
         return [(Path(custom_dir) / "users.json").resolve()]
@@ -330,7 +331,6 @@ def verify_pow_solution(challenge: str, signature: str, solution_nonce: str) -> 
             return False
     except Exception:
         return False
-
     attempt = f"{challenge}:{solution_nonce}".encode("utf-8")
     h = hashlib.sha256(attempt).hexdigest()
     if not h.startswith("0" * diff):
@@ -359,12 +359,16 @@ class SynthesisPayload(BaseModel):
     vocals: str = Field(default="", max_length=300)
     arrangement: str = Field(default="", max_length=300)
     lyrics: str = Field(default="", max_length=4000)
+    instrumental_lyrics: Optional[str] = Field(default="", max_length=4000)
+    is_instrumental: Optional[bool] = Field(default=None)
+    instrumental_branch: Optional[str] = Field(default=None)
     raw_prompt: Optional[str] = Field(default=None, max_length=5000)
     prompt: Optional[str] = Field(default=None, max_length=5000)
     audio_duration: float = Field(default=300.0, ge=1.0, le=600.0)
     seed: Optional[int] = Field(default=None, ge=0)
     assigned_jewelcase: Optional[str] = Field(default=None, max_length=120)
     blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
+    instrumental_blocks: Optional[List[Dict[str, Any]]] = Field(default_factory=list)
     temperature: Optional[float] = Field(default=None, ge=0.0001, le=3.0)
     top_p: Optional[float] = Field(default=None, ge=0.0001, le=1.0)
     top_k: Optional[int] = Field(default=None, ge=1, le=500)
@@ -388,6 +392,7 @@ class SynthesisPayload(BaseModel):
     guidance_scale: Optional[float] = Field(default=None, ge=0.0, le=20.0)
     eta: Optional[float] = Field(default=None, ge=0.0, le=1.0)
     s_noise: Optional[float] = Field(default=None, ge=0.0, le=5.0)
+    vocoder_batch_size: Optional[int] = Field(default=None, ge=1, le=32)
     apply_declick: Optional[bool] = Field(default=None)
     cpu_offload: Optional[bool] = Field(default=None)
     pow: PowSubmission
@@ -410,6 +415,16 @@ class SynthesisPayload(BaseModel):
             return None
         try:
             return int(v)
+        except (ValueError, TypeError):
+            return None
+
+    @field_validator("vocoder_batch_size", mode="before")
+    @classmethod
+    def coerce_vocoder_batch_size(cls, v: Any) -> Optional[int]:
+        if v is None or (isinstance(v, str) and not v.strip()):
+            return None
+        try:
+            return max(1, min(32, int(v)))
         except (ValueError, TypeError):
             return None
 
@@ -474,7 +489,10 @@ class EnginePipeline:
         gc.collect()
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-            torch.cuda.ipc_collect()
+            try:
+                torch.cuda.ipc_collect()
+            except Exception:
+                pass
 
     def run_stage1_composition(
         self,
@@ -485,84 +503,34 @@ class EnginePipeline:
         progress_cb: Callable[[int, str], None],
     ) -> Tuple[Any, GenerationRequest]:
         progress_cb(5, "Arranging Harmonic Structure & Instrumentation...")
-        from Intelligen.schema import GenerationRequest, get_active_engine_defaults
+        from Intelligen.schema import GenerationRequest
         from Intelligen.engine import MusicEngine
 
-        raw_lyrics = request_data.get("lyrics", "")
-        blocks = request_data.get("blocks", [])
-        active_defaults = get_active_engine_defaults()
+        req_kwargs = {
+            k: v for k, v in request_data.items()
+            if v is not None and k in GenerationRequest.model_fields
+        }
 
-        def get_param(key: str, fallback_key: Optional[str] = None) -> Any:
-            val = request_data.get(key)
-            if val is not None:
-                return val
-            if fallback_key is not None:
-                val = request_data.get(fallback_key)
-                if val is not None:
-                    return val
-            return active_defaults.get(key, BASELINE_ENGINE_DEFAULTS.get(key))
+        if "scheduler_type" in request_data and request_data["scheduler_type"]:
+            st = str(request_data["scheduler_type"]).strip().lower()
+            if "early_instrumental_solver" not in req_kwargs:
+                req_kwargs["early_instrumental_solver"] = st
+            if "early_vocal_solver" not in req_kwargs:
+                req_kwargs["early_vocal_solver"] = st
 
-        raw_k_layers = request_data.get("top_k_layers")
-        parsed_k = parse_k_vector(raw_k_layers) if raw_k_layers is not None else None
-        if parsed_k:
-            resolved_k_layers = parsed_k
-        else:
-            resolved_k_layers = list(active_defaults["top_k_layers"])
+        if "guidance_scale" in request_data and request_data["guidance_scale"] is not None:
+            gs = float(request_data["guidance_scale"])
+            if "instrumental_guidance_scale" not in req_kwargs:
+                req_kwargs["instrumental_guidance_scale"] = gs
+            if "vocal_guidance_scale" not in req_kwargs:
+                req_kwargs["vocal_guidance_scale"] = gs
 
-        raw_top_k = request_data.get("top_k")
-        if raw_top_k is not None:
-            resolved_top_k = int(raw_top_k)
-        else:
-            resolved_top_k = resolved_k_layers[0] if resolved_k_layers else active_defaults["top_k"]
+        req_kwargs["audio_duration"] = target_duration
+        req_kwargs["seed"] = seed
+        req_kwargs["output_path"] = str(out_path)
+        req_kwargs["device"] = self.device_str
 
-        early_inst = str(get_param("early_instrumental_solver", "instrumental_scheduler") or get_param("scheduler_type", "early_instrumental_solver"))
-        late_inst = str(get_param("late_instrumental_solver", "early_instrumental_solver"))
-        early_voc = str(get_param("early_vocal_solver", "vocal_scheduler") or get_param("scheduler_type", "early_vocal_solver"))
-        late_voc = str(get_param("late_vocal_solver", "early_vocal_solver"))
-
-        early_i_cfg = float(get_param("early_instrumental_cfg", "instrumental_guidance_scale") or get_param("guidance_scale", "early_instrumental_cfg"))
-        late_i_cfg = float(get_param("late_instrumental_cfg", "early_instrumental_cfg") if request_data.get("late_instrumental_cfg") is not None else active_defaults.get("late_instrumental_cfg", 1.0))
-        early_v_cfg = float(get_param("early_vocal_cfg", "vocal_guidance_scale") or get_param("guidance_scale", "early_vocal_cfg"))
-        late_v_cfg = float(get_param("late_vocal_cfg", "early_vocal_cfg") if request_data.get("late_vocal_cfg") is not None else active_defaults.get("late_vocal_cfg", 1.0))
-
-        gen_req = GenerationRequest(
-            genre=request_data.get("genre", ""),
-            subgenre=request_data.get("subgenre", ""),
-            bpm=int(request_data.get("bpm", 0)),
-            key=request_data.get("key", ""),
-            mood=request_data.get("mood", ""),
-            vocals=request_data.get("vocals", ""),
-            arrangement=request_data.get("arrangement", ""),
-            lyrics=raw_lyrics,
-            raw_prompt=request_data.get("raw_prompt"),
-            prompt=request_data.get("prompt"),
-            temperature=float(get_param("temperature")),
-            top_p=float(get_param("top_p")),
-            top_k=int(resolved_top_k),
-            top_k_layers=resolved_k_layers,
-            ar_guidance_scale=float(get_param("ar_guidance_scale")),
-            early_instrumental_solver=early_inst,
-            late_instrumental_solver=late_inst,
-            early_vocal_solver=early_voc,
-            late_vocal_solver=late_voc,
-            handoff_threshold=float(get_param("handoff_threshold")),
-            num_inference_steps=int(get_param("num_inference_steps")),
-            instrumental_guidance_scale=early_i_cfg,
-            early_instrumental_cfg=early_i_cfg,
-            late_instrumental_cfg=late_i_cfg,
-            vocal_guidance_scale=early_v_cfg,
-            early_vocal_cfg=early_v_cfg,
-            late_vocal_cfg=late_v_cfg,
-            eta=float(get_param("eta")),
-            s_noise=float(get_param("s_noise")),
-            audio_duration=target_duration,
-            seed=seed,
-            output_path=str(out_path),
-            device=self.device_str,
-            apply_declick=bool(get_param("apply_declick")),
-            cpu_offload=bool(get_param("cpu_offload")),
-            blocks=blocks,
-        )
+        gen_req = GenerationRequest(**req_kwargs)
 
         def on_intelli_step(stage: str, cur: int, tot: int):
             if stage == "stage1":
@@ -664,7 +632,6 @@ class EnginePipeline:
                     audio_tensor = host_tensor.to(self.device)
                 del host_tensor
                 del audio_48k
-
                 limited_tensor = limiter.process_full_prepass(audio_tensor)
                 final_audio_np = limited_tensor.detach().cpu().numpy().T
 
@@ -710,6 +677,10 @@ class EnginePipeline:
                 "stage1_guidance_scale": getattr(intelli_resp, "early_instrumental_cfg_used", gen_req.early_instrumental_cfg),
                 "stage1_eta": getattr(intelli_resp, "eta_used", gen_req.eta) if intelli_resp else gen_req.eta,
                 "stage1_s_noise": getattr(intelli_resp, "s_noise_used", gen_req.s_noise) if intelli_resp else gen_req.s_noise,
+                "stage1_vocoder_batch_size": gen_req.vocoder_batch_size,
+                "stage1_is_instrumental": getattr(intelli_resp, "is_instrumental_used", gen_req.is_instrumental),
+                "stage1_instrumental_branch": getattr(intelli_resp, "instrumental_branch_used", gen_req.instrumental_branch),
+                "stage1_effective_prompt": getattr(intelli_resp, "effective_prompt", gen_req.compile_prompt()),
                 "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
                 "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
                 "stage2_solver": getattr(furgie_telem, "solver_used", "res_multistep_cfg_pp") if furgie_telem else None,
@@ -720,7 +691,6 @@ class EnginePipeline:
                 "stage2_top_octave_sfm": round(getattr(furgie_telem, "top_octave_sfm", 0.0), 4) if furgie_telem else None,
                 "stage2_spectral_tilt_db_oct": round(getattr(furgie_telem, "spectral_tilt_slope", 0.0), 3) if furgie_telem else None,
             }
-
             master_recipe = {
                 "stage1_profile": "Studio Master Acoustic Arrangement",
                 "stage2_profile": "Spatial Air & Harmonic Balancing",
@@ -800,28 +770,37 @@ class EnginePipeline:
                 )
 
                 full_recipe = {
-                    "genre": job.request_data.get("genre", ""),
-                    "subgenre": job.request_data.get("subgenre", ""),
-                    "bpm": int(job.request_data.get("bpm", 0)),
-                    "key": job.request_data.get("key", ""),
-                    "mood": job.request_data.get("mood", ""),
-                    "vocals": job.request_data.get("vocals", ""),
-                    "arrangement": job.request_data.get("arrangement", ""),
-                    "lyrics": job.request_data.get("lyrics", ""),
+                    "genre": gen_req.genre,
+                    "subgenre": gen_req.subgenre,
+                    "bpm": gen_req.bpm,
+                    "key": gen_req.key,
+                    "mood": gen_req.mood,
+                    "vocals": gen_req.vocals,
+                    "arrangement": gen_req.arrangement,
+                    "lyrics": gen_req.lyrics,
+                    "instrumental_lyrics": gen_req.instrumental_lyrics,
+                    "is_instrumental": gen_req.is_instrumental,
+                    "instrumental_branch": gen_req.instrumental_branch,
+                    "blocks": gen_req.blocks,
+                    "instrumental_blocks": gen_req.instrumental_blocks,
                     **recipe_meta,
                 }
 
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
-                    "genre": job.request_data.get("genre", ""),
-                    "subgenre": job.request_data.get("subgenre", ""),
-                    "bpm": int(job.request_data.get("bpm", 0)),
-                    "key": job.request_data.get("key", ""),
-                    "mood": job.request_data.get("mood", ""),
-                    "vocals": job.request_data.get("vocals", ""),
-                    "arrangement": job.request_data.get("arrangement", ""),
-                    "lyrics": job.request_data.get("lyrics", ""),
-                    "blocks": job.request_data.get("blocks", []),
+                    "genre": gen_req.genre,
+                    "subgenre": gen_req.subgenre,
+                    "bpm": gen_req.bpm,
+                    "key": gen_req.key,
+                    "mood": gen_req.mood,
+                    "vocals": gen_req.vocals,
+                    "arrangement": gen_req.arrangement,
+                    "lyrics": gen_req.lyrics,
+                    "instrumental_lyrics": gen_req.instrumental_lyrics,
+                    "is_instrumental": gen_req.is_instrumental,
+                    "instrumental_branch": gen_req.instrumental_branch,
+                    "blocks": gen_req.blocks,
+                    "instrumental_blocks": gen_req.instrumental_blocks,
                     "seed": seed,
                     "top_k_layers": gen_req.top_k_layers,
                     "temperature": gen_req.temperature,
@@ -839,6 +818,7 @@ class EnginePipeline:
                     "late_vocal_cfg": gen_req.late_vocal_cfg,
                     "eta": gen_req.eta,
                     "s_noise": gen_req.s_noise,
+                    "vocoder_batch_size": gen_req.vocoder_batch_size,
                     "instrumental_scheduler": gen_req.early_instrumental_solver,
                     "vocal_scheduler": gen_req.early_vocal_solver,
                     "scheduler_type": gen_req.early_instrumental_solver,
@@ -846,7 +826,6 @@ class EnginePipeline:
                     "vocal_guidance_scale": gen_req.early_vocal_cfg,
                     "guidance_scale": gen_req.early_instrumental_cfg,
                 }
-
                 return output_opus_path, telemetry, full_recipe, working_draft
             finally:
                 if raw_stage1_path.exists():
@@ -900,7 +879,6 @@ class ComputeQueue:
         job = self.jobs.get(job_id)
         if not job:
             return None
-
         ahead_count = 0
         if job.status == "QUEUED":
             queue_items = list(self.queue._queue)
@@ -910,13 +888,11 @@ class ComputeQueue:
                     ahead_count += 1
             except ValueError:
                 ahead_count = 1 if self.active_job is not None else 0
-
         est_seconds = 0
         if job.status == "QUEUED":
             est_seconds = ahead_count * 60 + 60
         elif job.status == "PROCESSING":
             est_seconds = max(5, int(60 * (1.0 - job.progress_pct / 100.0)))
-
         return {
             "job_id": job.job_id,
             "status": job.status,
@@ -941,7 +917,6 @@ class ComputeQueue:
                         artifact.unlink(missing_ok=True)
                 except Exception:
                     pass
-
             dead_jobs = [
                 jid
                 for jid, j in self.jobs.items()
@@ -1050,7 +1025,6 @@ class ComputeQueue:
                 job.progress_pct = 100
                 job.stage_description = "Studio Master Complete"
                 job.status = "COMPLETED"
-
             except Exception as e:
                 job.status = "FAILED"
                 job.error_message = str(e)
@@ -1161,7 +1135,6 @@ async def login(payload: AuthPayload):
         if trk.get("created_at", "").startswith(today_utc)
         and not trk.get("is_default", False)
     )
-
     daily_quota = int(user_meta.get("daily_quota", 2))
     tokens_remaining = max(0, daily_quota - tokens_used_today)
 
@@ -1247,7 +1220,6 @@ async def synthesize(
                     )
             except Exception:
                 pass
-
         daily_quota = int(user_meta.get("daily_quota", 2))
         if tokens_used_today >= daily_quota:
             raise HTTPException(
@@ -1303,15 +1275,19 @@ async def stream_job_status(
         while True:
             if await request.is_disconnected():
                 break
+
             current_status = compute_queue.get_status(job_id)
             if not current_status:
                 break
+
             state_str = json.dumps(current_status)
             if state_str != last_state_str:
                 last_state_str = state_str
                 yield f"data: {state_str}\n\n"
+
             if current_status.get("status") in ("COMPLETED", "FAILED"):
                 break
+
             try:
                 await asyncio.wait_for(event.wait(), timeout=1.0)
                 event.clear()
@@ -1466,6 +1442,7 @@ def launch_standalone(host: str, port: int):
         import webview
     except ImportError:
         import webbrowser
+
         threading.Thread(target=run_server, args=(host, port), daemon=True).start()
         time.sleep(1.0)
         webbrowser.open(f"http://{host}:{port}/")

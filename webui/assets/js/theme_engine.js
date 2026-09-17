@@ -30,7 +30,7 @@ class ThemeEngine {
     this.stripContainer = document.getElementById("theme-strip-container");
     this.bindWheelScrolling();
     await this.loadRegistry();
-    const savedTheme = localStorage.getItem("tunebloom_active_theme") || "sky_peace";
+    const savedTheme = localStorage.getItem("tunebloom_active_theme") || localStorage.getItem("tb_active_theme") || "sky_peace";
     await this.applyTheme(savedTheme);
   }
 
@@ -154,6 +154,7 @@ class ThemeEngine {
     const themeMeta = this.registry.themes[themeId];
     this.currentThemeId = themeId;
     localStorage.setItem("tunebloom_active_theme", themeId);
+    localStorage.setItem("tb_active_theme", themeId);
 
     let palette = this.paletteCache.get(themeId);
     if (!palette) {
@@ -176,6 +177,9 @@ class ThemeEngine {
       const easterBtnIcon = document.getElementById("easter-action-icon");
       if (easterBtnIcon) {
         easterBtnIcon.className = `fa-solid ${easterIcon}`;
+      }
+      if (typeof window.renderSongBlocks === "function") {
+        window.renderSongBlocks();
       }
     }
 

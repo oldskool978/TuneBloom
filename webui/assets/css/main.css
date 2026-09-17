@@ -29,6 +29,31 @@
   --badge-bg: rgba(12, 74, 110, 0.8);
   --badge-text: #7dd3fc;
   --badge-border: rgba(56, 189, 248, 0.4);
+
+  --inst-intro-bg: #c7d2fe;
+  --inst-intro-border: #a5b4fc;
+  --inst-intro-ink: #1e1b4b;
+  --inst-verse-bg: #a7f3d0;
+  --inst-verse-border: #6ee7b7;
+  --inst-verse-ink: #064e3b;
+  --inst-prechorus-bg: #e9d5ff;
+  --inst-prechorus-border: #d8b4fe;
+  --inst-prechorus-ink: #581c87;
+  --inst-chorus-bg: #fde68a;
+  --inst-chorus-border: #fcd34d;
+  --inst-chorus-ink: #713f12;
+  --inst-bridge-bg: #d9f99d;
+  --inst-bridge-border: #bef264;
+  --inst-bridge-ink: #365314;
+  --inst-breakdown-bg: #fecdd3;
+  --inst-breakdown-border: #fda4af;
+  --inst-breakdown-ink: #881337;
+  --inst-solo-bg: #bae6fd;
+  --inst-solo-border: #7dd3fc;
+  --inst-solo-ink: #0c4a6e;
+  --inst-default-bg: #f1f5f9;
+  --inst-default-border: #cbd5e1;
+  --inst-default-ink: #0f172a;
 }
 
 *, *::before, *::after {
@@ -315,6 +340,30 @@ body {
   box-shadow: var(--visualizer-glow);
 }
 
+#seek-slider {
+  --seek-pct: 0%;
+  background: linear-gradient(to right, var(--accent-color) var(--seek-pct), rgba(255, 255, 255, 0.2) var(--seek-pct));
+}
+
+#seek-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 9999px;
+  background: var(--accent-light);
+  box-shadow: 0 0 10px var(--accent-color);
+  cursor: pointer;
+}
+
+#volume-slider::-webkit-slider-thumb {
+  appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 9999px;
+  background: #ffffff;
+  cursor: pointer;
+}
+
 .song-sheet {
   display: flex;
   flex-direction: column;
@@ -464,4 +513,81 @@ body {
 @keyframes pulseFade {
   0% { opacity: 1; transform: scale(0.8); }
   100% { opacity: 0; transform: scale(1.6); }
+}
+
+.easter-dusk-gust {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 25;
+  background: radial-gradient(circle at 35% 85%, rgba(245, 158, 11, 0.42) 0%, rgba(112, 26, 117, 0.28) 45%, transparent 70%);
+  mix-blend-mode: screen;
+  animation: duskGustPulse 1.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes duskGustPulse {
+  0% { opacity: 0; transform: scale(0.92); }
+  30% { opacity: 1; transform: scale(1.03); }
+  100% { opacity: 0; transform: scale(1.15); }
+}
+
+.ambient-leaf {
+  position: absolute;
+  pointer-events: none;
+  z-index: 30;
+  will-change: transform, opacity;
+  animation: leafGustSwirl linear forwards;
+}
+
+@keyframes leafGustSwirl {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) rotateX(0deg) scale(0.4);
+  }
+  15% {
+    opacity: 0.95;
+    transform: translate3d(calc(var(--travel-x) * 0.15), calc(var(--travel-y) * 0.15 + var(--sway, 0px)), 0) rotate(110deg) rotateX(45deg) scale(1.1);
+  }
+  50% {
+    opacity: 0.9;
+    transform: translate3d(calc(var(--travel-x) * 0.5), calc(var(--travel-y) * 0.5 - var(--sway, 0px)), 0) rotate(250deg) rotateY(60deg) scale(1);
+  }
+  85% {
+    opacity: 0.8;
+    transform: translate3d(calc(var(--travel-x) * 0.85), calc(var(--travel-y) * 0.85 + var(--sway, 0px)), 0) rotate(410deg) rotateX(30deg) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--travel-x), var(--travel-y), 0) rotate(540deg) rotateY(90deg) scale(0.3);
+  }
+}
+
+.easter-dusk-leaf {
+  position: absolute;
+  pointer-events: none;
+  z-index: 6;
+  border-radius: 9999px;
+  background: radial-gradient(circle, #fde68a 0%, #f59e0b 70%, rgba(245, 158, 11, 0) 100%);
+  box-shadow: 0 0 10px #f59e0b, 0 0 18px rgba(112, 26, 117, 0.6);
+  will-change: transform, opacity;
+  animation: flyDuskLeaf linear forwards;
+}
+
+@keyframes flyDuskLeaf {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, 0, 0) rotate(0deg) scale(0.4);
+  }
+  20% {
+    opacity: 0.95;
+    transform: translate3d(calc(var(--travel-x) * 0.2), calc(var(--travel-y) * 0.2), 0) rotate(70deg) scale(1.1);
+  }
+  80% {
+    opacity: 0.85;
+    transform: translate3d(calc(var(--travel-x) * 0.8), calc(var(--travel-y) * 0.8), 0) rotate(260deg) scale(0.95);
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--travel-x), var(--travel-y), 0) rotate(360deg) scale(0.2);
+  }
 }

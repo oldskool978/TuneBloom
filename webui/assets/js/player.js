@@ -25,7 +25,6 @@ class PlayerEngine {
     this.animFrameId = null;
     this.transcodeWorker = null;
     this.transcodeWorkerReady = false;
-
     this.initEngine();
     this.initAudioListeners();
     this.initTranscoderWorker();
@@ -85,30 +84,38 @@ class PlayerEngine {
   async initTranscoderWorker() {
     if (this.transcodeWorkerReady && this.transcodeWorker) return;
     if (this.transcodeInitPromise) return this.transcodeInitPromise;
-    this.transcodeInitPromise = (async () => {
+
+    this.transcodeInitPromise = new Promise(async (resolve, reject) => {
       try {
         const workerUrl = new URL("wasm/op3transcode-worker.js", document.baseURI).href;
         const wasmUrl = new URL("wasm/op3transcode.wasm", document.baseURI).href;
+
         this.transcodeWorker = new Worker(workerUrl);
         this.transcodeWorker.onmessage = (e) => {
           const msg = e.data;
           if (msg.type === "READY") {
             this.transcodeWorkerReady = true;
+            resolve();
           } else if (msg.type === "TRANSCODE_COMPLETE") {
             this.handleTranscodeComplete(msg);
           } else if (msg.type === "ERROR") {
             this.handleTranscodeError(msg.error);
           }
         };
+
         const wasmResp = await fetch(wasmUrl);
-        if (wasmResp.ok) {
-          const wasmBytes = await wasmResp.arrayBuffer();
-          this.transcodeWorker.postMessage({ type: "INIT", wasmBytes }, [wasmBytes]);
+        if (!wasmResp.ok) {
+          throw new Error(`Failed to fetch op3transcode.wasm (HTTP ${wasmResp.status})`);
         }
-      } catch {
+        const wasmBytes = await wasmResp.arrayBuffer();
+        this.transcodeWorker.postMessage({ type: "INIT", wasmBytes }, [wasmBytes]);
+      } catch (err) {
         this.transcodeWorkerReady = false;
+        this.transcodeInitPromise = null;
+        reject(err);
       }
-    })();
+    });
+
     return this.transcodeInitPromise;
   }
 
@@ -196,8 +203,8 @@ class PlayerEngine {
         const isEos = (headerType & 0x04) !== 0;
         const pageGranule = view.getBigInt64(offset + 6, true);
         const numSegments = bytes[offset + 26];
-        if (offset + 27 + numSegments > bytes.length) break;
 
+        if (offset + 27 + numSegments > bytes.length) break;
         const segmentTable = bytes.subarray(offset + 27, offset + 27 + numSegments);
         let bodyOffset = offset + 27 + numSegments;
 
@@ -214,7 +221,6 @@ class PlayerEngine {
           const segLen = segmentTable[segIdx++];
           const spansNext = segLen === 255;
           if (bodyOffset + segLen > bytes.length) break;
-
           const slice = bytes.subarray(bodyOffset, bodyOffset + segLen);
           bodyOffset += segLen;
           pendingSegments.push(slice);
@@ -315,21 +321,17 @@ class PlayerEngine {
           this.isPlaying = false;
           this.isPulling = false;
           this.preSkipPending = 0;
-
           this.hostRate = sampleRate;
           this.srcRate = 48000;
           this.ratio = this.srcRate / this.hostRate;
           this.isIdentityRate = (this.hostRate === 48000);
-
           this.resampMu = 0.0;
           this.hL = new Float32Array(4);
           this.hR = new Float32Array(4);
           this.hFilled = false;
-
           this.stagingInterleaved = new Float32Array(2048);
           this.stagingReadIdx = 0;
           this.stagingAvailable = 0;
-
           this.samplePair = new Float32Array(2);
 
           this.port.onmessage = async (e) => {
@@ -441,7 +443,6 @@ class PlayerEngine {
           }
 
           const pair = this.samplePair;
-
           if (this.isIdentityRate) {
             let written = 0;
             while (written < quantum) {
@@ -480,11 +481,9 @@ class PlayerEngine {
                 this.hL[0] = this.hL[1];
                 this.hL[1] = this.hL[2];
                 this.hL[2] = this.hL[3];
-
                 this.hR[0] = this.hR[1];
                 this.hR[1] = this.hR[2];
                 this.hR[2] = this.hR[3];
-
                 if (this.fetchSourceSample(pair)) {
                   this.hL[3] = pair[0];
                   this.hR[3] = pair[1];
@@ -504,7 +503,6 @@ class PlayerEngine {
               } else {
                 left[written] = Math.max(-1.0, Math.min(1.0, 0.70710678 * (sL + sR)));
               }
-
               this.resampMu += this.ratio;
               written++;
             }
@@ -515,7 +513,6 @@ class PlayerEngine {
             this.isPulling = true;
             this.port.postMessage({ type: "PULL_REQUEST" });
           }
-
           return true;
         }
       }
@@ -541,7 +538,6 @@ class PlayerEngine {
     };
 
     this.workletNode.connect(this.analyser);
-
     const wasmBytes = await this.initEngine();
     if (wasmBytes) {
       this.workletNode.port.postMessage({ type: "INIT", wasmBytes: wasmBytes.slice(0) });
@@ -589,7 +585,6 @@ class PlayerEngine {
     if (jewelImg) {
       jewelImg.src = resolver ? resolver.getCoverUrl(track.assigned_jewelcase) : "public/jewelcases/default.jpg";
     }
-
     if (timeCurrent) timeCurrent.textContent = "0:00";
     if (timeTotal) timeTotal.textContent = this.formatTime(track.duration_seconds || 240.0);
     if (seekSlider) {
@@ -600,7 +595,10 @@ class PlayerEngine {
     this.populateRecipeBackdrop(track);
 
     if (quoteCard) {
-      quoteCard.textContent = '"Pristine Dynamic Headroom & Harmonic Air | Broadcast Master Quality"';
+      const isInst = Boolean(track.recipe?.is_instrumental ?? track.working_draft?.is_instrumental);
+      quoteCard.textContent = isInst
+        ? '"Dynamic Acoustic Vectors & High-Fidelity Spatial Headroom | Instrumental Master"'
+        : '"Pristine Dynamic Headroom & Harmonic Air | Broadcast Master Quality"';
     }
 
     const storage = window.clientStorage;
@@ -608,7 +606,6 @@ class PlayerEngine {
     if (storage) {
       cachedBlob = await storage.getTrackAudioBlob(track.track_id);
     }
-
     let buffer = null;
     if (cachedBlob) {
       buffer = await cachedBlob.arrayBuffer();
@@ -661,22 +658,51 @@ class PlayerEngine {
 
     const r = track.recipe || {};
     const d = track.working_draft || {};
+    const isInst = Boolean(r.is_instrumental ?? d.is_instrumental);
 
-    if (seedTag) seedTag.textContent = "Broadcast Profile";
+    if (seedTag) {
+      seedTag.textContent = isInst ? "Instrumental Profile" : "Broadcast Profile";
+    }
     if (genreEl) genreEl.textContent = d.genre || r.genre || "Contemporary R&B";
     if (bpmEl) bpmEl.textContent = `${d.bpm || r.bpm || 96} BPM`;
     if (keyEl) keyEl.textContent = d.key || r.key || "F minor";
-    if (vocalsEl) vocalsEl.textContent = d.vocals || r.vocals || "Silky tenor lead, dynamic transitions.";
+
+    if (vocalsEl) {
+      if (isInst) {
+        const customLead = (d.vocals || r.vocals || "").trim();
+        if (customLead) {
+          vocalsEl.textContent = `Acoustic Lead: ${customLead}`;
+        } else {
+          vocalsEl.textContent = "Acoustic Lead: Primary melodic instruments take foreground.";
+        }
+      } else {
+        vocalsEl.textContent = d.vocals || r.vocals || "Silky tenor lead, dynamic transitions.";
+      }
+    }
+
     if (stage1El) stage1El.textContent = d.arrangement || r.arrangement || "Warm Rhodes, Deep Bass, Crisp Percussion";
     if (stage2El) stage2El.textContent = "48.0 kHz High-Fidelity Master Stereo";
 
     if (lyricsPreview) {
-      let previewText = "Instrumental Composition";
-      if (d.blocks && d.blocks.length > 0) {
-        const firstWithText = d.blocks.find((b) => b.text && b.text.trim().length > 0);
-        if (firstWithText) previewText = `"${firstWithText.text.split("\n")[0]}..."`;
-      } else if (r.lyrics) {
-        previewText = `"${r.lyrics.split("\n")[0]}..."`;
+      let previewText = isInst ? "Instrumental Composition (Strictly No Vocals)" : "Instrumental Composition";
+
+      if (isInst) {
+        const instList = (d.instrumental_blocks && d.instrumental_blocks.length > 0)
+          ? d.instrumental_blocks
+          : ((r.instrumental_blocks && r.instrumental_blocks.length > 0) ? r.instrumental_blocks : []);
+        const firstWithCue = instList.find((b) => b.text && b.text.trim().length > 0);
+        if (firstWithCue) {
+          previewText = `[${firstWithCue.label || firstWithCue.type}] ${firstWithCue.text.split("\n")[0]}`;
+        } else if (r.instrumental_lyrics) {
+          previewText = r.instrumental_lyrics.split("\n")[0];
+        }
+      } else {
+        if (d.blocks && d.blocks.length > 0) {
+          const firstWithText = d.blocks.find((b) => b.text && b.text.trim().length > 0);
+          if (firstWithText) previewText = `"${firstWithText.text.split("\n")[0]}..."`;
+        } else if (r.lyrics) {
+          previewText = `"${r.lyrics.split("\n")[0]}..."`;
+        }
       }
       lyricsPreview.textContent = previewText;
     }
@@ -764,6 +790,7 @@ class PlayerEngine {
     let targetIndex = 0;
     let low = 0;
     let high = this.audioPackets.length - 1;
+
     while (low <= high) {
       const mid = (low + high) >> 1;
       const pkt = this.audioPackets[mid];
@@ -784,8 +811,8 @@ class PlayerEngine {
       });
       this.feedNextChunk(24);
     }
-
     this.lastTime = performance.now();
+
     const timeCurrent = document.getElementById("time-current");
     const seekSlider = document.getElementById("seek-slider");
     if (timeCurrent) timeCurrent.textContent = this.formatTime(this.playbackPositionSec);
@@ -826,6 +853,7 @@ class PlayerEngine {
     if (!muteBtn) return;
     const icon = muteBtn.querySelector("i");
     if (!icon) return;
+
     if (vol === 0 || this.isMuted) {
       icon.className = "fa-solid fa-volume-xmark";
     } else if (vol < 0.5) {
@@ -941,7 +969,7 @@ class PlayerEngine {
 
       await this.initTranscoderWorker();
       if (!this.transcodeWorker || !this.transcodeWorkerReady) {
-        throw new Error("Audio exporter runtime is initializing.");
+        throw new Error("Audio exporter runtime failed to initialize.");
       }
 
       this.transcodeWorker.postMessage(
