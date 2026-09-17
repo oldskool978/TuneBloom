@@ -37,13 +37,22 @@
       glow: "rgba(251, 191, 36, 0.50)"
     },
     hook: {
-      bgVar: "--inst-chorus-bg",
-      borderVar: "--inst-chorus-border",
-      inkVar: "--inst-chorus-ink",
-      defaultBg: "rgba(180, 83, 9, 0.40)",
-      defaultBorder: "#fbbf24",
+      bgVar: "--inst-hook-bg",
+      borderVar: "--inst-hook-border",
+      inkVar: "--inst-hook-ink",
+      defaultBg: "rgba(194, 65, 12, 0.40)",
+      defaultBorder: "#f97316",
       defaultInk: "#ffffff",
-      glow: "rgba(251, 191, 36, 0.50)"
+      glow: "rgba(249, 115, 22, 0.50)"
+    },
+    "post-chorus": {
+      bgVar: "--inst-postchorus-bg",
+      borderVar: "--inst-postchorus-border",
+      inkVar: "--inst-postchorus-ink",
+      defaultBg: "rgba(217, 119, 6, 0.35)",
+      defaultBorder: "#f59e0b",
+      defaultInk: "#ffffff",
+      glow: "rgba(245, 158, 11, 0.45)"
     },
     bridge: {
       bgVar: "--inst-bridge-bg",
@@ -172,7 +181,8 @@
     if (clean.includes("intro") || clean === "start") return "intro";
     if (clean.includes("pre-chorus") || clean.includes("prechorus") || clean.includes("build")) return "pre-chorus";
     if (clean.includes("post-chorus") || clean.includes("postchorus")) return "post-chorus";
-    if (clean.includes("chorus") || clean.includes("hook") || clean.includes("drop") || clean.includes("refrain")) return "chorus";
+    if (clean.includes("hook")) return "hook";
+    if (clean.includes("chorus") || clean.includes("drop") || clean.includes("refrain")) return "chorus";
     if (clean.includes("bridge") || clean.includes("transition")) return "bridge";
     if (clean.includes("breakdown") || clean.includes("beat drop") || clean.includes("interlude")) return "breakdown";
     if (clean.includes("solo")) return "solo";
@@ -199,8 +209,16 @@
   function formatParentheticVector(rawText) {
     const clean = String(rawText || "").replace(/\r\n/g, "\n").trim();
     if (!clean) return "";
-    const stripped = clean.replace(/^\(+|\)+$/g, "").trim();
-    return `(${stripped})`;
+    return clean
+      .split("\n")
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return "";
+        const stripped = trimmed.replace(/^\(+|\)+$/g, "").trim();
+        return stripped ? `(${stripped})` : "";
+      })
+      .filter(Boolean)
+      .join("\n");
   }
 
   function compileBlocksToLyrics(blocks = null) {
@@ -243,7 +261,9 @@
     if (typeof lyricsStr !== "string" || !lyricsStr.trim()) {
       return [];
     }
-    const normalized = lyricsStr.replace(/\r\n/g, "\n");
+    const normalized = lyricsStr
+      .replace(/\r\n/g, "\n")
+      .replace(/\][ \t]*\[/g, "]\n[");
     const lines = normalized.split("\n");
     const blocks = [];
     let currentBlock = null;
@@ -287,31 +307,32 @@
   function deriveDefaultCuesFromVocalBlocks(vocalBlocks) {
     if (!Array.isArray(vocalBlocks) || vocalBlocks.length === 0) {
       return [
-        { id: `ib_${Date.now()}_1`, type: "intro", label: "Intro", text: "(Filtered Rhodes chords and subtle vinyl crackle establish the atmospheric motif)" },
-        { id: `ib_${Date.now()}_2`, type: "verse", label: "Verse 1", text: "(Deep sliding 808 sub-bass enters alongside crisp syncopated rimshots and muted guitar plucks)" },
-        { id: `ib_${Date.now()}_3`, type: "pre-chorus", label: "Pre-Chorus", text: "(Rising analog synth pad swells building dynamic tension with filtered white noise sweeps)" },
-        { id: `ib_${Date.now()}_4`, type: "chorus", label: "Chorus", text: "(Full driving kick drops in, melodic lead synthesizer takes center stage with wide stereo chorus)" },
-        { id: `ib_${Date.now()}_5`, type: "solo", label: "Solo", text: "(Virtuosic expressive electric guitar solo with dynamic slides and warm tube overdrive)" },
-        { id: `ib_${Date.now()}_6`, type: "breakdown", label: "Breakdown", text: "(Half-time rhythmic breakdown with filtered Rhodes chords and resonant sub drops)" },
-        { id: `ib_${Date.now()}_7`, type: "outro", label: "Outro", text: "(Drums fade gradually, leaving solitary Rhodes chords and decaying reverb tails to silence)" }
+        { id: `ib_${Date.now()}_1`, type: "intro", label: "Intro", text: "(Filtered Rhodes chords, vinyl crackle, subtle tape delay)" },
+        { id: `ib_${Date.now()}_2`, type: "verse", label: "Verse 1", text: "(Deep 808 sub-bass, pitch glides, syncopated rimshot, muted guitar plucks)" },
+        { id: `ib_${Date.now()}_3`, type: "pre-chorus", label: "Pre-Chorus", text: "(Rising analog synth pad swells, 32nd-note hi-hat rolls, building snare crescendo)" },
+        { id: `ib_${Date.now()}_4`, type: "chorus", label: "Chorus", text: "(Punchy four-on-the-floor kick, detuned lead synthesizer, wide stereo chorus, dynamic claps)" },
+        { id: `ib_${Date.now()}_5`, type: "solo", label: "Solo", text: "(Overdriven electric guitar solo, dynamic pitch slides, expressive legato phrasing)" },
+        { id: `ib_${Date.now()}_6`, type: "breakdown", label: "Breakdown", text: "(Half-time rhythmic beat, resonant sub drops, filtered Rhodes chords)" },
+        { id: `ib_${Date.now()}_7`, type: "outro", label: "Outro", text: "(Decaying spatial reverb tails, solitary Rhodes chords, low-end filter fade)" }
       ];
     }
     const defaultDirectives = {
-      intro: "Filtered harmonic chords and vinyl textures establish the thematic motif",
-      verse: "Deep bass anchors a restrained rhythm while clean plucks weave counterpoint",
-      "pre-chorus": "Dynamic tension accelerates with rising synth swells and rolling percussion",
-      chorus: "Full punchy groove drops in, primary lead takes foreground with wide stereo spread",
-      hook: "Hypnotic melodic hook repeats over driving sub-bass and syncopated percussion",
-      bridge: "Subtractive breakdown strips rhythm back to expressive harmonic changes",
-      breakdown: "Half-time atmospheric breakdown with filtered resonance and deep sub drops",
-      solo: "Expressive virtuosic solo takes the lead with dynamic slides and legato phrasing",
-      instrumental: "Dynamic arrangement evolution driven by interlocking rhythm and melodic countermelodies",
-      outro: "Rhythm section recedes into decaying spatial reverb tails and low-end fade"
+      intro: "Filtered Rhodes chords, vinyl crackle, subtle tape delay",
+      verse: "Deep 808 sub-bass, pitch glides, syncopated rimshot, muted guitar plucks",
+      "pre-chorus": "Rising analog synth pad swells, 32nd-note hi-hat rolls, building snare crescendo",
+      chorus: "Punchy four-on-the-floor kick, detuned lead synthesizer, wide stereo chorus, dynamic claps",
+      hook: "Hypnotic synthesizer hook, driving sub-bass, syncopated percussion",
+      "post-chorus": "Rhythmic groove momentum, infectious melodic synth echoes, filtered fills",
+      bridge: "Subtractive breakdown, solitary Rhodes chords, filtered bass sweep",
+      breakdown: "Half-time rhythmic beat, resonant sub drops, atmospheric pads",
+      solo: "Overdriven electric guitar solo, dynamic pitch slides, expressive legato phrasing",
+      instrumental: "Interlocking rhythm section, melodic counter-lines, full stereo groove",
+      outro: "Decaying spatial reverb tails, solitary Rhodes chords, low-end filter fade"
     };
 
     return vocalBlocks.map((b) => {
       const cType = mapToCanonicalTag(b.type || b.label);
-      const cue = defaultDirectives[cType] || "Dynamic acoustic performance with expressive instrumentation";
+      const cue = defaultDirectives[cType] || "Acoustic performance, dynamic instrumentation, expressive phrasing";
       return {
         id: `ib_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
         type: cType,
@@ -336,9 +357,10 @@
       const sVerse = resolveInstrumentalStyles("verse");
       const sPre = resolveInstrumentalStyles("pre-chorus");
       const sChorus = resolveInstrumentalStyles("chorus");
+      const sHook = resolveInstrumentalStyles("hook");
       const sSolo = resolveInstrumentalStyles("solo");
-      const sBreak = resolveInstrumentalStyles("breakdown");
       const sBridge = resolveInstrumentalStyles("bridge");
+      const sBreak = resolveInstrumentalStyles("breakdown");
       const sOutro = resolveInstrumentalStyles("outro");
       const sDef = resolveInstrumentalStyles("default");
 
@@ -359,16 +381,24 @@
           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sChorus.accent}; box-shadow: 0 0 6px ${sChorus.accent};"></span>
           <span>+ Chorus</span>
         </button>
+        <button type="button" onclick="addSongBlock('hook', 'Hook')" style="${sHook.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sHook.accent}; box-shadow: 0 0 6px ${sHook.accent};"></span>
+          <span>+ Hook</span>
+        </button>
         <button type="button" onclick="addSongBlock('solo', 'Solo')" style="${sSolo.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sSolo.accent}; box-shadow: 0 0 6px ${sSolo.accent};"></span>
           <span>+ Solo</span>
+        </button>
+        <button type="button" onclick="addSongBlock('bridge', 'Bridge')" style="${sBridge.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sBridge.accent}; box-shadow: 0 0 6px ${sBridge.accent};"></span>
+          <span>+ Bridge</span>
         </button>
         <button type="button" onclick="addSongBlock('breakdown', 'Breakdown')" style="${sBreak.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
           <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sBreak.accent}; box-shadow: 0 0 6px ${sBreak.accent};"></span>
           <span>+ Breakdown</span>
         </button>
-        <button type="button" onclick="addSongBlock('instrumental', 'Theme')" style="${sBridge.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
-          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sBridge.accent}; box-shadow: 0 0 6px ${sBridge.accent};"></span>
+        <button type="button" onclick="addSongBlock('instrumental', 'Theme')" style="${sDef.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sDef.accent}; box-shadow: 0 0 6px ${sDef.accent};"></span>
           <span>+ Theme</span>
         </button>
         <button type="button" onclick="addSongBlock('outro', 'Outro')" style="${sOutro.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
@@ -456,7 +486,7 @@
         vocalsLabel.textContent = "Lead Voice / Vocal Texture (Optional)";
       }
       if (vocalsTextarea) {
-        vocalsTextarea.placeholder = "(Optional) Leave empty for pure instrumental. Or define vocal textures (e.g., pitched vocal chops, atmospheric choir swells, talkbox, humming) or primary solo instrument...";
+        vocalsTextarea.placeholder = "(Optional) Leave empty for pure instrumental. Or define telegraphic acoustic/vocal textures (e.g. pitched female vocal chops, ping-pong delay, no lyrics)...";
       }
     } else {
       toggleBtn.className = "px-3.5 py-1.5 rounded-full border border-white/20 bg-black/40 hover:bg-white/10 text-white font-bold flex items-center gap-2 text-xs shadow-md transition transform active:scale-95";
@@ -545,7 +575,7 @@
             <textarea id="block-text-${index}"
                       oninput="handleBlockTextInput(${index}, this)"
                       onblur="handleBlockTextBlur(${index}, this)"
-                      placeholder="(Describe instrumentation, lead motif, playing dynamics, e.g. legato guitar slides...)"
+                      placeholder="(Telegraphic acoustic cues, e.g. clean electric guitar, legato slides, warm plate reverb...)"
                       class="lyric-textarea w-full rounded-xl px-3 py-2 focus:outline-none text-xs font-mono leading-relaxed resize-none overflow-y-auto overflow-x-hidden transition-all block shadow-inner"
                       style="${styles.textarea} min-height: 58px;">${escapeHtml(block.text || "")}</textarea>
           </div>
@@ -763,6 +793,20 @@
     }
   }
 
+  function bindLeadInputsRealtime() {
+    const vocalsEl = document.getElementById("field-vocals");
+    if (!vocalsEl || vocalsEl.dataset.leadSyncBound === "true") return;
+    vocalsEl.addEventListener("input", (e) => {
+      if (!window.AppState) return;
+      if (window.AppState.isInstrumental) {
+        window.AppState.instrumentalLeadDraft = e.target.value;
+      } else {
+        window.AppState.vocalLeadDraft = e.target.value;
+      }
+    });
+    vocalsEl.dataset.leadSyncBound = "true";
+  }
+
   function loadSongBlueprint(blueprintOrId = null) {
     let bp = null;
     if (typeof blueprintOrId === "string" && window.TuneBloomBlueprints) {
@@ -821,6 +865,11 @@
     if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
   }
 
+  document.addEventListener("DOMContentLoaded", bindLeadInputsRealtime);
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    bindLeadInputsRealtime();
+  }
+
   window.calculateQuantizedDuration = calculateQuantizedDuration;
   window.autoResizeTextarea = autoResizeTextarea;
   window.resizeAllTextareas = resizeAllTextareas;
@@ -846,4 +895,5 @@
   window.toggleModality = toggleModality;
   window.updateModalityToggleUI = updateModalityToggleUI;
   window.deriveDefaultCuesFromVocalBlocks = deriveDefaultCuesFromVocalBlocks;
+  window.bindLeadInputsRealtime = bindLeadInputsRealtime;
 })(window);

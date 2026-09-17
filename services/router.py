@@ -355,11 +355,11 @@ class SynthesisPayload(BaseModel):
     subgenre: str = Field(default="", max_length=60)
     bpm: int = Field(default=0, ge=0, le=300)
     key: str = Field(default="", max_length=30)
-    mood: str = Field(default="", max_length=200)
-    vocals: str = Field(default="", max_length=300)
-    vocal_lead: Optional[str] = Field(default="", max_length=300)
-    instrumental_lead: Optional[str] = Field(default="", max_length=300)
-    arrangement: str = Field(default="", max_length=300)
+    mood: str = Field(default="", max_length=400)
+    vocals: str = Field(default="", max_length=800)
+    vocal_lead: Optional[str] = Field(default="", max_length=800)
+    instrumental_lead: Optional[str] = Field(default="", max_length=800)
+    arrangement: str = Field(default="", max_length=1500)
     lyrics: str = Field(default="", max_length=4000)
     instrumental_lyrics: Optional[str] = Field(default="", max_length=4000)
     is_instrumental: Optional[bool] = Field(default=None)
@@ -657,7 +657,7 @@ class EnginePipeline:
                 "integrated_loudness_db": round(rms_dbfs, 4),
                 "dynamic_punch_db": round(crest_factor, 4),
                 "master_format": "48.0 kHz Master Audio Bitstream",
-                "top_k_vector_used": gen_req.top_k_layers,
+                "top_k_vector_used": gen_req.resolve_top_k_layers(),
                 "stage1_temperature": gen_req.temperature,
                 "stage1_ar_cfg": gen_req.ar_guidance_scale,
                 "stage1_top_p": gen_req.top_p,
@@ -821,7 +821,7 @@ class EnginePipeline:
                     "blocks": gen_req.blocks,
                     "instrumental_blocks": gen_req.instrumental_blocks,
                     "seed": seed,
-                    "top_k_layers": gen_req.top_k_layers,
+                    "top_k_layers": gen_req.resolve_top_k_layers(),
                     "temperature": gen_req.temperature,
                     "ar_guidance_scale": gen_req.ar_guidance_scale,
                     "top_p": gen_req.top_p,

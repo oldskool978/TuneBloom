@@ -17,7 +17,9 @@
     key: "C# minor",
     mood: "Triumphant, ruthless, opulent, bouncy, nocturnal.",
     vocals: "Melodic auto-tune male trap tenor with aggressive delivery, rapid triplet cadences, layered hard-panned ad-libs, and distorted background vocal chops.",
-    arrangement: "Heavy sliding 808 sub-bass with dynamic pitch bends anchors the low-end. Rapid 32nd-note rolling hi-hats and sharp brass stabs drive the groove around dark detuned bell arpeggios.",
+    vocal_lead: "Melodic auto-tune male trap tenor with aggressive delivery, rapid triplet cadences, layered hard-panned ad-libs, and distorted background vocal chops.",
+    instrumental_lead: "Heavy sliding 808 sub-bass glides, detuned bell synth arpeggios, sharp brass stabs.",
+    arrangement: "Primary: Heavy sliding 808 sub-bass with dynamic pitch bends anchors the low-end. Secondary: Rapid 32nd-note rolling hi-hats and sharp brass stabs drive the groove around dark detuned bell arpeggios. Section drops feature sub-bass cuts and ascending brass fanfares.",
     blocks: [
       { id: "b_trp_1", type: "intro", label: "Intro", text: "(Yeah! What?)\nTurn that shit up in the monitors\nLook, ain't no cap in my section, nigga\nWe ran the whole city up, let's get it\nZone six all day, you know how we comin'\n(Let's go! Racks!)" },
       { id: "b_trp_2", type: "verse", label: "Verse 1", text: "Came from the mud, now the wrist on freeze\nPopping big tags like it's nothing to me\nNiggas was talking, they broke on they knees\nNow I get paid just to breathe in the breeze\nBad bitch beside me, she bad as a sin\nDrop the top down let the turbo kick in\nFuck what they saying, I came here to win\nCounting these hundreds and doing it again\nStack on my wrist and my circle stay tight\nGlock in the console, we ready tonight\nThirty-round mag when we slide through the dark\nLight up the block with a dangerous spark\nUsed to be trappin' in front of the store\nNow we get fifty a show and we want even more" },
@@ -32,17 +34,17 @@
       { id: "b_trp_11", type: "outro", label: "Outro", text: "Yeah, no cap\nStraight facts\nTuneBloom Master\nATL to the world\nWe gone\n(Bitch!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_trp_1", type: "intro", label: "Intro", text: "(Dark detuned bell arpeggio plays sparse harmonic motif over filtered sub rumble and rising white noise sweeps)" },
-      { id: "ib_trp_2", type: "verse", label: "Verse 1", text: "(Sliding 808 sub-bass drops in with heavy pitch glides, accompanied by crisp rimshot on 3 and rolling 16th hi-hats)" },
-      { id: "ib_trp_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Tension accelerates with sharp brass stabs, rapid 32nd-note hi-hat rolls, and rising snare roll crescendo)" },
-      { id: "ib_trp_4", type: "chorus", label: "Chorus 1", text: "(Full rhythmic explosion with hard-hitting punchy kick, maximum 808 distortion, wide stereo bell leads, and brass fanfare)" },
-      { id: "ib_trp_5", type: "verse", label: "Verse 2", text: "(Arrangement strips back to rhythmic 808 bounce and sparse bell counterpoint while syncopated open hats maintain the groove)" },
-      { id: "ib_trp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Heavy brass accents double the bassline, building dynamic pressure alongside syncopated triplet snare fills)" },
-      { id: "ib_trp_7", type: "chorus", label: "Chorus 2", text: "(Climactic drop featuring full brass stabs, driving 808 glides, and rapid multi-velocity hi-hat patterns across the stereo field)" },
-      { id: "ib_trp_8", type: "bridge", label: "Bridge", text: "(Half-time rhythmic breakdown with filtered bell melodies, isolated sub-bass pulses, and dark atmospheric textures)" },
-      { id: "ib_trp_9", type: "solo", label: "Solo", text: "(Distorted synthesizer lead solos aggressively with rapid legato arpeggios, pitch bends, and tape delay slapback)" },
-      { id: "ib_trp_10", type: "chorus", label: "Chorus 3", text: "(Final peak drop with all melodic elements layered: brass, bells, max 808 power, and rolling trap percussion)" },
-      { id: "ib_trp_11", type: "outro", label: "Outro", text: "(Drums drop out, leaving solo detuned bell synth decaying into reverb and a final descending 808 sub glide to silence)" }
+      { id: "ib_trp_1", type: "intro", label: "Intro", text: "(Dark detuned bell arpeggios, filtered sub rumble, rising white noise sweeps)" },
+      { id: "ib_trp_2", type: "verse", label: "Verse 1", text: "(Sliding 808 sub-bass glides, crisp rimshot on 3, rolling 16th-note hi-hats)" },
+      { id: "ib_trp_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Sharp brass stabs, rapid 32nd-note hi-hat rolls, rising snare roll crescendo)" },
+      { id: "ib_trp_4", type: "chorus", label: "Chorus 1", text: "(Hard punchy kick, distorted 808 sub-bass, wide stereo bell leads, brass fanfare)" },
+      { id: "ib_trp_5", type: "verse", label: "Verse 2", text: "(Stripped 808 sub bounce, sparse bell counterpoint, syncopated open hats)" },
+      { id: "ib_trp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Heavy brass accents, bassline doubling, syncopated triplet snare fills)" },
+      { id: "ib_trp_7", type: "chorus", label: "Chorus 2", text: "(Climactic brass stabs, driving 808 glides, multi-velocity stereo hi-hats)" },
+      { id: "ib_trp_8", type: "bridge", label: "Bridge", text: "(Half-time breakdown, filtered bell melodies, isolated sub-bass pulses, dark pads)" },
+      { id: "ib_trp_9", type: "solo", label: "Solo", text: "(Distorted synth lead solo, rapid legato arpeggios, pitch bends, slapback delay)" },
+      { id: "ib_trp_10", type: "chorus", label: "Chorus 3", text: "(Full melodic layering, brass fanfare, bells, maximum 808 impact, rolling trap kit)" },
+      { id: "ib_trp_11", type: "outro", label: "Outro", text: "(Solo detuned bell synth, decaying reverb tails, descending 808 glide fade)" }
     ]
   });
 
@@ -55,7 +57,9 @@
     key: "E minor",
     mood: "Ominous, aggressive, cold, gritty, cinematic.",
     vocals: "Deep raspy baritone with aggressive staccato delivery, haunting pitched vocal sample loops, and layered drill ad-libs.",
-    arrangement: "Violent pitch-sliding 808s anchor the low end while syncopated drill snares with 3rd-beat skips and rapid counter-hats frame an ominous minor piano loop.",
+    vocal_lead: "Deep raspy baritone with aggressive staccato delivery, haunting pitched vocal sample loops, and layered drill ad-libs.",
+    instrumental_lead: "Violent pitch-sliding 808s, syncopated drill snare with 3rd-beat skips, ominous minor piano loop.",
+    arrangement: "Primary: Violent pitch-sliding 808s anchor the low end with aggressive octave sweeps. Secondary: Syncopated drill snares with 3rd-beat skips and rapid counter-hats frame an ominous minor grand piano loop. Transitional moments utilize reverse choral textures and distant siren FX.",
     blocks: [
       { id: "b_drl_1", type: "intro", label: "Intro", text: "(Grrt! Bow!)\nLook, don't play with me nigga\nYou know the routine\nBronx state of mind, get it right\nEvery time we touch down, niggas duck down\n(Bow, bow, bow!)\n(Grrt, look)" },
       { id: "b_drl_2", type: "verse", label: "Verse 1", text: "Step in the spot, niggas know it's a problem\nGot all these issues, you know we gon' solve 'em\nDark tint foreign rolling down the Grand Concourse\nKick in the door with the momentum and raw force\nNiggas be cappin', they talking too reckless\nDiamonds be choking me right on my necklace\nFuck with the gang and you find out the hard way\nRunning these blocks from the night to the hallway\nSlide with the eight-o-eight, hear how it rumble\nStep in the jungle, you slip and you tumble\nOpp on the corner, he looking real nervous\nWe put in the work and we provide the service\nMoncler coat when the winter get freezing\nDoing this shit for a very good reason\n(Grrt! Bow!)" },
@@ -70,17 +74,17 @@
       { id: "b_drl_11", type: "outro", label: "Outro", text: "Grrt... Bow\nTuneBloom Drill\nBronx Master\nEvery single block know the name\nOut\n(Bow!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_drl_1", type: "intro", label: "Intro", text: "(Ominous sampled choral chops and dark minor piano chords introduce the thematic motif over distant vinyl static)" },
-      { id: "ib_drl_2", type: "verse", label: "Verse 1", text: "(Violent pitch-sliding 808 enters with extreme octave glides, locked into syncopated drill snare with 3rd-beat skips)" },
-      { id: "ib_drl_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Dynamic tension builds with rapid triplet hi-hat rolls, ascending sub-bass glides, and reverse sample sweeps)" },
-      { id: "ib_drl_4", type: "chorus", label: "Chorus 1", text: "(Full-force drill drop with maximum 808 saturation, aggressive counter-melodic piano riff, and punchy acoustic-electronic kick)" },
-      { id: "ib_drl_5", type: "verse", label: "Verse 2", text: "(Percussion pulls back to syncopated rim clicks and sliding sub-bass while a haunting cello counter-melody weaves through the mix)" },
-      { id: "ib_drl_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Hi-hat velocity fluctuations and sliding 808 basslines accelerate toward the drop with cinematic impact hits)" },
-      { id: "ib_drl_7", type: "chorus", label: "Chorus 2", text: "(Heavy clattering drill groove with syncopated snare skips, wide stereo choral chops, and relentless low-end rumble)" },
-      { id: "ib_drl_8", type: "bridge", label: "Bridge", text: "(Atmospheric breakdown stripping the beat down to solitary grand piano chords, sub-bass drones, and distant siren fx)" },
-      { id: "ib_drl_9", type: "solo", label: "Solo", text: "(Haunting distorted string quartet plays aggressive staccato runs, sliding octaves, and rapid legato phrasing)" },
-      { id: "ib_drl_10", type: "chorus", label: "Chorus 3", text: "(Maximum-energy climactic drop combining furious drill drums, layered string riffs, and ground-shaking sliding 808s)" },
-      { id: "ib_drl_11", type: "outro", label: "Outro", text: "(Drums cut abruptly, leaving solitary reverbed piano chords and a fading sub-bass pulse dissolving to black)" }
+      { id: "ib_drl_1", type: "intro", label: "Intro", text: "(Sampled choral chops, dark minor piano chords, distant vinyl static)" },
+      { id: "ib_drl_2", type: "verse", label: "Verse 1", text: "(Violent pitch-sliding 808, syncopated drill snare, 3rd-beat skips, sparse rim clicks)" },
+      { id: "ib_drl_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Rapid triplet hi-hat rolls, ascending sub-bass glides, reverse sample sweeps)" },
+      { id: "ib_drl_4", type: "chorus", label: "Chorus 1", text: "(Saturated 808 drop, aggressive counter-melodic piano riff, punchy kick drum)" },
+      { id: "ib_drl_5", type: "verse", label: "Verse 2", text: "(Syncopated rim clicks, sliding sub-bass, haunting cello counter-melody)" },
+      { id: "ib_drl_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Hi-hat velocity rolls, sliding 808 lines, cinematic impact hits)" },
+      { id: "ib_drl_7", type: "chorus", label: "Chorus 2", text: "(Syncopated snare skips, wide stereo choral chops, relentless low-end rumble)" },
+      { id: "ib_drl_8", type: "bridge", label: "Bridge", text: "(Solitary grand piano chords, sub-bass drones, distant siren fx)" },
+      { id: "ib_drl_9", type: "solo", label: "Solo", text: "(Distorted string quartet solo, aggressive staccato runs, sliding octaves, legato phrasing)" },
+      { id: "ib_drl_10", type: "chorus", label: "Chorus 3", text: "(Full drill drum battery, layered string riffs, ground-shaking sliding 808s)" },
+      { id: "ib_drl_11", type: "outro", label: "Outro", text: "(Decaying piano chords, fading sub-bass pulse, gradual room silence)" }
     ]
   });
 
@@ -93,7 +97,9 @@
     key: "F# minor",
     mood: "Dark, menacing, relentless, hypnotic, aggressive.",
     vocals: "Aggressive chopped Memphis triplet cadence, distorted vocal doubling, and dark pitched-down backing chants.",
-    arrangement: "Saturated Memphis cowbell melody, blown-out distorted 808 sub slides, gritty SP-1200 kick, open hi-hat rolls, and ominous cassette tape hiss.",
+    vocal_lead: "Aggressive chopped Memphis triplet cadence, distorted vocal doubling, and dark pitched-down backing chants.",
+    instrumental_lead: "Saturated Memphis cowbells, blown-out distorted 808 sub slides, gritty SP-1200 kick.",
+    arrangement: "Primary: Saturated Memphis cowbell melodies and blown-out distorted 808 sub slides drive the hypnotic groove. Secondary: Gritty 12-bit SP-1200 kick drums and razor-sharp open hi-hat rolls anchor the rhythm under constant cassette tape hiss and low-frequency vinyl flutter.",
     blocks: [
       { id: "b_phk_1", type: "intro", label: "Intro", text: "(Yeah, mane)\n(Triple six in the cut)\nCreepin' through the fog, Glock cocked in the dash\nWatch a busta fold when we step on the gas\nLate night creepin' through the south side\n(What? Yeah! Mane!)" },
       { id: "b_phk_2", type: "verse", label: "Verse 1", text: "Ridin' through the south side, trunk bump loud\nSmoke fill the chamber, lost up in the cloud\nDevil in my ear tellin' me to take the crown\nPut a scary nigga six feet beneath the ground\nTape deck hissin' with that nineteen-ninety-five\nRollin' with the demons, only real ones survive\nCowbell ringin' through the pitch-black street\nBlood on the asphalt, locked into the beat\nMask on my face, you can't see what I'm thinkin'\nDouble cup dirty, that potion I'm drinkin'\nChevy on twenty-twos, sliding on the curb\nNigga talk shit, he gon' get what he deserve\nTommy gun loaded up, sitting on the leather\nEvil ass Memphis shit, dark stormy weather" },
@@ -108,17 +114,17 @@
       { id: "b_phk_11", type: "outro", label: "Outro", text: "Yeah, mane\nMemphis underground\nTuneBloom Evil Phonk\nRest in piss\nSmoke clearing out into the night\n(Mane!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_phk_1", type: "intro", label: "Intro", text: "(Ominous analog cassette tape hiss, low-passed vinyl crackle, and distant distorted bell melodies emerge from darkness)" },
-      { id: "ib_phk_2", type: "verse", label: "Verse 1", text: "(Distorted 808 sub-bass drops heavy alongside gritty SP-1200 kick drum, blown-out cowbell melody, and open hi-hat sizzle)" },
-      { id: "ib_phk_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Fast syncopated cowbell counterpoint and rising tape-flanged noise sweeps build relentless claustrophobic tension)" },
-      { id: "ib_phk_4", type: "chorus", label: "Chorus 1", text: "(Maximum overdrive phonk drop with hard-clipped 808 slides, resonant dual-cowbell harmonies, and razor-sharp hi-hat rolls)" },
-      { id: "ib_phk_5", type: "verse", label: "Verse 2", text: "(Groove locks into rolling Memphis bounce with modulated sub-bass glides and muted cowbell ghost notes)" },
-      { id: "ib_phk_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Pitch-shifted synth pads swell with dark tremolo while rapid snare rolls drive the momentum toward chaos)" },
-      { id: "ib_phk_7", type: "chorus", label: "Chorus 2", text: "(Relentless high-gain drop featuring saturated low-end punch, piercing cowbell leads, and aggressive stereo panning)" },
-      { id: "ib_phk_8", type: "bridge", label: "Bridge", text: "(Subtractive half-time breakdown featuring heavily filtered sub rumble, solitary distorted cowbell hits, and cassette flutter)" },
-      { id: "ib_phk_9", type: "solo", label: "Solo", text: "(Screaming analog synth lead plays aggressive minor-scale legato riffs with heavy tube saturation and tape echo)" },
-      { id: "ib_phk_10", type: "chorus", label: "Chorus 3", text: "(Full-frequency sonic assault with blown-out bass slides, layered melodic cowbells, and frantic rolling percussion)" },
-      { id: "ib_phk_11", type: "outro", label: "Outro", text: "(Rhythm stumbles to a halt, leaving dying cassette tape saturation, fading cowbell echoes, and decaying low-end static)" }
+      { id: "ib_phk_1", type: "intro", label: "Intro", text: "(Cassette tape hiss, low-passed vinyl crackle, distorted bell melodies)" },
+      { id: "ib_phk_2", type: "verse", label: "Verse 1", text: "(Distorted 808 sub-bass, gritty SP-1200 kick, blown-out cowbell melody, open hi-hat sizzle)" },
+      { id: "ib_phk_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Syncopated cowbell counterpoint, rising tape-flanged noise sweeps, tight claps)" },
+      { id: "ib_phk_4", type: "chorus", label: "Chorus 1", text: "(Hard-clipped 808 slides, resonant dual-cowbell harmonies, rapid hi-hat rolls)" },
+      { id: "ib_phk_5", type: "verse", label: "Verse 2", text: "(Rolling Memphis bounce, modulated sub-bass glides, muted cowbell ghost notes)" },
+      { id: "ib_phk_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Pitch-shifted synth pads, dark tremolo, rapid snare rolls, sub swell)" },
+      { id: "ib_phk_7", type: "chorus", label: "Chorus 2", text: "(High-gain low-end punch, piercing cowbell leads, aggressive stereo panning)" },
+      { id: "ib_phk_8", type: "bridge", label: "Bridge", text: "(Filtered sub rumble, solitary distorted cowbell hits, cassette flutter)" },
+      { id: "ib_phk_9", type: "solo", label: "Solo", text: "(Screaming analog synth lead solo, tube saturation, tape echo repeats)" },
+      { id: "ib_phk_10", type: "chorus", label: "Chorus 3", text: "(Blown-out 808 slides, layered melodic cowbells, frantic rolling percussion)" },
+      { id: "ib_phk_11", type: "outro", label: "Outro", text: "(Dying cassette tape saturation, fading cowbell echoes, low-end static decay)" }
     ]
   });
 
@@ -131,7 +137,9 @@
     key: "G minor",
     mood: "Swaggering, bouncy, triumphant, sun-drenched, raw.",
     vocals: "Laid-back aggressive West Coast baritone flow, syncopated talkbox vocal hooks, and hypeman call-and-response ad-libs.",
-    arrangement: "Whining analog portamento G-Funk synth lead, slapping live bassline, heavy acoustic-electronic clap on the 2 and 4, syncopated congas, and talkbox.",
+    vocal_lead: "Laid-back aggressive West Coast baritone flow, syncopated talkbox vocal hooks, and hypeman call-and-response ad-libs.",
+    instrumental_lead: "Whining analog portamento G-Funk synth lead, slapping live bassline, talkbox melodic riffs.",
+    arrangement: "Primary: Whining analog portamento G-Funk synth leads and slapping live basslines define the bouncy funk groove. Secondary: Heavy acoustic-electronic handclaps on 2 and 4, syncopated Latin congas, and clean rhythmic Stratocaster guitar scratches drive the bounce.",
     blocks: [
       { id: "b_wcb_1", type: "intro", label: "Intro", text: "(Yeah! Bay Area!)\nSwing the five-point-oh through the intersection\nGas, brake, dip, nigga\nYou already know what time it is\nOakland to Vallejo, let the synth whine\n(Get stupid! Yee!)" },
       { id: "b_wcb_2", type: "verse", label: "Verse 1", text: "Swinging out the scraper in the middle of the street\nDonut round the fire while we bangin' to the beat\nGot the dreads shakin', whole clique goin' dumb\nWhite-Tee fresh, watch the heavy dollar come\nNigga from the Town, put the city on my back\nTwo-tone Cutlass rollin' heavy on the track\nTell a bad bitch get up in it if she bout it\nPut the top down, ain't a motherfucker doubt it\nSmokin' on the finest out the Oakland dispensary\nBlowin' big cloud, legacy of the century\nGold teeth shining when I smile in the sun\nCounting up forty bands just for the fun\nMac Dre spirit walking right in the room\nDropping heavy bass that can rattle the tomb" },
@@ -146,17 +154,17 @@
       { id: "b_wcb_11", type: "outro", label: "Outro", text: "Yee!\nTuneBloom West Coast Master\nGas, brake, dip\nSpin the block one more time\nOut\n(Get stupid!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_wcb_1", type: "intro", label: "Intro", text: "(Whining analog Minimoog portamento lead introduces the iconic funk motif over clean electric piano chords and vinyl noise)" },
-      { id: "ib_wcb_2", type: "verse", label: "Verse 1", text: "(Slapping electric funk bassline drops into the pocket with heavy acoustic-electronic claps on 2 and 4 and crisp conga loops)" },
-      { id: "ib_wcb_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Rising synthesizer brass swells and syncopated triangle accents elevate dynamic tension into the bounce)" },
-      { id: "ib_wcb_4", type: "chorus", label: "Chorus 1", text: "(Explosive G-Funk bounce drop with punchy low-end kick, soaring portamento synth lead, and full stereo percussion)" },
-      { id: "ib_wcb_5", type: "verse", label: "Verse 2", text: "(Bassline switches to intricate slap-and-pop funk phrasing while clean muted Stratocaster guitar scratches on the upbeats)" },
-      { id: "ib_wcb_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Wah-wah guitar riffs and ascending synth sweeps build buoyant momentum toward the hook)" },
-      { id: "ib_wcb_7", type: "chorus", label: "Chorus 2", text: "(Full-tilt hyphy groove with heavy low-end clap, singing analog synth lead, and energetic syncopated Latin percussion)" },
-      { id: "ib_wcb_8", type: "bridge", label: "Bridge", text: "(Stripped-down half-time funk breakdown highlighting fingerstyle electric bass solo, Rhodes chords, and dry hi-hat sizzle)" },
-      { id: "ib_wcb_9", type: "solo", label: "Solo", text: "(Classic analog synthesizer solos virtuosically with expressive octave glides, vibrato bends, and dynamic pitch wheel action)" },
-      { id: "ib_wcb_10", type: "chorus", label: "Chorus 3", text: "(Maximum funk climax with layered synthesizer leads, punchy bass groove, and continuous dynamic percussion)" },
-      { id: "ib_wcb_11", type: "outro", label: "Outro", text: "(Groove rides out smoothly with lingering portamento synth glides, clean guitar chords, and gradual low-pass filter fade)" }
+      { id: "ib_wcb_1", type: "intro", label: "Intro", text: "(Minimoog portamento lead, clean Rhodes chords, subtle vinyl crackle)" },
+      { id: "ib_wcb_2", type: "verse", label: "Verse 1", text: "(Slap bass groove, heavy acoustic-electronic claps on 2 and 4, crisp conga loop)" },
+      { id: "ib_wcb_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Synthesizer brass swells, syncopated triangle accents, building bounce)" },
+      { id: "ib_wcb_4", type: "chorus", label: "Chorus 1", text: "(Punchy low-end kick, soaring portamento synth lead, full stereo percussion)" },
+      { id: "ib_wcb_5", type: "verse", label: "Verse 2", text: "(Slap-and-pop bass phrasing, clean muted Stratocaster guitar chops)" },
+      { id: "ib_wcb_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Wah-wah guitar riffs, ascending synth sweeps, driving bounce momentum)" },
+      { id: "ib_wcb_7", type: "chorus", label: "Chorus 2", text: "(Heavy low-end claps, singing analog synth lead, syncopated Latin percussion)" },
+      { id: "ib_wcb_8", type: "bridge", label: "Bridge", text: "(Fingerstyle electric bass solo, Rhodes chords, dry hi-hat sizzle)" },
+      { id: "ib_wcb_9", type: "solo", label: "Solo", text: "(Analog synth lead solo, expressive octave glides, vibrato pitch-wheel bends)" },
+      { id: "ib_wcb_10", type: "chorus", label: "Chorus 3", text: "(Layered synth leads, punchy slap-bass groove, continuous percussion)" },
+      { id: "ib_wcb_11", type: "outro", label: "Outro", text: "(Portamento synth glides, clean rhythm guitar chords, low-pass filter fade)" }
     ]
   });
 
@@ -169,7 +177,9 @@
     key: "C minor",
     mood: "Grim, lethal, relentless, dark, intense.",
     vocals: "Raspy aggressive street baritone, staccato triplet punchlines, authentic Chicago ad-libs, and aggressive vocal double.",
-    arrangement: "Menacing minor piano chords, heavy punchy low-end 808s, rapid-fire hi-hat rolls, crisp dry trap snare, and sub bass drops.",
+    vocal_lead: "Raspy aggressive street baritone, staccato triplet punchlines, authentic Chicago ad-libs, and aggressive vocal double.",
+    instrumental_lead: "Heavy punchy 808s, ominous minor piano chords, rapid-fire trap percussion.",
+    arrangement: "Primary: Menacing minor grand piano chords and heavy punchy 808 sub-bass lines anchor the aggressive groove. Secondary: Rapid-fire hi-hat rolls, crisp dry trap snares, and sub-bass drops drive the tempo, punctuated by distant thunder sound design and brass stabs.",
     blocks: [
       { id: "b_chd_1", type: "intro", label: "Intro", text: "(Glrr! On God!)\nMan what? Niggas know what time it is\nSouth side trenches, keep your head down\nO-Block to the whole city\n(Gang, gang, gang!)\n(Glrr, bow!)" },
       { id: "b_chd_2", type: "verse", label: "Verse 1", text: "Snow falling down on sixty-fourth street\nNiggas outside with the heat on the seat\nDon't step out if you ain't bout that life\nCut through the block like a switchblade knife\nOpp talking reckless on live for a minute\nPulled up in ten, put a whole clip in it\nAin't no remorse for a nigga who snitch\nPut him in the river, leave him cold in a ditch\nDrum on the stick hold fifty-plus rounds\nClean out the block when we makin' the rounds\nHoodie pulled low, we don't look at the face\nCatching the bag, then we clearing the place\nTwo-tone Glock and it came with the beam\nDoing whatever to feed the whole team\n(Boom, boom, boom!)" },
@@ -184,17 +194,17 @@
       { id: "b_chd_11", type: "outro", label: "Outro", text: "Man what?\nChicago trenches\nTuneBloom Drill Master\nRest up to all my fallen brothers\n(Glrr, bow!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_chd_1", type: "intro", label: "Intro", text: "(Chilling minor grand piano motif echoes through an empty hall with low sub-bass drone and distant atmospheric thunder)" },
-      { id: "ib_chd_2", type: "verse", label: "Verse 1", text: "(Punishing 808 sub-bass drops in alongside crisp dry trap snare, rapid-fire hi-hat rolls, and driving kick drum)" },
-      { id: "ib_chd_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Piano chords accelerate into heavy staccato octaves while sub-bass pitch climbs to create severe tension)" },
-      { id: "ib_chd_4", type: "chorus", label: "Chorus 1", text: "(Heavy Chicago street drill drop with earth-shattering 808 punch, aggressive melodic piano counterpoint, and sharp rimshots)" },
-      { id: "ib_chd_5", type: "verse", label: "Verse 2", text: "(Percussion pares back slightly to rolling hats and deep sub kicks while a dark synth bell motif answers the chords)" },
-      { id: "ib_chd_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Rolling 32nd-note hi-hat runs and dynamic snare rolls build an unyielding, militaristic crescendo)" },
-      { id: "ib_chd_7", type: "chorus", label: "Chorus 2", text: "(Climactic wall-of-sound drop featuring full drill percussion section, thunderous low end, and ominous brass stabs)" },
-      { id: "ib_chd_8", type: "bridge", label: "Bridge", text: "(Breakdown strips the rhythm to a lone ticking hi-hat, somber piano arpeggios, and resonant sub-bass drops)" },
-      { id: "ib_chd_9", type: "solo", label: "Solo", text: "(Aggressive distorted electric guitar screams in the high register with sweeping arpeggios and emotional dive-bombs)" },
-      { id: "ib_chd_10", type: "chorus", label: "Chorus 3", text: "(Final devastating drop combining full-frequency 808 destruction, rapid drill percussion, and furious piano melodies)" },
-      { id: "ib_chd_11", type: "outro", label: "Outro", text: "(Percussion cuts out to leave solitary decaying piano chords in an icy reverb wash, fading into silence)" }
+      { id: "ib_chd_1", type: "intro", label: "Intro", text: "(Minor grand piano motif, empty hall acoustics, low sub-bass drone, distant thunder)" },
+      { id: "ib_chd_2", type: "verse", label: "Verse 1", text: "(Punchy 808 sub-bass, dry trap snare, rapid-fire hi-hat rolls, acoustic kick)" },
+      { id: "ib_chd_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Heavy staccato piano octaves, ascending sub-bass pitch slides, snare rolls)" },
+      { id: "ib_chd_4", type: "chorus", label: "Chorus 1", text: "(Heavy 808 drop, aggressive melodic piano counterpoint, sharp rimshots)" },
+      { id: "ib_chd_5", type: "verse", label: "Verse 2", text: "(Rolling hi-hats, deep sub kicks, dark synth bell motif accents)" },
+      { id: "ib_chd_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Rolling 32nd-note hi-hat runs, dynamic snare roll crescendo, sub swell)" },
+      { id: "ib_chd_7", type: "chorus", label: "Chorus 2", text: "(Full drill percussion battery, thunderous low end, ominous brass stabs)" },
+      { id: "ib_chd_8", type: "bridge", label: "Bridge", text: "(Lone ticking hi-hat, somber piano arpeggios, resonant sub-bass drops)" },
+      { id: "ib_chd_9", type: "solo", label: "Solo", text: "(Distorted electric guitar solo, sweeping arpeggios, high-register dive-bombs)" },
+      { id: "ib_chd_10", type: "chorus", label: "Chorus 3", text: "(Maximum 808 saturation, rapid drill percussion, furious piano melodies)" },
+      { id: "ib_chd_11", type: "outro", label: "Outro", text: "(Decaying piano chords, icy reverb wash, gradual sub-bass fade)" }
     ]
   });
 
@@ -207,7 +217,9 @@
     key: "D# minor",
     mood: "Arrogant, bouncy, raw, unapologetic, high-tempo.",
     vocals: "Off-beat Detroit punchflow, witty deadpan staccato delivery, layered hype ad-libs, and rapid bars without breathing.",
-    arrangement: "Jumping Plugg synth bells, heavy punching 808 kick drum, bouncy claps, off-beat baseline stabs, and bright 16th hi-hats.",
+    vocal_lead: "Off-beat Detroit punchflow, witty deadpan staccato delivery, layered hype ad-libs, and rapid bars without breathing.",
+    instrumental_lead: "Jumping Plugg synth bells, heavy punching Detroit 808 kick, off-beat bass stabs.",
+    arrangement: "Primary: Jumping Plugg synthesizer bells and heavy punching Detroit 808 kicks establish the bouncing groove. Secondary: Bouncy handclaps on 2 and 4, off-beat baseline stabs, and bright 16th-note hi-hat runs drive the swaggering rhythm, punctuated by playful digital synth accents.",
     blocks: [
       { id: "b_dtp_1", type: "intro", label: "Intro", text: "(What? Huh? Yeah!)\nFive in the morning, VPN connected to Romania\nJust hit for fifty bands on a fake routing number\nStop playin' with me, nigga\nMichigan to Atlanta, we runnin' through the accounts\n(Let's get it! Huh?)" },
       { id: "b_dtp_2", type: "verse", label: "Verse 1", text: "Woke up at four, made thirty bands before breakfast\nSwiped a card at Saks Fifth, bought a brand new necklace\nNiggas rap about the trap, but they credit score zero\nI just bought my mom a crib, now I'm lookin' like a hero\nOff-beat flow got you niggas confused\nWalked in Neiman Marcus with ten thousand in shoes\nCashier lookin' at the screen like 'how did this pass?'\nPut my signature down, then I step on the gas\nCrypto wallet lookin' fat, got the ledger on ice\nNever paid for a meal in my motherfuckin' life\nGot twenty-four burner phones sitting in a drawer\nEvery single one ringing with a bag from the store\nI don't even rap on beat, but the crowd go crazy\nSpending twenty thousand dollars 'cause my mood feel lazy" },
@@ -222,17 +234,17 @@
       { id: "b_dtp_11", type: "outro", label: "Outro", text: "Transaction confirmed\nFunds deposited\nTuneBloom Detroit Punch Master\nAnother hundred bands in the account\n(What? Huh? Out!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_dtp_1", type: "intro", label: "Intro", text: "(Bright Plugg bell arpeggios bounce merrily over filtered sub-bass and playful digital synthesizer bloops)" },
-      { id: "ib_dtp_2", type: "verse", label: "Verse 1", text: "(Punchy Detroit 808 kick drops hard on the one with syncopated off-beat bass stabs, crisp rim-claps, and bouncy 16th hats)" },
-      { id: "ib_dtp_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Bells modulate into rapid descending runs as hi-hat rolls double in speed and sub-bass pitch slides upward)" },
-      { id: "ib_dtp_4", type: "chorus", label: "Chorus 1", text: "(Full bounce drop with booming 808 bass, jumping lead bells, energetic off-beat handclaps, and syncopated snare skips)" },
-      { id: "ib_dtp_5", type: "verse", label: "Verse 2", text: "(Rhythm stays infectious and bouncy while an acoustic upright piano adds playful jazz countermelodies behind the bells)" },
-      { id: "ib_dtp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Intricate percussion fills and detuned synthesizer pulses build swaggering momentum toward the second drop)" },
-      { id: "ib_dtp_7", type: "chorus", label: "Chorus 2", text: "(Hard-hitting Detroit bounce drop with maximum low-end punch, bright sparkling bell leads, and crisp stereo claps)" },
-      { id: "ib_dtp_8", type: "bridge", label: "Bridge", text: "(Half-time playful breakdown stripping down to solo Plugg bells, light shaker groove, and isolated sub-bass slides)" },
-      { id: "ib_dtp_9", type: "solo", label: "Solo", text: "(Playful synth bell lead improvises virtuosic rapid off-beat runs with pitch-wheel wobbles and stereo delays)" },
-      { id: "ib_dtp_10", type: "chorus", label: "Chorus 3", text: "(Final triumphant drop with full bass impact, ringing bells, rolling snares, and relentless bounce)" },
-      { id: "ib_dtp_11", type: "outro", label: "Outro", text: "(Drums drop out, leaving bouncy synth bells ringing out with a playful digital modem sound effect fading out)" }
+      { id: "ib_dtp_1", type: "intro", label: "Intro", text: "(Plugg bell arpeggios, filtered sub-bass, playful digital synth bloops)" },
+      { id: "ib_dtp_2", type: "verse", label: "Verse 1", text: "(Detroit 808 kick on 1, off-beat bass stabs, crisp rim-claps, bouncy 16th hats)" },
+      { id: "ib_dtp_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Descending bell runs, rapid hi-hat speed doubling, ascending sub-bass slides)" },
+      { id: "ib_dtp_4", type: "chorus", label: "Chorus 1", text: "(Booming 808 bass, jumping lead bells, off-beat handclaps, syncopated snare skips)" },
+      { id: "ib_dtp_5", type: "verse", label: "Verse 2", text: "(Infectious bounce, upright piano jazz countermelodies, sparkling bells)" },
+      { id: "ib_dtp_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Intricate percussion fills, detuned synth pulses, rising drop momentum)" },
+      { id: "ib_dtp_7", type: "chorus", label: "Chorus 2", text: "(Low-end punch, sparkling bell leads, crisp stereo claps, rolling hi-hats)" },
+      { id: "ib_dtp_8", type: "bridge", label: "Bridge", text: "(Half-time breakdown, solo Plugg bells, light shaker groove, isolated sub slides)" },
+      { id: "ib_dtp_9", type: "solo", label: "Solo", text: "(Synth bell lead solo, rapid off-beat runs, pitch-wheel wobbles, stereo delay)" },
+      { id: "ib_dtp_10", type: "chorus", label: "Chorus 3", text: "(Full bass impact, ringing bells, rolling snares, relentless Detroit bounce)" },
+      { id: "ib_dtp_11", type: "outro", label: "Outro", text: "(Bouncy synth bells, digital modem sound effects, fading low-end silence)" }
     ]
   });
 })(window);

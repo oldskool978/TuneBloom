@@ -414,9 +414,9 @@ function getCurrentFormPayload() {
     subgenre: getCleanVal("field-subgenre", 60),
     bpm: cleanBpm,
     key: sanitizeRequired("field-key", "F minor", 30),
-    mood: sanitizeRequired("field-mood", "Sensual, passionate, smooth, confident, driving.", 200),
-    vocals: getCleanVal("field-vocals", 300),
-    arrangement: sanitizeRequired("field-arrangement", "Dynamic full acoustic arrangement.", 300),
+    mood: sanitizeRequired("field-mood", "Sensual, passionate, smooth, confident, driving.", 400),
+    vocals: getCleanVal("field-vocals", 800),
+    arrangement: sanitizeRequired("field-arrangement", "Dynamic full acoustic arrangement.", 1500),
     lyrics: compiledLyrics.slice(0, 4000),
     instrumental_lyrics: compiledCues.slice(0, 4000),
     is_instrumental: Boolean(AppState.isInstrumental),
@@ -451,9 +451,11 @@ async function ensureShowcaseTrack(slug, storage) {
 
   let defaultTrack = existingTracks.find((t) => t && t.is_default);
   if (!defaultTrack) {
-    const initialBp = window.TuneBloomBlueprints
-      ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")
-      : {
+    const blueprintRegistry = window.TuneBloomBlueprints;
+    const catalog = blueprintRegistry ? (typeof blueprintRegistry.getAll === "function" ? blueprintRegistry.getAll() : []) : [];
+    const initialBp = (blueprintRegistry && typeof blueprintRegistry.getById === "function" && blueprintRegistry.getById("bp_rnb_midnight"))
+      || (catalog.length > 0 ? catalog[0] : null)
+      || {
           title: "Midnight Frequency",
           genre: "Contemporary R&B",
           subgenre: "2000s Pop R&B / Slow Jam Bounce",
@@ -470,9 +472,10 @@ async function ensureShowcaseTrack(slug, storage) {
       ? `${router.activeBase}/audio/stream/${slug}/default.opus`
       : resolveAssetUrl("public/default.opus");
 
-    const derivedInstBlocks = window.deriveDefaultCuesFromVocalBlocks
-      ? window.deriveDefaultCuesFromVocalBlocks(initialBp.blocks)
-      : [];
+    const safeBlocks = Array.isArray(initialBp.blocks) ? initialBp.blocks : [];
+    const derivedInstBlocks = (window.deriveDefaultCuesFromVocalBlocks && safeBlocks.length > 0)
+      ? window.deriveDefaultCuesFromVocalBlocks(safeBlocks)
+      : (Array.isArray(initialBp.instrumental_blocks) ? initialBp.instrumental_blocks : []);
 
     defaultTrack = {
       track_id: `default_${slug}`,
@@ -495,11 +498,11 @@ async function ensureShowcaseTrack(slug, storage) {
         mood: initialBp.mood || "Sensual, passionate, smooth, confident, driving.",
         vocals: initialBp.vocals || "Silky male tenor lead vocal, dynamic chest-to-falsetto transitions, intricate melismatic ad-libs, stacked 4-part harmonies.",
         arrangement: initialBp.arrangement || "Deep 808 sub-bass, crisp acoustic-electronic hybrid snare on 2 and 4, syncopated hi-hat rolls, warm Fender Rhodes chords.",
-        lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(initialBp.blocks) : "",
+        lyrics: window.compileBlocksToLyrics ? window.compileBlocksToLyrics(safeBlocks) : "",
         instrumental_lyrics: window.compileBlocksToCues ? window.compileBlocksToCues(derivedInstBlocks) : "",
         is_instrumental: false,
         instrumental_branch: "cues",
-        blocks: initialBp.blocks,
+        blocks: safeBlocks,
         instrumental_blocks: derivedInstBlocks,
         stage1_profile: "Studio Master Acoustic Arrangement",
         stage2_profile: "Spatial Air & Harmonic Balancing",
@@ -1057,9 +1060,11 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
       ? window.parseLyricsIntoBlocks(draft.lyrics)
       : [];
   } else if (isDefaultTrack) {
-    const fallback = window.TuneBloomBlueprints
-      ? window.TuneBloomBlueprints.getById("rnb_midnight_frequency")?.blocks || []
-      : [];
+    const blueprintRegistry = window.TuneBloomBlueprints;
+    const catalog = blueprintRegistry ? (typeof blueprintRegistry.getAll === "function" ? blueprintRegistry.getAll() : []) : [];
+    const bp = (blueprintRegistry && typeof blueprintRegistry.getById === "function" && blueprintRegistry.getById("bp_rnb_midnight"))
+      || (catalog.length > 0 ? catalog[0] : null);
+    const fallback = bp && Array.isArray(bp.blocks) ? bp.blocks : [];
     AppState.songBlocks = JSON.parse(JSON.stringify(fallback));
   } else {
     AppState.songBlocks = [];
@@ -1071,7 +1076,7 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
     AppState.instrumentalBlocks = window.parseLyricsIntoBlocks
       ? window.parseLyricsIntoBlocks(draft.instrumental_lyrics)
       : [];
-  } else if (window.deriveDefaultCuesFromVocalBlocks) {
+  } else if (window.deriveDefaultCuesFromVocalBlocks && AppState.songBlocks.length > 0) {
     AppState.instrumentalBlocks = window.deriveDefaultCuesFromVocalBlocks(AppState.songBlocks);
   } else {
     AppState.instrumentalBlocks = [];

@@ -17,7 +17,9 @@
     key: "A minor",
     mood: "Bouncy, swaggering, infectious, late-night, slick.",
     vocals: "Slick British male sing-rap tenor with conversational delivery and rapid syncopated cadences. Paired with pitched-up female soul vocal chops, call-and-response ad-libs, and tape-delayed hook throws.",
-    arrangement: "Shuffle-quantized 2-step kick and crisp rimshot groove anchor the bounce. Warped FM Donk bassline provides punchy low-end motion around warm Fender Rhodes chords, vinyl crackle, and filtered delay sweeps.",
+    vocal_lead: "Slick British male sing-rap tenor with conversational delivery and rapid syncopated cadences. Paired with pitched-up female soul vocal chops, call-and-response ad-libs, and tape-delayed hook throws.",
+    instrumental_lead: "Warped FM Donk bassline, warm Fender Rhodes chords, pitched vocal chop accents.",
+    arrangement: "Primary: A warped FM Donk bassline provides punchy low-end motion around warm Fender Rhodes chords and vinyl crackle. Secondary: Shuffle-quantized 2-step kick and crisp rimshot groove anchor the bounce, accented by filtered delay sweeps and syncopated open hi-hat skips.",
     blocks: [
       { id: "b_ukg_1", type: "intro", label: "Intro", text: "Yeah, South London in the building\nTuneBloom two-step in full effect\nCheck the swing on the hi-hats\n(Rewind!)\n(Selecta, let the bass bounce!)" },
       { id: "b_ukg_2", type: "verse", label: "Verse 1", text: "Step in the venue, air smelling sweet\nBouncers on the door, people dancing in the street\nTwo-step groove got the ladies looking clean\nBest underground rhythm that you've ever seen\nWhisper in her ear with that London slang\nStep to the bar with the whole damn gang\nChampagne flute overflowing to the brim\nBassline warped and it's looking real grim\nShoes looking fresh, got the Prada on lock\nDancing with my lady till it's five on the clock" },
@@ -32,17 +34,17 @@
       { id: "b_ukg_11", type: "outro", label: "Outro", text: "Proper two-step\nTuneBloom London Master\nCatch you on the next block\nDone\n(Rewind)" }
     ],
     instrumental_blocks: [
-      { id: "ib_ukg_1", type: "intro", label: "Intro", text: "(Filtered Rhodes chords with subtle vinyl crackle and distant vocal formant chops introduce the groove over a ticking swung hi-hat)" },
-      { id: "ib_ukg_2", type: "verse", label: "Verse 1", text: "(Warped FM Donk bassline enters on the offbeat with punchy syncopated 2-step rimshot and crisp shaker shuffle)" },
-      { id: "ib_ukg_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Rising bandpass-filtered synth stabs and syncopated snare rolls build dynamic tension toward the reload drop)" },
-      { id: "ib_ukg_4", type: "chorus", label: "Chorus 1", text: "(Full 2-step drop with deep sub-bass glide, resonant FM bass stabs, bright swung open hats, and lush Rhodes staccato chords)" },
-      { id: "ib_ukg_5", type: "verse", label: "Verse 2", text: "(Percussion strips back to kick, rim, and sub-bass while a clean jazz guitar plucks muted counterpoint phrases)" },
-      { id: "ib_ukg_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Tape delay sweeps and ascending bass runs build rhythmic momentum with syncopated triplet hi-hat skips)" },
-      { id: "ib_ukg_7", type: "chorus", label: "Chorus 2", text: "(Energetic UKG drop featuring bouncing bassline interplay, wide stereo synth chords, and relentless syncopated groove)" },
-      { id: "ib_ukg_8", type: "bridge", label: "Bridge", text: "(Half-time breakdown with solo lush electric piano chords, isolated sub-bass warmth, and ambient vinyl flutter)" },
-      { id: "ib_ukg_9", type: "solo", label: "Solo", text: "(Warped analog bass synth solos aggressively with resonant filter sweeps, pitch bends, and rapid syncopated stabs)" },
-      { id: "ib_ukg_10", type: "chorus", label: "Chorus 3", text: "(Peak garage energy with layered bass melodies, full shuffle percussion, horn stabs, and wide stereo atmosphere)" },
-      { id: "ib_ukg_11", type: "outro", label: "Outro", text: "(Drums dissolve into dub delay echoes, leaving solitary warm Rhodes chords to decay smoothly into silence)" }
+      { id: "ib_ukg_1", type: "intro", label: "Intro", text: "(Filtered Rhodes chords, vinyl crackle, vocal formant chops, ticking swung hi-hats)" },
+      { id: "ib_ukg_2", type: "verse", label: "Verse 1", text: "(Warped FM Donk bassline, offbeat bounce, syncopated 2-step rimshot, shaker shuffle)" },
+      { id: "ib_ukg_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Bandpass-filtered synth stabs, syncopated snare rolls, tape delay sweep)" },
+      { id: "ib_ukg_4", type: "chorus", label: "Chorus 1", text: "(Deep sub-bass glide, resonant FM bass stabs, swung open hats, Rhodes staccato chords)" },
+      { id: "ib_ukg_5", type: "verse", label: "Verse 2", text: "(Kick and rim groove, deep sub-bass, clean muted jazz guitar counterpoint)" },
+      { id: "ib_ukg_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Tape delay sweeps, ascending bass runs, syncopated triplet hi-hat skips)" },
+      { id: "ib_ukg_7", type: "chorus", label: "Chorus 2", text: "(Bouncing bassline interplay, wide stereo synth chords, relentless syncopated groove)" },
+      { id: "ib_ukg_8", type: "bridge", label: "Bridge", text: "(Half-time breakdown, solo electric piano chords, isolated sub-bass warmth, vinyl flutter)" },
+      { id: "ib_ukg_9", type: "solo", label: "Solo", text: "(Analog bass synth solo, resonant filter sweeps, pitch bends, rapid syncopated stabs)" },
+      { id: "ib_ukg_10", type: "chorus", label: "Chorus 3", text: "(Layered bass melodies, full shuffle percussion, brass stabs, wide stereo ambiance)" },
+      { id: "ib_ukg_11", type: "outro", label: "Outro", text: "(Dub delay echoes, solitary Rhodes chords, gradual decay to silence)" }
     ]
   });
 
@@ -55,7 +57,9 @@
     key: "Ab minor",
     mood: "Hypnotic, spiritual, soulful, deep-grooving, warm.",
     vocals: "Soulful Zulu and English female lead chants with warm, breathy delivery. Supported by rich jazzy vocal harmonies, call-and-response phrases, and rhythmic chant ad-libs.",
-    arrangement: "Signature percussive resonant log drums with complex polyrhythmic rolls anchor the low end. Accompanied by warm jazzy grand piano chords, syncopated shaker loops, deep analog sub bass, and airy string pads.",
+    vocal_lead: "Soulful Zulu and English female lead chants with warm, breathy delivery. Supported by rich jazzy vocal harmonies, call-and-response phrases, and rhythmic chant ad-libs.",
+    instrumental_lead: "Resonant percussive log drums, jazzy acoustic grand piano, warm analog sub-bass.",
+    arrangement: "Primary: Signature percussive resonant log drums with complex polyrhythmic rolls anchor the low end. Secondary: Warm jazzy grand piano voicings, continuous African shaker loops, and deep analog sub bass pads create deep hypnotic movement.",
     blocks: [
       { id: "b_ama_1", type: "intro", label: "Intro", text: "Yelele... Woza!\nTuneBloom Amapiano\nLet the log drum breathe, Jo'burg style\nSiyaphambili, halala, asambe!\n(Yelele mama, yelele baba)\n(Woza, woza, woza!)" },
       { id: "b_ama_2", type: "verse", label: "Verse 1", text: "Midnight cool air falling on the city\nDancing till the morning with my baby pretty\nDeep bass taking all the weight off the mind\nPrettiest groove that you ever could find\nMove to the left then you shift to the right\nLighting the fire in the middle of night\nEverybody know say the music is pure\nNatural medicine, ultimate cure\nFrom Soweto streets to the Sandton lights\nWe celebrate the rhythm of African nights\nDrink in the hand and the soul feeling free\nNothing in this world that I'd rather be" },
@@ -70,17 +74,17 @@
       { id: "b_ama_11", type: "outro", label: "Outro", text: "Yelele... Johannesburg\nTuneBloom Master\nSiyabonga kakhulu\nPeace and love\n(Halala... asambe)" }
     ],
     instrumental_blocks: [
-      { id: "ib_ama_1", type: "intro", label: "Intro", text: "(Spacious jazzy grand piano voicings glide over a continuous African shaker loop and deep warm sub-bass pad)" },
-      { id: "ib_ama_2", type: "verse", label: "Verse 1", text: "(Signature resonant log drum enters with complex polyrhythmic rolls, syncopated rim accents, and warm low-end thumps)" },
-      { id: "ib_ama_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Percussive log drum triplets build dynamic momentum while sustained string pads swell beneath the piano chord progression)" },
-      { id: "ib_ama_4", type: "chorus", label: "Drop 1", text: "(Full hypnotic Amapiano drop with thumping sub kick, pitch-bending log drum bassline, and syncopated woodblock accents)" },
-      { id: "ib_ama_5", type: "verse", label: "Verse 2", text: "(Arrangement breathes with delicate piano counter-motifs, subtle log drum ghost notes, and constant steady shaker movement)" },
-      { id: "ib_ama_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Rolling log drum fills accelerate alongside ascending piano arpeggios, creating deep spiritual anticipation)" },
-      { id: "ib_ama_7", type: "chorus", label: "Drop 2", text: "(Powerful percussive climax featuring dual interlocking log drum layers, rich piano stabs, and expansive stereo presence)" },
-      { id: "ib_ama_8", type: "bridge", label: "Breakdown", text: "(Deep meditative breakdown stripping away percussion to leave solitary resonant grand piano chords and warm sub-bass air)" },
-      { id: "ib_ama_9", type: "solo", label: "Solo", text: "(Acoustic grand piano solos with fluid jazz runs, expressive grace notes, syncopated octave leaps, and natural room dynamics)" },
-      { id: "ib_ama_10", type: "chorus", label: "Drop 3", text: "(Ultimate rhythmic release combining virtuosic piano improvisation with driving log drum rolls and full percussion pocket)" },
-      { id: "ib_ama_11", type: "outro", label: "Outro", text: "(Log drums taper off gradually, leaving solitary gentle piano chords and distant shaker loops fading into warmth)" }
+      { id: "ib_ama_1", type: "intro", label: "Intro", text: "(Spacious jazzy grand piano voicings, continuous African shaker loop, warm sub-bass pad)" },
+      { id: "ib_ama_2", type: "verse", label: "Verse 1", text: "(Resonant log drum rolls, syncopated rim clicks, warm low-end thumps)" },
+      { id: "ib_ama_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Percussive log drum triplets, sustained string pad swells, piano chord movement)" },
+      { id: "ib_ama_4", type: "chorus", label: "Drop 1", text: "(Thumping sub kick, pitch-bending log drum bassline, syncopated woodblock accents)" },
+      { id: "ib_ama_5", type: "verse", label: "Verse 2", text: "(Delicate piano counter-motifs, log drum ghost notes, steady shaker groove)" },
+      { id: "ib_ama_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Rolling log drum fills, ascending piano arpeggios, dynamic sub swells)" },
+      { id: "ib_ama_7", type: "chorus", label: "Drop 2", text: "(Dual interlocking log drum layers, rich piano chord stabs, wide stereo soundstage)" },
+      { id: "ib_ama_8", type: "bridge", label: "Breakdown", text: "(Solo resonant grand piano chords, warm sub-bass air, stripped percussion)" },
+      { id: "ib_ama_9", type: "solo", label: "Solo", text: "(Acoustic grand piano solo, fluid jazz runs, grace notes, syncopated octave leaps)" },
+      { id: "ib_ama_10", type: "chorus", label: "Drop 3", text: "(Virtuosic piano improvisation, driving log drum rolls, full percussion pocket)" },
+      { id: "ib_ama_11", type: "outro", label: "Outro", text: "(Tapering log drums, solitary piano voicings, fading shaker loop)" }
     ]
   });
 
@@ -93,7 +97,9 @@
     key: "C major",
     mood: "Energetic, frantic, bounce-heavy, club-ready, infectious.",
     vocals: "High-energy rhythmic male hype vocals with aggressive chopped stabs, pitched vocal micro-samples, and rapid call-and-response party chants.",
-    arrangement: "Signature 5-beat Jersey club kick pattern, bed-squeak sample on 2 and 4, hyperactive sub-bass drops, sliced vocal loops, and bright synth chords.",
+    vocal_lead: "High-energy rhythmic male hype vocals with aggressive chopped stabs, pitched vocal micro-samples, and rapid call-and-response party chants.",
+    instrumental_lead: "Staccato synthesizer brass leads, sliced vocal micro-chops, hyperactive sub-bass drops.",
+    arrangement: "Primary: Signature 5-beat Jersey club kick patterns and hyperactive sub-bass drops anchor the bounce. Secondary: Bed-squeak samples on 2 and 4, bright staccato synth brass chords, and sliced vocal loops drive frantic party energy.",
     blocks: [
       { id: "b_jcb_1", type: "intro", label: "Intro", text: "Jersey! TuneBloom in the mix!\nPut your hands up, let's get it!\nRock your hips, rock your hips!\nNewark to Philly, you know what time it is!\n(Go! Go! Go! Let's go!)" },
       { id: "b_jcb_2", type: "verse", label: "Verse 1", text: "Step in the circle, show 'em what you got\nTaking the rhythm and making it hot\nLeft foot, right foot, hit the floor\nEverybody screaming and asking for more\nBassline bumping right in the chest\nJersey club bounce is the absolute best\nFast tempo moving, never gon' stall\nTaking the party and rocking the hall\nGot the whole club jumping on beat\nFeel that sub-bass under your feet\nHands to the ceiling, let your body shake\nBest vibration that we ever could make" },
@@ -108,17 +114,17 @@
       { id: "b_jcb_11", type: "outro", label: "Outro", text: "Yeah! TuneBloom Jersey Club Master\nDrop that beat to a dead stop\nNewark stand up\nDrop\n(Work!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_jcb_1", type: "intro", label: "Intro", text: "(Bright staccato synthesizer chords play high-energy party progression alongside ticking 16th-note hi-hats)" },
-      { id: "ib_jcb_2", type: "verse", label: "Verse 1", text: "(Signature 5-beat Jersey club kick pattern drops in with bed-squeak sample on 2 and 4 and rapid sub-bass stabs)" },
-      { id: "ib_jcb_3", type: "pre-chorus", label: "Build-Up 1", text: "(Snare rolls double in tempo into 32nd-note rolls while high-pass filters open rapidly and sub bass pitch bends upward)" },
-      { id: "ib_jcb_4", type: "chorus", label: "Drop 1", text: "(Explosive Jersey club drop with heavy 5-beat kick pattern, thunderous low-end drops, cutting synth brass, and bright crash cymbals)" },
-      { id: "ib_jcb_5", type: "verse", label: "Verse 2", text: "(Rhythm skips into syncopated triplet kick variations while an arpeggiated synth lead dances across the stereo field)" },
-      { id: "ib_jcb_6", type: "pre-chorus", label: "Build-Up 2", text: "(Fast-paced snare accelerations and rising white noise risers drive peak dynamic tension toward the second drop)" },
-      { id: "ib_jcb_7", type: "chorus", label: "Drop 2", text: "(Maximum-intensity bounce drop with distorted sub-bass drops, piercing synth chords, and hyperactive sample triggers)" },
-      { id: "ib_jcb_8", type: "bridge", label: "Breakdown", text: "(Half-time rhythmic interlude stripping the kick pattern down to bed-squeak accents, sub drone, and filtered synth chords)" },
-      { id: "ib_jcb_9", type: "solo", label: "Solo", text: "(Frenetic lead synthesizer solos with high-speed pitch bends, rapid staccato arpeggiation, and wide stereo delay)" },
-      { id: "ib_jcb_10", type: "chorus", label: "Drop 3", text: "(Final frantic drop featuring full 5-beat kick fury, thunderous sub impact, and continuous bright synth riffs)" },
-      { id: "ib_jcb_11", type: "outro", label: "Outro", text: "(Beat abruptly cuts to a lone bed-squeak sample and a final clean low-end 808 sub thump to complete silence)" }
+      { id: "ib_jcb_1", type: "intro", label: "Intro", text: "(Staccato synth chords, ticking 16th-note hi-hats, vocal micro-stabs)" },
+      { id: "ib_jcb_2", type: "verse", label: "Verse 1", text: "(5-beat Jersey club kick pattern, bed-squeak samples on 2 and 4, rapid sub-bass stabs)" },
+      { id: "ib_jcb_3", type: "pre-chorus", label: "Build-Up 1", text: "(32nd-note snare roll acceleration, opening high-pass filter, upward sub pitch bends)" },
+      { id: "ib_jcb_4", type: "chorus", label: "Drop 1", text: "(5-beat kick pattern, thunderous low-end drops, cutting synth brass, crash cymbals)" },
+      { id: "ib_jcb_5", type: "verse", label: "Verse 2", text: "(Syncopated triplet kick variations, arpeggiated stereo synth lead, bed-squeak accents)" },
+      { id: "ib_jcb_6", type: "pre-chorus", label: "Build-Up 2", text: "(Fast-paced snare builds, rising white noise sweeps, sub-bass pitch glide)" },
+      { id: "ib_jcb_7", type: "chorus", label: "Drop 2", text: "(Distorted sub-bass drops, piercing synth brass chords, hyperactive sample triggers)" },
+      { id: "ib_jcb_8", type: "bridge", label: "Breakdown", text: "(Half-time breakdown, bed-squeak accents, sub drone, filtered synth chords)" },
+      { id: "ib_jcb_9", type: "solo", label: "Solo", text: "(Lead synth solo, rapid pitch bends, staccato arpeggiation, stereo delay)" },
+      { id: "ib_jcb_10", type: "chorus", label: "Drop 3", text: "(Full 5-beat kick fury, thunderous sub impacts, continuous bright synth riffs)" },
+      { id: "ib_jcb_11", type: "outro", label: "Outro", text: "(Lone bed-squeak sample, clean low-end 808 sub thump, abrupt silence)" }
     ]
   });
 
@@ -131,7 +137,9 @@
     key: "F# major",
     mood: "Infectious, joyful, seductive, rhythmic, celebratory.",
     vocals: "Silky Nigerian Pidgin and English melodic tenor with effortless rhythmic cadence. Supported by catchy call-and-response vocal chants and lush African choir harmonies.",
-    arrangement: "Bright clean African electric guitar plucks playing melodic highlife riffs, syncopated Shekere shakers, resonant log drum accents, rich warm bassline, and brass stabs.",
+    vocal_lead: "Silky Nigerian Pidgin and English melodic tenor with effortless rhythmic cadence. Supported by catchy call-and-response vocal chants and lush African choir harmonies.",
+    instrumental_lead: "Clean African electric guitar plucks, melodic highlife brass lines, Shekere percussion.",
+    arrangement: "Primary: Bright clean African electric guitar plucks playing highlife melodic riffs anchor the piece. Secondary: Syncopated Shekere shakers, resonant log drum accents, and warm electric basslines establish a joyful, buoyant dance groove.",
     blocks: [
       { id: "b_afr_1", type: "intro", label: "Intro", text: "Oshey! TuneBloom sound\nOmo, listen to the groove\nKilode? Na the vibe we dey give them tonight\nYeah, make we start am\nFrom Lagos island straight to the world\n(Let's go! Oshey!)" },
       { id: "b_afr_2", type: "verse", label: "Verse 1", text: "Fine girl from the mainland moving sweet\nHer waistline vibrating down to the beat\nShe tell me say na my melody she want\nNobody fit do the things that we stunt\nBottles on the table, champagne dey flow\nEvery single corner catching the glow\nNo time for the bad belle people at all\nWe just dey answer to the blessings we call\nBody dey sweet me, ginger dey body\nCome make we dance and enjoy this party\nRoll that waistline make you show them the style\nPut on a beautiful African smile" },
@@ -146,17 +154,17 @@
       { id: "b_afr_11", type: "outro", label: "Outro", text: "Yeah... Lagos to the world\nOshey!\nTuneBloom Master\nBlessings on blessings\nDone" }
     ],
     instrumental_blocks: [
-      { id: "ib_afr_1", type: "intro", label: "Intro", text: "(Sparkling clean African electric guitar plucks highlife melodic riffs over delicate Shekere shaker and warm Rhodes chords)" },
-      { id: "ib_afr_2", type: "verse", label: "Verse 1", text: "(Bouncy Afrobeats kick and rimshot groove drop into the pocket, anchored by a melodic, rolling electric bassline)" },
-      { id: "ib_afr_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Horn section swells gently with warm brass stabs while conga fills and log drum accents build celebratory momentum)" },
-      { id: "ib_afr_4", type: "chorus", label: "Chorus 1", text: "(Full joyful Lagos drop with punchy kick, vibrant highlife guitar lead, warm brass countermelodies, and driving percussion)" },
-      { id: "ib_afr_5", type: "verse", label: "Verse 2", text: "(Guitar switches to muted syncopated picking while a secondary electric guitar plays soaring legato licks in the right channel)" },
-      { id: "ib_afr_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Percussion section accelerates with polyrhythmic talking drum accents and ascending brass fanfare)" },
-      { id: "ib_afr_7", type: "chorus", label: "Chorus 2", text: "(Climactic African groove drop featuring layered guitar counterpoints, deep resonant bass, and infectious dance rhythm)" },
-      { id: "ib_afr_8", type: "bridge", label: "Bridge", text: "(Subtractive breakdown highlighting acoustic fingerpicked guitar, soft shaker rhythms, and warm saxophone phrases)" },
-      { id: "ib_afr_9", type: "solo", label: "Solo", text: "(Lush brass section and clean electric guitar trade virtuosic highlife melodies with sweet vibrato and slides)" },
-      { id: "ib_afr_10", type: "chorus", label: "Chorus 3", text: "(Final celebratory explosion of sound with full horns, dual guitars, driving bassline, and complete percussive section)" },
-      { id: "ib_afr_11", type: "outro", label: "Outro", text: "(Percussion gradually subsides, leaving a solitary clean guitar riff and decaying warm reverb tails to fade out)" }
+      { id: "ib_afr_1", type: "intro", label: "Intro", text: "(Clean African electric guitar highlife riffs, Shekere shaker, warm Rhodes chords)" },
+      { id: "ib_afr_2", type: "verse", label: "Verse 1", text: "(Afrobeats kick and rimshot groove, melodic rolling electric bassline)" },
+      { id: "ib_afr_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Warm brass stabs, conga fills, log drum accents, rising festive energy)" },
+      { id: "ib_afr_4", type: "chorus", label: "Chorus 1", text: "(Punchy Afrobeats kick, highlife guitar lead, brass countermelodies, full percussion)" },
+      { id: "ib_afr_5", type: "verse", label: "Verse 2", text: "(Syncopated guitar picking, secondary lead guitar legato licks, steady shaker)" },
+      { id: "ib_afr_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Polyrhythmic talking drum accents, ascending brass fanfare, driving momentum)" },
+      { id: "ib_afr_7", type: "chorus", label: "Chorus 2", text: "(Layered guitar counterpoints, deep resonant bassline, celebratory groove)" },
+      { id: "ib_afr_8", type: "bridge", label: "Bridge", text: "(Acoustic fingerpicked guitar, soft shaker rhythms, warm saxophone phrases)" },
+      { id: "ib_afr_9", type: "solo", label: "Solo", text: "(Brass section and clean electric guitar trading virtuosic highlife melodies)" },
+      { id: "ib_afr_10", type: "chorus", label: "Chorus 3", text: "(Tutti brass fanfare, dual guitars, driving bassline, complete percussive section)" },
+      { id: "ib_afr_11", type: "outro", label: "Outro", text: "(Solitary clean highlife guitar riff, decaying warm reverb tails, fading silence)" }
     ]
   });
 
@@ -169,7 +177,9 @@
     key: "D minor",
     mood: "Introspective, moody, toxic-romance, vulnerable, atmospheric.",
     vocals: "Dark, reverb-heavy male R&B vocal blending smooth singing with melancholic melodic sing-rap, deep pitch-shifted backing ad-libs, and intimate breathy delivery.",
-    arrangement: "Distorted 808 sub-bass, underwater filtered Rhodes chords, reverse vocal chops, crisp tight trap snare, and ambient vinyl crackle.",
+    vocal_lead: "Dark, reverb-heavy male R&B vocal blending smooth singing with melancholic melodic sing-rap, deep pitch-shifted backing ad-libs, and intimate breathy delivery.",
+    instrumental_lead: "Underwater low-pass Rhodes chords, distorted 808 sub-bass glides, expressive legato electric guitar.",
+    arrangement: "Primary: Underwater filtered Rhodes chords and vinyl crackle create a dark, nocturnal aesthetic. Secondary: Booming distorted 808 sub slides and tight trap snares lock into a lazy, spacious groove, accented by reverse vocal textures and clean electric guitar licks.",
     blocks: [
       { id: "b_ts_1", type: "intro", label: "Intro", text: "Yeah, three AM again...\nDrinking Henny straight out the bottle, thinking 'bout you\nShit never changes, does it?\nPhone ringing off the hook, but I can't even pick up\nYeah, listen\n(Late nights in the studio)" },
       { id: "b_ts_2", type: "verse", label: "Verse 1", text: "Phone glowing on the nightstand screen\nYou texting me like you don't know what it mean\nSaying you miss how we used to connect\nWhile you out with someone that you don't respect\nI take a sip let the burn hit my chest\nTrying my hardest to put you to rest\nKnow I was wrong for the things that I did\nActed too reckless, behaved like a kid\nNow I'm in the studio pouring my heart\nWatching the pieces all falling apart\nSmoke in the air and it's clouding my vision\nLiving with every damn broken decision" },
@@ -184,17 +194,17 @@
       { id: "b_ts_11", type: "outro", label: "Outro", text: "Yeah... three AM thoughts\nTuneBloom Master\nEmpty bottle on the floor\nFade to dark\n(Gone)" }
     ],
     instrumental_blocks: [
-      { id: "ib_ts_1", type: "intro", label: "Intro", text: "(Underwater low-pass filtered Rhodes chords ring out over vinyl crackle and distant tape-saturated sub rumble)" },
-      { id: "ib_ts_2", type: "verse", label: "Verse 1", text: "(Deep distorted 808 sub-bass glides smoothly under a crisp dry rimshot on 3 and sparse, delayed acoustic guitar notes)" },
-      { id: "ib_ts_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Low-pass filter opens slowly on the Rhodes as rolling 32nd-note hi-hats and reverse ambient swell fx build dark tension)" },
-      { id: "ib_ts_4", type: "chorus", label: "Chorus 1", text: "(Heavy TrapSoul drop with booming distorted 808 slides, rich Rhodes tremolo chords, tight trap snare, and reverse vocal textures)" },
-      { id: "ib_ts_5", type: "verse", label: "Verse 2", text: "(Rhythm strips back to an intimate pocket: solitary sub thuds, crisp rim, and an expressive electric guitar playing legato licks)" },
-      { id: "ib_ts_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Ascending bass glides and rolling trap hi-hats create an intoxicating, moody build toward the second hook)" },
-      { id: "ib_ts_7", type: "chorus", label: "Chorus 2", text: "(Climactic drop featuring maximum low-end impact, wide stereo Rhodes panning, and somber acoustic guitar motifs)" },
-      { id: "ib_ts_8", type: "bridge", label: "Bridge", text: "(Filtered breakdown where the drums vanish, leaving solitary reverbed electric piano chords and decaying vinyl noise)" },
-      { id: "ib_ts_9", type: "solo", label: "Solo", text: "(Emotional electric guitar solo with warm neck pickup tone, singing legato bends, and heavy tape delay slapback)" },
-      { id: "ib_ts_10", type: "chorus", label: "Chorus 3", text: "(Final immersive drop with the guitar solo weaving over heavy sliding 808s and the full late-night rhythm section)" },
-      { id: "ib_ts_11", type: "outro", label: "Outro", text: "(Low-pass filter closes down over the mix, leaving a solitary Rhodes chord and fading sub drone dissolving into the dark)" }
+      { id: "ib_ts_1", type: "intro", label: "Intro", text: "(Underwater filtered Rhodes chords, vinyl crackle, tape-saturated sub rumble)" },
+      { id: "ib_ts_2", type: "verse", label: "Verse 1", text: "(Distorted 808 sub-bass glides, dry rimshot on 3, sparse delayed guitar plucks)" },
+      { id: "ib_ts_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Opening low-pass filter on Rhodes, rolling 32nd-note hi-hats, reverse ambient swell)" },
+      { id: "ib_ts_4", type: "chorus", label: "Chorus 1", text: "(Booming distorted 808 slides, Rhodes tremolo chords, tight trap snare, reverse textures)" },
+      { id: "ib_ts_5", type: "verse", label: "Verse 2", text: "(Stripped sub thuds, crisp rimshot, expressive electric guitar legato licks)" },
+      { id: "ib_ts_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Ascending bass glides, rolling trap hi-hats, moody dynamic build)" },
+      { id: "ib_ts_7", type: "chorus", label: "Chorus 2", text: "(Heavy low-end impact, wide stereo Rhodes panning, somber guitar motifs)" },
+      { id: "ib_ts_8", type: "bridge", label: "Bridge", text: "(Solitary reverbed electric piano chords, decaying vinyl noise, sub drone)" },
+      { id: "ib_ts_9", type: "solo", label: "Solo", text: "(Electric guitar solo, warm neck pickup tone, singing legato bends, tape slapback)" },
+      { id: "ib_ts_10", type: "chorus", label: "Chorus 3", text: "(Guitar solo counterpoint, heavy sliding 808s, complete late-night rhythm section)" },
+      { id: "ib_ts_11", type: "outro", label: "Outro", text: "(Low-pass filter close, solitary Rhodes chord, fading sub drone to silence)" }
     ]
   });
 
@@ -207,7 +217,9 @@
     key: "G minor",
     mood: "Carnival, seductive, heavy-hitting, swaggering, raw.",
     vocals: "Authentic Jamaican Patois toaster cadence with aggressive deejay chanting, rapid rhythmic flow, and smooth melodic female hook counterpoint.",
-    arrangement: "Heavy 808 dancehall dembow riddim, metallic rimshots, syncopated offbeat synth plucks, dub siren effects, and deep sub-bass drops.",
+    vocal_lead: "Authentic Jamaican Patois toaster cadence with aggressive deejay chanting, rapid rhythmic flow, and smooth melodic female hook counterpoint.",
+    instrumental_lead: "Heavy 808 dancehall dembow riddim, syncopated offbeat synth plucks, dub siren fx.",
+    arrangement: "Primary: Heavy 808 dancehall dembow riddims and metallic rimshots anchor the groove. Secondary: Syncopated offbeat synth plucks, dub siren effects, and deep sub-bass drops drive the carnival atmosphere, framed by spring-reverb organ skanks.",
     blocks: [
       { id: "b_dh_1", type: "intro", label: "Intro", text: "Brap! TuneBloom sound system!\nBig up every dancer inna di dancehall!\nWine up your body, gyal!\nPull up di selector, make the riddim drop heavy!\n(Brap! Brap! Brap!)" },
       { id: "b_dh_2", type: "verse", label: "Verse 1", text: "Gyal a wine to di riddim and she move so tight\nKingston city burning bright tonight\nHeavy bassline a rattle up di entire sound\nBaddest dancers a take over di town\nMi see di waistline a move inna slow motion\nCausing pure trouble and commotion\nStep inna di party with di natural flex\nNobody worry 'bout who coming next\nDiamonds pon di wrist and di Hennessy pour\nEvery single gyal a demand fi some more\nBounce to di bass, let your body vibrate\nKingston champions setting di fate" },
@@ -222,17 +234,17 @@
       { id: "b_dh_11", type: "outro", label: "Outro", text: "Brap! Kingston sound\nTuneBloom Dancehall Master\nSelector sign off\nDone\n(Pull up!)" }
     ],
     instrumental_blocks: [
-      { id: "ib_dh_1", type: "intro", label: "Intro", text: "(Syncopated metallic offbeat synth skanks establish the dancehall rhythm alongside dub siren effects and tape echo)" },
-      { id: "ib_dh_2", type: "verse", label: "Verse 1", text: "(Heavy dembow kick-and-snare pattern drops hard with warm sub-bass glide, sharp metallic rimshots, and dry percussive clicks)" },
-      { id: "ib_dh_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Dembow snare rolls accelerate and synth brass stabs build carnival energy toward the selector drop)" },
-      { id: "ib_dh_4", type: "chorus", label: "Chorus 1", text: "(Full bashment drop with maximum low-end 808 pressure, piercing offbeat organ chops, and driving syncopated percussion)" },
-      { id: "ib_dh_5", type: "verse", label: "Verse 2", text: "(Rhythm strips back to bass and kick while a muted clean electric guitar plays syncopated Jamaican skank chords)" },
-      { id: "ib_dh_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Dub laser fx, rolling timbales, and ascending synth sweeps create an unstoppable dancehall crescendo)" },
-      { id: "ib_dh_7", type: "chorus", label: "Chorus 2", text: "(Massive sound system drop featuring thunderous sub-bass, cutting brass leads, and energetic polyrhythmic percussion)" },
-      { id: "ib_dh_8", type: "bridge", label: "Bridge", text: "(Half-time dub breakdown featuring low-pass filtered organ, isolated sub thuds, and cavernous spring reverb sweeps)" },
-      { id: "ib_dh_9", type: "solo", label: "Solo", text: "(High-register synth lead plays agile Caribbean melodies with rapid pitch-bend ornaments and delay repeats)" },
-      { id: "ib_dh_10", type: "chorus", label: "Chorus 3", text: "(Final explosive dancehall climax with full dembow kit, screaming synth leads, and maximum harmonic punch)" },
-      { id: "ib_dh_11", type: "outro", label: "Outro", text: "(Beat abruptly cuts to a dub siren echo and a solitary descending sub glide that resonates into silence)" }
+      { id: "ib_dh_1", type: "intro", label: "Intro", text: "(Metallic offbeat synth skanks, dub siren fx, tape echo sweeps)" },
+      { id: "ib_dh_2", type: "verse", label: "Verse 1", text: "(Heavy dembow kick-snare pattern, sub-bass glides, metallic rimshots, dry clicks)" },
+      { id: "ib_dh_3", type: "pre-chorus", label: "Pre-Chorus 1", text: "(Dembow snare roll acceleration, synth brass stabs, rising energy)" },
+      { id: "ib_dh_4", type: "chorus", label: "Chorus 1", text: "(Low-end 808 pressure, offbeat organ chops, driving syncopated percussion)" },
+      { id: "ib_dh_5", type: "verse", label: "Verse 2", text: "(Stripped kick and sub-bass, clean electric guitar Jamaican skank chords)" },
+      { id: "ib_dh_6", type: "pre-chorus", label: "Pre-Chorus 2", text: "(Dub laser fx, rolling timbales, ascending synth sweeps, crescendo)" },
+      { id: "ib_dh_7", type: "chorus", label: "Chorus 2", text: "(Thunderous sub-bass, cutting brass leads, polyrhythmic percussion pocket)" },
+      { id: "ib_dh_8", type: "bridge", label: "Bridge", text: "(Low-pass filtered organ, isolated sub thuds, spring reverb sweeps)" },
+      { id: "ib_dh_9", type: "solo", label: "Solo", text: "(High-register synth lead solo, pitch-bend ornaments, stereo delay repeats)" },
+      { id: "ib_dh_10", type: "chorus", label: "Chorus 3", text: "(Full dembow kit, piercing synth leads, maximum low-end impact)" },
+      { id: "ib_dh_11", type: "outro", label: "Outro", text: "(Dub siren echo, descending sub glide, clean decay to silence)" }
     ]
   });
 
@@ -245,7 +257,9 @@
     key: "C minor",
     mood: "Gritty, authentic, soulful, head-nodding, focused.",
     vocals: "Crisp rhythmic baritone flow with sharp enunciation and complex internal rhymes. Layered hype ad-libs on bar ends, vocal scratch hooks, and unhurried confidence.",
-    arrangement: "Chopped SP-1200 jazz horn samples, crunchy 12-bit acoustic drum break with dirty snare punch, warm filtered upright bassline, and constant needle crackle.",
+    vocal_lead: "Crisp rhythmic baritone flow with sharp enunciation and complex internal rhymes. Layered hype ad-libs on bar ends, vocal scratch hooks, and unhurried confidence.",
+    instrumental_lead: "Chopped SP-1200 jazz horn samples, acoustic upright bass, crunchy 12-bit drum break.",
+    arrangement: "Primary: Chopped SP-1200 jazz horn samples and filtered acoustic upright basslines establish the golden-era vibe. Secondary: A crunchy 12-bit drum break with a dirty acoustic snare on 2 and 4 and constant needle crackle drives the unhurried head-nodding bounce.",
     blocks: [
       { id: "b_hip_1", type: "intro", label: "Intro", text: "Check the levels on the tape deck\nOne, two... yeah\nDropping the needle on ninety-two\nFrom Queensbridge to Brooklyn, real boom bap\n(Listen close, yeah)\n(Drop the break!)" },
       { id: "b_hip_2", type: "verse", label: "Verse 1", text: "Sifting through the crates in the basement store\nFinding rare gems on the dusty floor\nTwelve-bit textures hitting hard on the one\nMaking classic rhythm till the rising sun\nPen on the notebook, capturing the rhyme\nEvery single syllable is locked in time\nMPC pads and the vinyl crackle\nOvercoming every industry obstacle\nRaw hip-hop straight out the sewer grate\nServing pure knowledge on a dinner plate\nKick drum thumping in your chest real heavy\nRhymes razor sharp and we keeping 'em steady" },
@@ -260,17 +274,17 @@
       { id: "b_hip_11", type: "outro", label: "Outro", text: "Fading out on the groove\nClassic master tape finish\nTuneBloom East Coast Master\nPeace out to all the real diggers\n(Peace)" }
     ],
     instrumental_blocks: [
-      { id: "ib_hip_1", type: "intro", label: "Intro", text: "(Authentic vinyl needle drop crackle followed by chopped warm jazz trumpet sample loops and isolated upright bass notes)" },
-      { id: "ib_hip_2", type: "verse", label: "Verse 1", text: "(Crunchy 12-bit SP-1200 acoustic drum break drops with heavy punchy snare on 2 and 4 and filtered walking upright bass)" },
-      { id: "ib_hip_3", type: "chorus", label: "Hook 1", text: "(Full East Coast boom bap groove drops in with rich chopped brass chords, resonant kick drum thumps, and muted Rhodes counterpoint)" },
-      { id: "ib_hip_4", type: "verse", label: "Verse 2", text: "(Acoustic upright bass walks smoothly through the chord changes while muted guitar scratches punctuate the drum break)" },
-      { id: "ib_hip_5", type: "bridge", label: "Breakdown", text: "(Low-pass filter sweeps down over the drums, highlighting solo warm double bass plucks, tape hiss, and sparse trumpet phrases)" },
-      { id: "ib_hip_6", type: "chorus", label: "Hook 2", text: "(Full drum break returns with maximum punch, accompanied by soaring muted jazz saxophone chops and warm piano fills)" },
-      { id: "ib_hip_7", type: "verse", label: "Verse 3", text: "(Rhythm section locks into an unhurried golden-era pocket with subtle open hi-hat accents and vintage vinyl atmosphere)" },
-      { id: "ib_hip_8", type: "bridge", label: "Bridge", text: "(Delicate vibraphone chords join the upright bass and soft brushed snare, creating deep nostalgic jazz warmth)" },
-      { id: "ib_hip_9", type: "solo", label: "Solo", text: "(Expressive muted jazz trumpet solos over the boom bap break, delivering soulful blues inflections and melodic stabs)" },
-      { id: "ib_hip_10", type: "chorus", label: "Hook 3", text: "(Final celebratory boom bap release with full horn ensemble chops, heavy head-nodding drum groove, and rich bass)" },
-      { id: "ib_hip_11", type: "outro", label: "Outro", text: "(Drums slowly fade out, leaving solitary muted jazz trumpet notes and needle static running out into silence)" }
+      { id: "ib_hip_1", type: "intro", label: "Intro", text: "(Vinyl needle drop crackle, chopped jazz trumpet loops, isolated double bass notes)" },
+      { id: "ib_hip_2", type: "verse", label: "Verse 1", text: "(12-bit SP-1200 drum break, punchy snare on 2 and 4, walking upright bass)" },
+      { id: "ib_hip_3", type: "chorus", label: "Hook 1", text: "(Chopped brass chords, resonant kick drum thumps, muted Rhodes counterpoint)" },
+      { id: "ib_hip_4", type: "verse", label: "Verse 2", text: "(Acoustic upright bassline walking, muted guitar scratches, punchy breakbeat)" },
+      { id: "ib_hip_5", type: "bridge", label: "Breakdown", text: "(Low-pass filter on drums, warm double bass plucks, tape hiss, sparse trumpet notes)" },
+      { id: "ib_hip_6", type: "chorus", label: "Hook 2", text: "(Full drum break, muted jazz saxophone chops, warm piano fills)" },
+      { id: "ib_hip_7", type: "verse", label: "Verse 3", text: "(Unhurried golden-era drum pocket, open hi-hat accents, vinyl atmosphere)" },
+      { id: "ib_hip_8", type: "bridge", label: "Bridge", text: "(Delicate vibraphone chords, upright bass, soft brushed snare)" },
+      { id: "ib_hip_9", type: "solo", label: "Solo", text: "(Muted jazz trumpet solo, blues inflections, melodic stabs, boom bap groove)" },
+      { id: "ib_hip_10", type: "chorus", label: "Hook 3", text: "(Horn ensemble chops, head-nodding drum groove, rich upright bass)" },
+      { id: "ib_hip_11", type: "outro", label: "Outro", text: "(Solo muted jazz trumpet notes, needle static run-out groove, fading silence)" }
     ]
   });
 })(window);
