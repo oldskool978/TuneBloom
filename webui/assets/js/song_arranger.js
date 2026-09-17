@@ -4,89 +4,100 @@
       bgVar: "--inst-intro-bg",
       borderVar: "--inst-intro-border",
       inkVar: "--inst-intro-ink",
-      defaultBg: "#c7d2fe",
-      defaultBorder: "#a5b4fc",
-      defaultInk: "#1e1b4b"
+      defaultBg: "rgba(49, 46, 129, 0.35)",
+      defaultBorder: "#818cf8",
+      defaultInk: "#f8fafc",
+      glow: "rgba(129, 140, 248, 0.45)"
     },
     verse: {
       bgVar: "--inst-verse-bg",
       borderVar: "--inst-verse-border",
       inkVar: "--inst-verse-ink",
-      defaultBg: "#a7f3d0",
-      defaultBorder: "#6ee7b7",
-      defaultInk: "#064e3b"
+      defaultBg: "rgba(6, 78, 59, 0.35)",
+      defaultBorder: "#34d399",
+      defaultInk: "#f8fafc",
+      glow: "rgba(52, 211, 153, 0.45)"
     },
     "pre-chorus": {
       bgVar: "--inst-prechorus-bg",
       borderVar: "--inst-prechorus-border",
       inkVar: "--inst-prechorus-ink",
-      defaultBg: "#e9d5ff",
-      defaultBorder: "#d8b4fe",
-      defaultInk: "#581c87"
+      defaultBg: "rgba(88, 28, 135, 0.35)",
+      defaultBorder: "#c084fc",
+      defaultInk: "#f8fafc",
+      glow: "rgba(192, 132, 252, 0.45)"
     },
     chorus: {
       bgVar: "--inst-chorus-bg",
       borderVar: "--inst-chorus-border",
       inkVar: "--inst-chorus-ink",
-      defaultBg: "#fde68a",
-      defaultBorder: "#fcd34d",
-      defaultInk: "#713f12"
+      defaultBg: "rgba(180, 83, 9, 0.40)",
+      defaultBorder: "#fbbf24",
+      defaultInk: "#ffffff",
+      glow: "rgba(251, 191, 36, 0.50)"
     },
     hook: {
       bgVar: "--inst-chorus-bg",
       borderVar: "--inst-chorus-border",
       inkVar: "--inst-chorus-ink",
-      defaultBg: "#fde68a",
-      defaultBorder: "#fcd34d",
-      defaultInk: "#713f12"
+      defaultBg: "rgba(180, 83, 9, 0.40)",
+      defaultBorder: "#fbbf24",
+      defaultInk: "#ffffff",
+      glow: "rgba(251, 191, 36, 0.50)"
     },
     bridge: {
       bgVar: "--inst-bridge-bg",
       borderVar: "--inst-bridge-border",
       inkVar: "--inst-bridge-ink",
-      defaultBg: "#d9f99d",
-      defaultBorder: "#bef264",
-      defaultInk: "#365314"
+      defaultBg: "rgba(54, 83, 20, 0.35)",
+      defaultBorder: "#a3e635",
+      defaultInk: "#f8fafc",
+      glow: "rgba(163, 230, 53, 0.45)"
     },
     breakdown: {
       bgVar: "--inst-breakdown-bg",
       borderVar: "--inst-breakdown-border",
       inkVar: "--inst-breakdown-ink",
-      defaultBg: "#fecdd3",
-      defaultBorder: "#fda4af",
-      defaultInk: "#881337"
+      defaultBg: "rgba(136, 19, 55, 0.35)",
+      defaultBorder: "#fb7185",
+      defaultInk: "#f8fafc",
+      glow: "rgba(251, 113, 133, 0.45)"
     },
     solo: {
       bgVar: "--inst-solo-bg",
       borderVar: "--inst-solo-border",
       inkVar: "--inst-solo-ink",
-      defaultBg: "#bae6fd",
-      defaultBorder: "#7dd3fc",
-      defaultInk: "#0c4a6e"
+      defaultBg: "rgba(14, 116, 144, 0.35)",
+      defaultBorder: "#38bdf8",
+      defaultInk: "#ffffff",
+      glow: "rgba(56, 189, 248, 0.50)"
     },
     instrumental: {
       bgVar: "--inst-solo-bg",
       borderVar: "--inst-solo-border",
       inkVar: "--inst-solo-ink",
-      defaultBg: "#bae6fd",
-      defaultBorder: "#7dd3fc",
-      defaultInk: "#0c4a6e"
+      defaultBg: "rgba(13, 148, 136, 0.35)",
+      defaultBorder: "#2dd4bf",
+      defaultInk: "#ffffff",
+      glow: "rgba(45, 212, 191, 0.50)"
     },
     outro: {
       bgVar: "--inst-intro-bg",
       borderVar: "--inst-intro-border",
       inkVar: "--inst-intro-ink",
-      defaultBg: "#c7d2fe",
-      defaultBorder: "#a5b4fc",
-      defaultInk: "#1e1b4b"
+      defaultBg: "rgba(30, 41, 59, 0.50)",
+      defaultBorder: "#94a3b8",
+      defaultInk: "#f8fafc",
+      glow: "rgba(148, 163, 184, 0.45)"
     },
     default: {
       bgVar: "--inst-default-bg",
       borderVar: "--inst-default-border",
       inkVar: "--inst-default-ink",
-      defaultBg: "#e2e8f0",
-      defaultBorder: "#cbd5e1",
-      defaultInk: "#0f172a"
+      defaultBg: "rgba(15, 23, 42, 0.50)",
+      defaultBorder: "#64748b",
+      defaultInk: "#f8fafc",
+      glow: "rgba(100, 116, 139, 0.45)"
     }
   };
 
@@ -94,15 +105,25 @@
     const s = INSTRUMENTAL_THEME_SCHEMA[canonicalTag] || INSTRUMENTAL_THEME_SCHEMA.default;
     const bg = `var(${s.bgVar}, ${s.defaultBg})`;
     const border = `var(${s.borderVar}, ${s.defaultBorder})`;
-    const ink = `var(${s.inkVar}, ${s.defaultInk})`;
-
+    const glow = s.glow || "rgba(56, 189, 248, 0.4)";
     return {
-      card: `background-color: ${bg}; border-color: ${border}; color: ${ink};`,
-      tag: `background-color: color-mix(in srgb, ${ink} 14%, transparent); border-color: color-mix(in srgb, ${ink} 22%, transparent); color: ${ink};`,
-      textarea: `color: ${ink};`,
-      controls: `background-color: color-mix(in srgb, ${ink} 10%, transparent); border-color: color-mix(in srgb, ${ink} 18%, transparent); color: ${ink};`,
-      button: `background-color: ${bg}; border-color: ${border}; color: ${ink};`
+      accent: border,
+      glow: glow,
+      card: `background: linear-gradient(135deg, color-mix(in srgb, ${bg} 85%, #020617) 0%, rgba(2, 6, 23, 0.95) 100%); border: 1px solid rgba(255, 255, 255, 0.10); border-left: 3.5px solid ${border}; box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.65), -2px 0 14px -3px ${glow}; color: #f8fafc;`,
+      tag: `background-color: rgba(255, 255, 255, 0.06); border-color: rgba(255, 255, 255, 0.16); color: #f8fafc;`,
+      textarea: `background-color: rgba(0, 0, 0, 0.55); border: 1px solid rgba(255, 255, 255, 0.12); border-left: 2.5px solid ${border}; color: #f8fafc;`,
+      controls: `background-color: rgba(0, 0, 0, 0.50); border-color: rgba(255, 255, 255, 0.12); color: rgba(255, 255, 255, 0.75);`,
+      button: `background: linear-gradient(180deg, rgba(30, 41, 59, 0.70) 0%, rgba(15, 23, 42, 0.90) 100%); border: 1px solid rgba(255, 255, 255, 0.14); border-bottom: 2px solid ${border}; color: #f8fafc;`
     };
+  }
+
+  function escapeHtml(str) {
+    return String(str || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#039;");
   }
 
   function calculateQuantizedDuration(bpm) {
@@ -121,18 +142,21 @@
 
   function autoResizeTextarea(el) {
     if (!el) return;
+    const isInst = Boolean(window.AppState && window.AppState.isInstrumental);
+    const minHeight = isInst ? 58 : 24;
     el.style.height = "auto";
-    const lines = (el.value || "").split("\n").length;
-    const minComputedHeight = Math.max(28, lines * 20 + 4);
     const scrollH = el.scrollHeight;
-    const finalH = scrollH > 0 ? Math.max(scrollH, minComputedHeight) : minComputedHeight;
-    el.style.height = `${finalH}px`;
+    const targetH = Math.max(scrollH, minHeight);
+    el.style.height = `${targetH}px`;
   }
 
   function resizeAllTextareas() {
     requestAnimationFrame(() => {
       document.querySelectorAll(".lyric-textarea").forEach(autoResizeTextarea);
     });
+    setTimeout(() => {
+      document.querySelectorAll(".lyric-textarea").forEach(autoResizeTextarea);
+    }, 50);
   }
 
   function sanitizeTagString(tag) {
@@ -271,7 +295,6 @@
         { id: `ib_${Date.now()}_7`, type: "outro", label: "Outro", text: "(Drums fade gradually, leaving solitary Rhodes chords and decaying reverb tails to silence)" }
       ];
     }
-
     const defaultDirectives = {
       intro: "Filtered harmonic chords and vinyl textures establish the thematic motif",
       verse: "Deep bass anchors a restrained rhythm while clean plucks weave counterpoint",
@@ -319,15 +342,42 @@
       const sDef = resolveInstrumentalStyles("default");
 
       bar.innerHTML = `
-        <button type="button" onclick="addSongBlock('intro', 'Intro')" style="${sIntro.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Intro</button>
-        <button type="button" onclick="addSongBlock('verse', 'Verse')" style="${sVerse.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Verse</button>
-        <button type="button" onclick="addSongBlock('pre-chorus', 'Pre-Chorus')" style="${sPre.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Pre-Chorus</button>
-        <button type="button" onclick="addSongBlock('chorus', 'Chorus')" style="${sChorus.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Chorus</button>
-        <button type="button" onclick="addSongBlock('solo', 'Solo')" style="${sSolo.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Solo</button>
-        <button type="button" onclick="addSongBlock('breakdown', 'Breakdown')" style="${sBreak.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Breakdown</button>
-        <button type="button" onclick="addSongBlock('instrumental', 'Theme')" style="${sBridge.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Theme</button>
-        <button type="button" onclick="addSongBlock('outro', 'Outro')" style="${sOutro.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Outro</button>
-        <button type="button" onclick="addCustomSongBlock()" style="${sDef.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-black uppercase hover:scale-105 active:scale-95 transition shadow-sm">+ Custom Vector</button>
+        <button type="button" onclick="addSongBlock('intro', 'Intro')" style="${sIntro.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sIntro.accent}; box-shadow: 0 0 6px ${sIntro.accent};"></span>
+          <span>+ Intro</span>
+        </button>
+        <button type="button" onclick="addSongBlock('verse', 'Verse')" style="${sVerse.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sVerse.accent}; box-shadow: 0 0 6px ${sVerse.accent};"></span>
+          <span>+ Verse</span>
+        </button>
+        <button type="button" onclick="addSongBlock('pre-chorus', 'Pre-Chorus')" style="${sPre.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sPre.accent}; box-shadow: 0 0 6px ${sPre.accent};"></span>
+          <span>+ Pre-Chorus</span>
+        </button>
+        <button type="button" onclick="addSongBlock('chorus', 'Chorus')" style="${sChorus.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sChorus.accent}; box-shadow: 0 0 6px ${sChorus.accent};"></span>
+          <span>+ Chorus</span>
+        </button>
+        <button type="button" onclick="addSongBlock('solo', 'Solo')" style="${sSolo.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sSolo.accent}; box-shadow: 0 0 6px ${sSolo.accent};"></span>
+          <span>+ Solo</span>
+        </button>
+        <button type="button" onclick="addSongBlock('breakdown', 'Breakdown')" style="${sBreak.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sBreak.accent}; box-shadow: 0 0 6px ${sBreak.accent};"></span>
+          <span>+ Breakdown</span>
+        </button>
+        <button type="button" onclick="addSongBlock('instrumental', 'Theme')" style="${sBridge.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sBridge.accent}; box-shadow: 0 0 6px ${sBridge.accent};"></span>
+          <span>+ Theme</span>
+        </button>
+        <button type="button" onclick="addSongBlock('outro', 'Outro')" style="${sOutro.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sOutro.accent}; box-shadow: 0 0 6px ${sOutro.accent};"></span>
+          <span>+ Outro</span>
+        </button>
+        <button type="button" onclick="addCustomSongBlock()" style="${sDef.button}" class="px-2.5 py-1 rounded-lg border text-[9px] font-mono font-bold uppercase hover:scale-105 active:scale-95 transition shadow-sm hover:shadow-md flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${sDef.accent}; box-shadow: 0 0 6px ${sDef.accent};"></span>
+          <span>+ Custom Vector</span>
+        </button>
       `;
     } else {
       bar.innerHTML = `
@@ -347,7 +397,22 @@
 
   function setModality(isInstrumental) {
     if (!window.AppState) return;
-    window.AppState.isInstrumental = Boolean(isInstrumental);
+    const prevInst = Boolean(window.AppState.isInstrumental);
+    const nextInst = Boolean(isInstrumental);
+    if (prevInst === nextInst) return;
+
+    const vocalsEl = document.getElementById("field-vocals");
+    if (vocalsEl) {
+      if (prevInst) {
+        window.AppState.instrumentalLeadDraft = vocalsEl.value;
+        vocalsEl.value = window.AppState.vocalLeadDraft || "";
+      } else {
+        window.AppState.vocalLeadDraft = vocalsEl.value;
+        vocalsEl.value = window.AppState.instrumentalLeadDraft || "";
+      }
+    }
+
+    window.AppState.isInstrumental = nextInst;
     if (window.AppState.isInstrumental) {
       if (!Array.isArray(window.AppState.instrumentalBlocks) || window.AppState.instrumentalBlocks.length === 0) {
         window.AppState.instrumentalBlocks = deriveDefaultCuesFromVocalBlocks(window.AppState.songBlocks);
@@ -376,14 +441,13 @@
 
     const isInst = Boolean(window.AppState && window.AppState.isInstrumental);
     if (isInst) {
-      const sChorus = resolveInstrumentalStyles("chorus");
-      toggleBtn.className = "px-3.5 py-1.5 rounded-full border font-black flex items-center gap-2 text-xs shadow-lg transition transform active:scale-95";
-      toggleBtn.style.cssText = sChorus.button;
+      toggleBtn.className = "px-3.5 py-1.5 rounded-full border border-amber-400/40 bg-gradient-to-r from-amber-500/20 via-black/60 to-amber-500/10 text-amber-200 font-bold flex items-center gap-2 text-xs shadow-[0_0_15px_rgba(245,158,11,0.25)] transition transform active:scale-95 hover:border-amber-400/60";
+      toggleBtn.style.cssText = "";
       if (toggleIcon) {
-        toggleIcon.className = "fa-solid fa-guitar text-[11px]";
-        toggleIcon.style.color = "inherit";
+        toggleIcon.className = "fa-solid fa-sliders text-[11px] text-amber-300";
+        toggleIcon.style.color = "";
       }
-      if (toggleLabel) toggleLabel.textContent = "Instrumental Mode";
+      if (toggleLabel) toggleLabel.textContent = "Instrumental Master Mode";
       if (vocalsContainer) {
         vocalsContainer.classList.remove("opacity-40", "opacity-50", "pointer-events-none");
       }
@@ -432,7 +496,7 @@
       if (isInst) {
         const styles = resolveInstrumentalStyles(canonicalTag);
         const sectionRow = document.createElement("div");
-        sectionRow.className = "w-full rounded-2xl p-3 sm:p-3.5 my-1.5 border shadow-lg transition-all flex flex-col gap-2 box-border";
+        sectionRow.className = "w-full rounded-2xl p-3 sm:p-3.5 my-2 border shadow-xl transition-all flex flex-col gap-2.5 box-border backdrop-blur-md relative group";
         sectionRow.style.cssText = styles.card;
         sectionRow.dataset.index = index;
 
@@ -441,53 +505,54 @@
             <input type="text" id="tag-input-${index}" value="${cleanLabel}"
                    onblur="saveCustomTag(${index}, this.value)"
                    onkeydown="handleTagKeydown(event, ${index}, this.value)"
-                   class="px-2.5 py-1 rounded-lg font-mono font-black uppercase text-[11px] bg-black text-white border border-white/60 focus:outline-none w-36 shadow-inner">
+                   class="px-2.5 py-1 rounded-lg font-mono font-bold uppercase text-[11px] bg-black/90 text-white border border-white/50 focus:outline-none focus:border-sky-400 w-36 shadow-inner">
           `
           : `
             <button type="button" onclick="startTagEdit(${index})" style="${styles.tag}"
-                    class="px-2.5 py-1 rounded-lg font-mono font-black tracking-wider uppercase text-[11px] border shadow-sm flex items-center gap-1.5 transition" title="Click to rename tag">
+                    class="px-2.5 py-1 rounded-lg font-mono font-bold tracking-wider uppercase text-[10px] sm:text-[11px] border shadow-sm flex items-center gap-2 transition active:scale-95 hover:border-white/30" title="Click to rename sector">
+              <span class="w-1.5 h-1.5 rounded-full" style="background-color: ${styles.accent}; box-shadow: 0 0 8px ${styles.accent};"></span>
               <span>[${cleanLabel}]</span>
-              <i class="fa-solid fa-pen text-[8px] opacity-70"></i>
+              <i class="fa-solid fa-pen text-[8px] opacity-40 group-hover:opacity-80 transition-opacity"></i>
             </button>
           `;
 
         sectionRow.innerHTML = `
-          <div class="flex items-center justify-between border-b border-current/15 pb-2 select-none">
+          <div class="flex items-center justify-between border-b border-white/10 pb-2 select-none">
             <div class="flex items-center gap-2.5 min-w-0">
               ${tagHtml}
-              <span class="text-[9px] font-mono font-black tracking-widest uppercase opacity-75">Acoustic Vector Directive</span>
+              <span class="text-[9px] font-mono font-bold tracking-[0.2em] uppercase text-white/50 flex items-center gap-1.5">
+                <span class="opacity-40">::</span>
+                <span>Acoustic Vector Directive</span>
+              </span>
             </div>
             <div class="flex items-center gap-1 rounded-lg px-2 py-1 border" style="${styles.controls}">
-              <button type="button" onclick="moveSongBlock(${index}, -1)" ${index === 0 ? "disabled" : ""}
-                      class="w-4 h-4 flex items-center justify-center text-[10px] disabled:opacity-0 transition" title="Move Up">
+              <button type="button" onclick="moveSongBlock(${index}, -1)" ${index === 0 ? "disabled" : ""} class="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition text-[10px]" title="Move Earlier">
                 <i class="fa-solid fa-chevron-up"></i>
               </button>
-              <button type="button" onclick="moveSongBlock(${index}, 1)" ${index === total - 1 ? "disabled" : ""}
-                      class="w-4 h-4 flex items-center justify-center text-[10px] disabled:opacity-0 transition" title="Move Down">
+              <button type="button" onclick="moveSongBlock(${index}, 1)" ${index === total - 1 ? "disabled" : ""} class="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 disabled:opacity-20 disabled:hover:bg-transparent disabled:cursor-not-allowed transition text-[10px]" title="Move Later">
                 <i class="fa-solid fa-chevron-down"></i>
               </button>
-              <button type="button" onclick="duplicateSongBlock(${index})"
-                      class="w-4 h-4 flex items-center justify-center text-[10px] transition" title="Duplicate Vector">
+              <button type="button" onclick="duplicateSongBlock(${index})" class="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-sky-300 hover:bg-white/10 transition text-[10px]" title="Duplicate Vector">
                 <i class="fa-solid fa-copy"></i>
               </button>
-              <button type="button" onclick="removeSongBlock(${index})"
-                      class="w-4 h-4 flex items-center justify-center text-[10px] hover:opacity-100 opacity-60 transition" title="Remove Directive">
+              <button type="button" onclick="removeSongBlock(${index})" class="w-6 h-6 rounded flex items-center justify-center text-white/60 hover:text-rose-400 hover:bg-rose-500/20 transition text-[10px]" title="Remove Vector">
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
-          <div class="w-full pt-1">
-            <textarea oninput="handleBlockTextInput(${index}, this)"
+          <div class="w-full">
+            <textarea id="block-text-${index}"
+                      oninput="handleBlockTextInput(${index}, this)"
                       onblur="handleBlockTextBlur(${index}, this)"
                       placeholder="(Describe instrumentation, lead motif, playing dynamics, e.g. legato guitar slides...)"
-                      class="lyric-textarea w-full bg-transparent px-1 py-0.5 focus:outline-none text-xs font-mono font-bold leading-relaxed resize-none overflow-hidden block"
-                      style="${styles.textarea} min-height: 28px;">${block.text || ""}</textarea>
+                      class="lyric-textarea w-full rounded-xl px-3 py-2 focus:outline-none text-xs font-mono leading-relaxed resize-none overflow-y-auto overflow-x-hidden transition-all block shadow-inner"
+                      style="${styles.textarea} min-height: 58px;">${escapeHtml(block.text || "")}</textarea>
           </div>
         `;
         container.appendChild(sectionRow);
       } else {
         const sectionRow = document.createElement("div");
-        sectionRow.className = "w-full flex items-stretch gap-2 sm:gap-3 py-1.5 px-2 rounded-xl group transition-colors hover:bg-white/5 box-border";
+        sectionRow.className = "w-full flex items-stretch gap-2 sm:gap-3 py-2 px-2.5 rounded-xl group transition-colors hover:bg-white/5 box-border border-b border-white/5";
         sectionRow.dataset.index = index;
 
         const tagHtml = isEditingTag
@@ -499,7 +564,7 @@
           `
           : `
             <button type="button" onclick="startTagEdit(${index})"
-                    class="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Click to rename tag">
+                    class="text-[10px] sm:text-[11px] font-mono font-bold tracking-wider uppercase text-sky-300 hover:text-white transition-colors flex items-center gap-1.5 whitespace-nowrap" title="Click to rename section">
               <span>[${cleanLabel}]</span>
               <i class="fa-solid fa-pen text-[7px] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"></i>
             </button>
@@ -510,28 +575,31 @@
             <div class="flex items-center min-w-0">
               ${tagHtml}
             </div>
-            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-black/50 border border-white/10 px-1 py-0.5 rounded-md flex-shrink-0 ml-1.5">
+            <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity bg-black/60 border border-white/15 px-1 py-0.5 rounded-lg flex-shrink-0 ml-1.5 shadow-md">
               <button type="button" onclick="moveSongBlock(${index}, -1)" ${index === 0 ? "disabled" : ""}
-                      class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white disabled:opacity-0 transition" title="Move Up">
+                      class="w-4 h-4 flex items-center justify-center text-[9px] text-white/60 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition" title="Move Earlier">
                 <i class="fa-solid fa-chevron-up"></i>
               </button>
               <button type="button" onclick="moveSongBlock(${index}, 1)" ${index === total - 1 ? "disabled" : ""}
-                      class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white disabled:opacity-0 transition" title="Move Down">
+                      class="w-4 h-4 flex items-center justify-center text-[9px] text-white/60 hover:text-white disabled:opacity-20 disabled:cursor-not-allowed transition" title="Move Later">
                 <i class="fa-solid fa-chevron-down"></i>
               </button>
               <button type="button" onclick="duplicateSongBlock(${index})"
-                      class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-white transition" title="Duplicate">
+                      class="w-4 h-4 flex items-center justify-center text-[9px] text-white/60 hover:text-sky-300 transition" title="Duplicate Section">
                 <i class="fa-solid fa-copy"></i>
               </button>
               <button type="button" onclick="removeSongBlock(${index})"
-                      class="w-3.5 h-3.5 flex items-center justify-center text-[8px] text-white/60 hover:text-rose-400 transition" title="Delete">
+                      class="w-4 h-4 flex items-center justify-center text-[9px] text-white/60 hover:text-rose-400 transition" title="Delete Section">
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </div>
           </div>
           <div class="flex-1 min-w-0 pl-2.5 flex items-center">
-            <textarea oninput="handleBlockTextInput(${index}, this)" placeholder="Write lyrics or vocal direction..."
-                      class="lyric-textarea w-full bg-transparent px-0 py-0.5 focus:outline-none text-xs font-mono text-white/90 leading-relaxed resize-none overflow-hidden placeholder-white/20 transition-colors block" style="min-height: 24px;">${block.text || ""}</textarea>
+            <textarea id="block-text-${index}"
+                      oninput="handleBlockTextInput(${index}, this)"
+                      placeholder="Write lyrics or vocal direction..."
+                      class="lyric-textarea w-full bg-transparent px-0 py-0.5 focus:outline-none text-xs font-mono text-white/90 leading-relaxed resize-none overflow-hidden placeholder-white/20 transition-colors block"
+                      style="min-height: 24px;">${escapeHtml(block.text || "")}</textarea>
           </div>
         `;
         container.appendChild(sectionRow);
@@ -601,6 +669,10 @@
     renderSongBlocks();
     if (typeof window.checkRecipeDirtyState === "function") window.checkRecipeDirtyState();
     if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
+    const container = document.getElementById("song-blocks-container");
+    if (container) {
+      container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
+    }
   }
 
   async function addCustomSongBlock() {
@@ -658,25 +730,32 @@
     if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
   }
 
-  function handleBlockTextInput(index, textareaEl) {
+  function handleBlockTextInput(index, target) {
     const blocks = getActiveBlocksArray();
-    if (blocks[index]) {
-      blocks[index].text = textareaEl.value;
-      autoResizeTextarea(textareaEl);
-      if (typeof window.checkRecipeDirtyState === "function") window.checkRecipeDirtyState();
-      if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
+    if (!blocks[index]) return;
+    const val = (target && typeof target === "object" && "value" in target) ? target.value : String(target || "");
+    blocks[index].text = val;
+    if (target && typeof target === "object" && "style" in target) {
+      autoResizeTextarea(target);
     }
+    if (typeof window.checkRecipeDirtyState === "function") window.checkRecipeDirtyState();
+    if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
   }
 
-  function handleBlockTextBlur(index, textareaEl) {
+  function handleBlockTextBlur(index, target) {
     if (!window.AppState || !window.AppState.isInstrumental) return;
     const blocks = getActiveBlocksArray();
-    if (blocks[index] && blocks[index].text.trim().length > 0) {
-      const formatted = formatParentheticVector(blocks[index].text);
+    if (!blocks[index]) return;
+    const el = (target && typeof target === "object" && "value" in target) ? target : document.getElementById(`block-text-${index}`);
+    const currentVal = blocks[index].text || (el ? el.value : "");
+    if (currentVal && currentVal.trim().length > 0) {
+      const formatted = formatParentheticVector(currentVal);
       if (formatted !== blocks[index].text) {
         blocks[index].text = formatted;
-        textareaEl.value = formatted;
-        autoResizeTextarea(textareaEl);
+        if (el) {
+          el.value = formatted;
+          autoResizeTextarea(el);
+        }
         if (typeof window.checkRecipeDirtyState === "function") window.checkRecipeDirtyState();
         if (typeof window.syncActiveTrackDraftDebounced === "function") window.syncActiveTrackDraftDebounced();
       }
