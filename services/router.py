@@ -357,6 +357,8 @@ class SynthesisPayload(BaseModel):
     key: str = Field(default="", max_length=30)
     mood: str = Field(default="", max_length=200)
     vocals: str = Field(default="", max_length=300)
+    vocal_lead: Optional[str] = Field(default="", max_length=300)
+    instrumental_lead: Optional[str] = Field(default="", max_length=300)
     arrangement: str = Field(default="", max_length=300)
     lyrics: str = Field(default="", max_length=4000)
     instrumental_lyrics: Optional[str] = Field(default="", max_length=4000)
@@ -786,6 +788,16 @@ class EnginePipeline:
                     **recipe_meta,
                 }
 
+                req_vocal_lead = str(job.request_data.get("vocal_lead") or "").strip()
+                req_inst_lead = str(job.request_data.get("instrumental_lead") or "").strip()
+
+                if gen_req.is_instrumental:
+                    resolved_vocal_lead = req_vocal_lead
+                    resolved_inst_lead = req_inst_lead or gen_req.vocals
+                else:
+                    resolved_vocal_lead = req_vocal_lead or gen_req.vocals
+                    resolved_inst_lead = req_inst_lead
+
                 working_draft = {
                     "title": job.request_data.get("title", "Untitled Master"),
                     "genre": gen_req.genre,
@@ -794,6 +806,8 @@ class EnginePipeline:
                     "key": gen_req.key,
                     "mood": gen_req.mood,
                     "vocals": gen_req.vocals,
+                    "vocal_lead": resolved_vocal_lead,
+                    "instrumental_lead": resolved_inst_lead,
                     "arrangement": gen_req.arrangement,
                     "lyrics": gen_req.lyrics,
                     "instrumental_lyrics": gen_req.instrumental_lyrics,
