@@ -424,7 +424,7 @@ function getCurrentFormPayload() {
     audio_duration: Math.min(600.0, Math.max(30.0, Number(cadence.durationSeconds.toFixed(2)))),
     blocks: JSON.parse(JSON.stringify(AppState.songBlocks || [])),
     instrumental_blocks: JSON.parse(JSON.stringify(AppState.instrumentalBlocks || [])),
-    vocoder_batch_size: parseInt(activeDefaults.vocoder_batch_size || 4, 10)
+    vocoder_batch_size: parseInt(activeDefaults.vocoder_batch_size || 2, 10)
   };
 }
 
@@ -529,7 +529,7 @@ async function ensureShowcaseTrack(slug, storage) {
           stage1_late_vocal_cfg: 1.0,
           stage1_eta: 0.0,
           stage1_s_noise: 1.0,
-          stage1_vocoder_batch_size: 4,
+          stage1_vocoder_batch_size: 2,
           stage1_is_instrumental: false,
           stage1_instrumental_branch: "cues"
         }
@@ -559,7 +559,7 @@ async function ensureShowcaseTrack(slug, storage) {
         late_vocal_cfg: 1.0,
         eta: 0.0,
         s_noise: 1.0,
-        vocoder_batch_size: 4
+        vocoder_batch_size: 2
       }
     };
   } else {
@@ -1004,7 +1004,7 @@ async function selectTrackById(trackId, autoMountPlayer = true) {
       late_vocal_cfg: track.recipe.telemetry?.stage1_late_vocal_cfg ?? track.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0000,
       eta: track.recipe.telemetry?.stage1_eta ?? track.working_draft?.eta ?? defaults.eta ?? 0.0,
       s_noise: track.recipe.telemetry?.stage1_s_noise ?? track.working_draft?.s_noise ?? defaults.s_noise ?? 1.0,
-      vocoder_batch_size: track.recipe.telemetry?.stage1_vocoder_batch_size ?? track.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 4
+      vocoder_batch_size: track.recipe.telemetry?.stage1_vocoder_batch_size ?? track.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 2
     };
     const draftToLoad = track.fork_draft || canonicalDraft;
     track.working_draft = draftToLoad;
@@ -1041,13 +1041,14 @@ function loadDraftIntoForm(draft, isDefaultTrack = false) {
   AppState.isInstrumental = Boolean(draft.is_instrumental);
 
   if (draft.is_instrumental) {
-    AppState.instrumentalLeadDraft = draft.vocals || draft.instrumental_lead || "";
+    AppState.instrumentalLeadDraft = draft.instrumental_lead || draft.vocals || "";
     AppState.vocalLeadDraft = draft.vocal_lead || "";
+    setVal("field-vocals", AppState.instrumentalLeadDraft);
   } else {
-    AppState.vocalLeadDraft = draft.vocals || draft.vocal_lead || "";
+    AppState.vocalLeadDraft = draft.vocal_lead || draft.vocals || "";
     AppState.instrumentalLeadDraft = draft.instrumental_lead || "";
+    setVal("field-vocals", AppState.vocalLeadDraft);
   }
-  setVal("field-vocals", draft.vocals || "");
 
   if (Array.isArray(draft.blocks) && draft.blocks.length > 0) {
     AppState.songBlocks = JSON.parse(JSON.stringify(draft.blocks));
@@ -1153,7 +1154,7 @@ function syncActiveTrackDraftDebounced() {
         late_vocal_cfg: track.working_draft?.late_vocal_cfg,
         eta: track.working_draft?.eta,
         s_noise: track.working_draft?.s_noise,
-        vocoder_batch_size: track.working_draft?.vocoder_batch_size ?? 4
+        vocoder_batch_size: track.working_draft?.vocoder_batch_size ?? 2
       };
       track.updated_at = new Date().toISOString();
       const storage = window.clientStorage;
@@ -1243,7 +1244,7 @@ async function handleAddNewTrackCardClick() {
       vocal_lead: blueprint.vocals || "",
       instrumental_lead: "",
       seed: seed,
-      vocoder_batch_size: 4
+      vocoder_batch_size: 2
     }
   };
 
@@ -1472,7 +1473,7 @@ async function handleGenerateSubmit(e) {
         late_vocal_cfg: currentTrack.working_draft?.late_vocal_cfg,
         eta: currentTrack.working_draft?.eta,
         s_noise: currentTrack.working_draft?.s_noise,
-        vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 4
+        vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 2
       };
       const storage = window.clientStorage;
       if (storage) await storage.saveTrack(currentTrack);
@@ -1514,7 +1515,7 @@ async function handleGenerateSubmit(e) {
         late_vocal_cfg: currentTrack?.working_draft?.late_vocal_cfg,
         eta: currentTrack?.working_draft?.eta,
         s_noise: currentTrack?.working_draft?.s_noise,
-        vocoder_batch_size: currentTrack?.working_draft?.vocoder_batch_size ?? 4
+        vocoder_batch_size: currentTrack?.working_draft?.vocoder_batch_size ?? 2
       }
     };
     AppState.tracks.push(workingTrackTarget);
@@ -1555,7 +1556,7 @@ async function handleGenerateSubmit(e) {
       late_vocal_cfg: currentTrack.working_draft?.late_vocal_cfg,
       eta: currentTrack.working_draft?.eta,
       s_noise: currentTrack.working_draft?.s_noise,
-      vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 4
+      vocoder_batch_size: currentTrack.working_draft?.vocoder_batch_size ?? 2
     };
     AppState.activeTrackId = currentTrack.track_id;
     const storage = window.clientStorage;
@@ -1664,16 +1665,24 @@ async function handleGenerateSubmit(e) {
     }
 
     renderDiscography();
+
+    const jobPayloadSnapshot = {
+      ...formPayload,
+      seed,
+      vocal_lead: AppState.vocalLeadDraft,
+      instrumental_lead: AppState.instrumentalLeadDraft
+    };
+
     localStorage.setItem(`tb_active_job_${AppState.user.slug}`, JSON.stringify({
       jobId: jobData.job_id,
-      compositionPayload: { ...formPayload, seed },
+      compositionPayload: jobPayloadSnapshot,
       isFork,
       originTrackId,
       stagedId: isFork ? stagedId : null,
       assignedCover: targetCover
     }));
 
-    startTrackingJob(jobData.job_id, { ...formPayload, seed }, isFork, originTrackId, targetCover, stagedId);
+    startTrackingJob(jobData.job_id, jobPayloadSnapshot, isFork, originTrackId, targetCover, stagedId);
   } catch (err) {
     const storage = window.clientStorage;
     if (isFork) {
@@ -1877,7 +1886,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
             stage1_late_vocal_cfg: 1.0,
             stage1_eta: 0.0,
             stage1_s_noise: 1.0,
-            stage1_vocoder_batch_size: 4,
+            stage1_vocoder_batch_size: 2,
             stage1_is_instrumental: compositionPayload.is_instrumental,
             stage1_instrumental_branch: compositionPayload.instrumental_branch
           }
@@ -1897,8 +1906,8 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           instrumental_branch: compositionPayload.instrumental_branch,
           blocks: compositionPayload.blocks,
           instrumental_blocks: compositionPayload.instrumental_blocks,
-          vocal_lead: AppState.vocalLeadDraft,
-          instrumental_lead: AppState.instrumentalLeadDraft,
+          vocal_lead: compositionPayload.vocal_lead ?? AppState.vocalLeadDraft,
+          instrumental_lead: compositionPayload.instrumental_lead ?? AppState.instrumentalLeadDraft,
           seed: seed,
           temperature: data.working_draft?.temperature ?? defaults.temperature ?? 0.9192,
           top_p: data.working_draft?.top_p ?? defaults.top_p ?? 1.0000,
@@ -1917,7 +1926,7 @@ function startTrackingJob(jobId, compositionPayload, isFork, originTrackId, assi
           late_vocal_cfg: data.working_draft?.late_vocal_cfg ?? defaults.late_vocal_cfg ?? 1.0,
           eta: data.working_draft?.eta ?? defaults.eta ?? 0.0,
           s_noise: data.working_draft?.s_noise ?? defaults.s_noise ?? 1.0,
-          vocoder_batch_size: data.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 4
+          vocoder_batch_size: data.working_draft?.vocoder_batch_size ?? defaults.vocoder_batch_size ?? 2
         }
       };
 

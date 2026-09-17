@@ -211,7 +211,7 @@
         const rawLabel = sanitizeTagString(b.label || b.type || "verse");
         const cleanText = (b.text || "").replace(/\r\n/g, "\n").trim();
         const lowerLabel = rawLabel.toLowerCase();
-        if (!cleanText && (lowerLabel.includes("solo") || lowerLabel.includes("instrumental") || lowerLabel.includes("intro") || lowerLabel.includes("outro"))) {
+        if (!cleanText) {
           return `[${lowerLabel}]`;
         }
         return `[${lowerLabel}]\n${cleanText}`;
@@ -250,19 +250,20 @@
 
     lines.forEach((line) => {
       const trimmed = line.trim();
-      const tagMatch = trimmed.match(/^\[(.*?)\]$/);
+      const tagMatch = trimmed.match(/^\[([^\]]+)\]\s*(.*)$/);
       if (tagMatch) {
         if (currentBlock) {
           currentBlock.text = currentBlock.text.trim();
           blocks.push(currentBlock);
         }
         const rawTag = sanitizeTagString(tagMatch[1]);
+        const inlineText = tagMatch[2].trim();
         const canonicalTag = mapToCanonicalTag(rawTag);
         currentBlock = {
           id: `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
           type: canonicalTag,
           label: rawTag.charAt(0).toUpperCase() + rawTag.slice(1),
-          text: ""
+          text: inlineText
         };
       } else if (currentBlock) {
         currentBlock.text += (currentBlock.text ? "\n" : "") + line;
@@ -452,10 +453,10 @@
         vocalsContainer.classList.remove("opacity-40", "opacity-50", "pointer-events-none");
       }
       if (vocalsLabel) {
-        vocalsLabel.textContent = "Lead Voice / Acoustic Character (Optional)";
+        vocalsLabel.textContent = "Lead Voice / Vocal Texture (Optional)";
       }
       if (vocalsTextarea) {
-        vocalsTextarea.placeholder = "(Optional) Define foreground lead instrument, playing dynamics, or acoustic character (e.g., virtuosic soprano saxophone, legato electric guitar slides, talkbox funk)...";
+        vocalsTextarea.placeholder = "(Optional) Leave empty for pure instrumental. Or define vocal textures (e.g., pitched vocal chops, atmospheric choir swells, talkbox, humming) or primary solo instrument...";
       }
     } else {
       toggleBtn.className = "px-3.5 py-1.5 rounded-full border border-white/20 bg-black/40 hover:bg-white/10 text-white font-bold flex items-center gap-2 text-xs shadow-md transition transform active:scale-95";
@@ -784,8 +785,17 @@
     setField("field-bpm", bp.bpm || 96);
     setField("field-key", bp.key || "F minor");
     setField("field-mood", bp.mood || "Sensual, passionate, smooth, driving.");
-    setField("field-vocals", bp.vocals || "");
     setField("field-arrangement", bp.arrangement || "");
+
+    const isCurrentInst = Boolean(window.AppState.isInstrumental);
+    window.AppState.vocalLeadDraft = bp.vocals || "";
+    window.AppState.instrumentalLeadDraft = bp.instrumental_lead || "";
+
+    if (isCurrentInst) {
+      setField("field-vocals", window.AppState.instrumentalLeadDraft);
+    } else {
+      setField("field-vocals", window.AppState.vocalLeadDraft);
+    }
 
     window.AppState.songBlocks = (bp.blocks || []).map((b) => ({
       id: b.id || `b_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
