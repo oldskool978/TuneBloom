@@ -537,11 +537,14 @@ class EnginePipeline:
         def on_intelli_step(stage: str, cur: int, tot: int):
             if stage == "stage1":
                 emitted_sec = cur / 25.0
-                pct = 5 + int((cur / max(1, tot)) * 20)
+                pct = 5 + int((cur / max(1, tot)) * 17)
                 progress_cb(pct, f"Arranging Acoustic Composition ({emitted_sec:.1f}s composed)...")
             elif stage == "stage2":
-                pct = 25 + int((cur / max(1, tot)) * 20)
+                pct = 22 + int((cur / max(1, tot)) * 18)
                 progress_cb(pct, f"Synthesizing Vector Field ({cur}/{tot} steps)...")
+            elif stage == "stage3":
+                pct = 40 + int((cur / max(1, tot)) * 5)
+                progress_cb(pct, f"Decoding Waveform Latents ({cur}/{tot} batches)...")
 
         music_eng = MusicEngine(device=self.device_str)
         try:
@@ -685,6 +688,8 @@ class EnginePipeline:
                 "stage1_effective_prompt": getattr(intelli_resp, "effective_prompt", gen_req.compile_prompt()),
                 "stage1_rtf": round(getattr(intelli_resp, "real_time_factor", 0.0), 4) if intelli_resp else None,
                 "stage1_vram_gb": round(getattr(intelli_resp, "peak_vram_gb", 0.0), 3) if intelli_resp else None,
+                "stage1_peak_dbfs": round(getattr(intelli_resp, "peak_dbfs", 0.0), 3) if intelli_resp else None,
+                "stage1_crest_factor_db": round(getattr(intelli_resp, "crest_factor_db", 0.0), 3) if intelli_resp else None,
                 "stage2_solver": getattr(furgie_telem, "solver_used", "res_multistep_cfg_pp") if furgie_telem else None,
                 "stage2_rtf": round(getattr(furgie_telem, "real_time_factor", 0.0), 4) if furgie_telem else None,
                 "stage2_vram_gb": round(getattr(furgie_telem, "peak_vram_gb", 0.0), 3) if furgie_telem else None,
